@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {renderInlineText,inlineTagIds,controlInlineTagIds} from '../static/inline-text.js';
+import {pageTagIds} from '../static/live-subscriptions.js';
+const tags=[{id:'a',source_name:'WWTP',name:'Main.Test'}, {id:'b',source_name:'Sheet',name:'D1'}];
+const text=String.raw`Status @{WWTP\Main.Test} / @{Sheet\D1}`;
+const values={a:{quality:'good',value:true},b:{quality:'good',value:'<b>Hot</b>'}};
+assert.equal(renderInlineText(text,{},tags,values),'Status 1 / <b>Hot</b>');
+assert.equal(renderInlineText(text,{},tags,{a:{quality:'bad',value:99}}),'Status — / —');
+assert.deepEqual(inlineTagIds(text,{},tags),['a','b']);
+const refs={[String.raw`WWTP\Main.Test`]:'a'};
+tags[0].source_name='New WWTP';
+assert.equal(renderInlineText(String.raw`@{WWTP\Main.Test}`,refs,tags,values),'1');
+const control={text:'Base',events:[{action:'set_content',content:text,contentRefs:refs}]};
+assert.deepEqual(controlInlineTagIds(control,tags),['a','b']);
+assert.deepEqual(pageTagIds({controls:[control]},tags),['a','b']);
+assert.equal(renderInlineText('Unfinished @{WWTP',{},tags,values),'Unfinished @{WWTP');
+console.log('Inline text quality, values, base/event dependencies, and stable rename bindings passed.');

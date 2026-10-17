@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {geometryViewBox,fitSymbolGeometry} from '../static/symbol-geometry.js';
+assert.deepEqual(geometryViewBox({x:100,y:200,width:200,height:0}),[100,199.5,200,1]);
+assert.deepEqual(geometryViewBox({x:20,y:-40,width:0,height:80}),[19.5,-40,1,80]);
+assert.deepEqual(geometryViewBox({x:-40,y:50,width:80,height:100}),[-40,50,80,100]);
+assert.equal(geometryViewBox({x:0,y:0,width:0,height:0}),null);
+assert.equal(geometryViewBox({x:NaN,y:0,width:10,height:10}),null);
+let measurements=0;const svg={querySelector:()=>null,querySelectorAll:()=>[],getClientRects:()=>[{}],getBBox:()=>{measurements++;return {x:10,y:20,width:100,height:80};},setAttribute(key,value){this[key]=value;}};
+assert(fitSymbolGeometry(svg));assert.equal(svg.viewBox,'10 20 100 80');assert(!fitSymbolGeometry(svg));assert.equal(measurements,1);
+const clipped={...svg,querySelector:()=>({})};assert(!fitSymbolGeometry(clipped));assert.equal(measurements,1);
+console.log('Symbol geometry uses exact centerline extents, centers straight lines, preserves clips, and measures once per instance.');

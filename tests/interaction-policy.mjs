@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {allowsTextSelection,installInteractionPolicy} from '../static/interaction-policy.js';
+const element=(tagName,type,editable)=>({tagName,type,getAttribute:()=>editable,closest(){return this;}});
+for(const field of [element('INPUT','text'),element('INPUT','number'),element('INPUT','password'),element('TEXTAREA'),element('DIV',null,'true'),element('DIV',null,'plaintext-only')])assert(allowsTextSelection(field));
+for(const field of [element('INPUT','checkbox'),element('INPUT','color'),element('INPUT','button'),element('DIV',null,'false'),null,{closest:()=>null}])assert(!allowsTextSelection(field));
+assert(allowsTextSelection({parentElement:element('TEXTAREA')}));
+const root=new EventTarget(),remove=installInteractionPolicy(root);
+let custom=0;root.addEventListener('contextmenu',()=>custom++);
+const menu=new Event('contextmenu',{cancelable:true});root.dispatchEvent(menu);assert(menu.defaultPrevented);assert.equal(custom,1);
+const outside=new Event('selectstart',{cancelable:true});root.dispatchEvent(outside);assert(outside.defaultPrevented);
+remove();const restored=new Event('contextmenu',{cancelable:true});root.dispatchEvent(restored);assert(!restored.defaultPrevented);
+console.log('Native context menus and outside selection are blocked while custom handlers and editable text remain available.');

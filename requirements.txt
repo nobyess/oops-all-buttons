@@ -1,0 +1,8 @@
+# The web server, database, and authentication use Python's standard library.
+# Optional desktop tray support:
+pystray>=0.19,<1
+Pillow>=10,<13
+
+# Optional Sheet calculations: python -m pip install -r requirements-sheet.txt
+
+# Optional DXF symbol import: python -m pip install -r requirements-dxf.txt

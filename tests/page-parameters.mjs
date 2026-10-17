@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {instantiatePage,parameterTags,renameParameterText} from '../static/page-parameters.js';
+import {pageTagIds} from '../static/live-subscriptions.js';
+import {renderInlineText} from '../static/inline-text.js';
+import {evaluateControlEvents} from '../static/visual-events.js';
+const parameter={id:'parameter:p',name:'Value',description:'The selected equipment value'};
+const template={id:'faceplate',parameters:[parameter],actions:[{tag:parameter.id,trigger:'page_open',action:'set',value:1}],controls:[{id:'label',type:'label',text:'Value @{Parameters\\Value}',events:[{id:'e',tag:parameter.id,operator:'>',operand:{value:5},action:'hide'}]},{id:'button',type:'button',actions:[{action:'increment',tag:parameter.id,value:1},{action:'popup',page:'nested',parameters:{'parameter:child':parameter.id}}]}]};
+const a=instantiatePage(template,{'parameter:p':'tag-a'}),b=instantiatePage(template,{'parameter:p':'tag-b'}),unbound=instantiatePage(template);
+assert.deepEqual(pageTagIds(a),['tag-a']);assert.deepEqual(pageTagIds(b),['tag-b']);assert.deepEqual(pageTagIds(unbound),[]);
+assert.equal(a.controls[1].actions[0].tag,'tag-a');assert.equal(b.controls[1].actions[0].tag,'tag-b');
+assert.equal(a.controls[1].actions[1].parameters['parameter:child'],'tag-a');assert.equal(template.controls[1].actions[0].tag,parameter.id);
+const samples={'tag-a':{quality:'good',value:10},'tag-b':{quality:'good',value:2}};
+assert.equal(renderInlineText(a.controls[0].text,a.controls[0].textRefs,[],samples),'Value 10');
+assert.equal(renderInlineText(b.controls[0].text,b.controls[0].textRefs,[],samples),'Value 2');
+assert.deepEqual(evaluateControlEvents(a.controls[0],samples),{visible:false});assert.deepEqual(evaluateControlEvents(b.controls[0],samples),{});
+const renamed=structuredClone(template);renamed.parameters[0].name='PV';renameParameterText(renamed,template.parameters);
+assert.equal(renamed.controls[0].text,'Value @{Parameters\\PV}');assert.equal(renamed.controls[0].textRefs['Parameters\\PV'],parameter.id);
+assert.equal(parameterTags(renamed)[0].name,'PV');assert.deepEqual(pageTagIds(instantiatePage(renamed,{'parameter:p':'tag-a'})),['tag-a']);
+console.log('Parameter bindings, independent page instances, inline text, reads/writes, events, nested forwarding, rename, and unbound references passed.');
+
+assert.equal(renderInlineText(unbound.controls[0].text,unbound.controls[0].textRefs,[{id:'collision',source_name:'Parameters',name:'Value'}],{collision:{quality:'good',value:99}}),'Value —');

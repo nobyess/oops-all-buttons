@@ -1,0 +1,2 @@
+# Optional PyComm3 support (the Memory driver needs no packages).
+pycomm3==1.2.16

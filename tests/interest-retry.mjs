@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync('static/app.js','utf8');
+let clock=10000,calls=0,reject;
+const context=vm.createContext({Date:{now:()=>clock},sendInterestNow:()=>{calls++;return new Promise((_,no)=>{reject=no;});}});
+vm.runInContext(source.slice(source.indexOf('let interestPending='),source.indexOf('async function sendInterestNow')),context);
+const first=vm.runInContext('sendInterest()',context);
+for(let i=0;i<1000;i++)assert.equal(vm.runInContext('sendInterest()',context),first);
+assert.equal(calls,1);
+reject(new Error('Please sign in'));await assert.rejects(first);
+for(let i=0;i<1000;i++)await vm.runInContext('sendInterest()',context);
+assert.equal(calls,1);
+clock+=2000;const retry=vm.runInContext('sendInterest()',context);assert.equal(calls,2);
+reject(new Error('Please sign in'));await assert.rejects(retry);
+console.log('Interest failures are coalesced and retry at most once per two seconds.');
