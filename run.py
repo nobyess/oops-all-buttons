@@ -370,7 +370,7 @@ def main():
     polling_worker.start()
     browser_host = '127.0.0.1' if args.host in ('', '0.0.0.0') else args.host
     url = f'http://{browser_host}:{args.port}'
-    print(f'Python HMI: {url} (bind: {args.host}); Ctrl+C stops server')
+    print(f'Oops! All Buttons: {url} (bind: {args.host}); Ctrl+C stops server')
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     if args.tray:

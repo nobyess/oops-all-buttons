@@ -1,4 +1,4 @@
-# Python HMI starter framework
+# Oops! All Buttons
 
 A small, human-editable foundation, with a Python backend and local HTML/CSS/JavaScript interface. No frontend build tools, CDN, or Node.js are needed to run. Memory needs no Python packages; PyComm3 uses optional pycomm3; Sheet uses optional formulas. Python 3.11+.
 
@@ -473,7 +473,7 @@ The web interface suppresses native browser context menus throughout the applica
 
 The single header row includes Save & View, Save, Undo/Redo, Grid, Style, and Zoom, separated into groups. It uses the current theme and icon styling, and scrolls horizontally on narrow screens instead of wrapping. No traditional menu has been added.
 
-The application header is one row on designer and live pages. The Python HMI text is removed from the header. Designer Save & View, Save, and Undo/Redo sit to the left of the centered date/time; Grid, Style, Zoom and the account sit to the right. Tool groups scroll horizontally when needed instead of creating a second row.
+The application header is one row on designer and live pages. The Oops! All Buttons text is removed from the header. Designer Save & View, Save, and Undo/Redo sit to the left of the centered date/time; Grid, Style, Zoom and the account sit to the right. Tool groups scroll horizontally when needed instead of creating a second row.
 
 Every authenticated header uses a User: Username button. It opens a compact account dialog with username, Administrator/Standard User level, assigned role names, and Log Out. Profile details refresh on opening. Logout preserves the existing unsaved-page confirmation. Kiosk users use the same account popup. A vertical separator appears after the designer view tools before the user button.
 

@@ -1,4 +1,4 @@
-# Python HMI Future Ideas
+# Oops! All Buttons Future Ideas
 
 Ideas to revisit when useful. These are deferred improvements, not scheduled work.
 

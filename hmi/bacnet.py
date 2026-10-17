@@ -172,7 +172,7 @@ class Session:
                         factory = BAC0.start
                     s = self.settings
                     options = {'ip': f"{s['local_ip']}/{s['prefix']}", 'port': s['port'],
-                               'deviceId': s['device_id'], 'localObjName': 'Python HMI', 'ping': False}
+                               'deviceId': s['device_id'], 'localObjName': 'Oops! All Buttons', 'ping': False}
                     if s['bbmd_address']:
                         options.update(bbmdAddress=s['bbmd_address'], bbmdTTL=s['bbmd_ttl'])
                     client = factory(**options)
