@@ -15,7 +15,7 @@ export function mountAlarmAttention({before,api}){
  function add(tag,text,parent,attributes={}){const el=document.createElement(tag);if(text!==null)el.textContent=text;Object.assign(el,attributes);parent.append(el);return el;}
  function makeDialog(){
   const modal=document.createElement('dialog');modal.className='designer-dialog alarm-attention-dialog';modal.setAttribute('aria-label','Unsilenced Alarms');
-  const record={modal,record:true,shown:new Set()};current=record;
+  const record={modal,record:true,shown:new Set(),hadAlarms:items.length>0};current=record;
   add('h2','Unsilenced Alarms',modal);
   const body=add('div',null,modal),error=add('p','',modal,{className:'bad',hidden:true});error.setAttribute('role','alert');
   const footer=add('div',null,modal,{className:'row dialog-footer'});
@@ -27,12 +27,46 @@ export function mountAlarmAttention({before,api}){
   function render(){list.replaceChildren();if(!items.length)add('p','No unsilenced active alarms.',list,{className:'hint'});
    for(const a of items){if(a.focused && !a.state.silenced_at)record.shown.add(a.state.occurrence);const row=add('div',null,list,{className:'alarm-attention-row'}),text=add('div',null,row);add('strong',a.name,text);add('p',a.message || a.name,text);add('small',a.state.silenced_at?`Silenced by ${a.state.silenced_by}`:'Not silenced',text);const silenceButton=add('button',a.state.silenced_at?'Silenced':'Silence',row,{type:'button',disabled:Boolean(a.state.silenced_at) || a.canSilence===false});if(a.canSilence===false)silenceButton.title='Additional access roles are required to silence this alarm.';silenceButton.onclick=()=>silence(a,silenceButton);}
   }render();record.render=render;record.signature=JSON.stringify(items);
+  if(user.kiosk){
+   modal.classList.add('kiosk-alarm-dialog');
+   add('h3','Recent Alarm History',body);
+   add('p','Latest 10 alarm occurrences',body,{className:'hint'});
+   const history=add('div',null,body,{className:'alarm-attention-history'});
+   const status=add('p','Loading history…',history,{className:'hint',role:'status'});
+   let historyPending=false,lastHistory=0,historySignature='';
+   const stamp=value=>value?new Date(value*1000).toLocaleString():'Not recorded';
+   record.loadHistory=async(force=false)=>{
+    if(historyPending || current!==record || (!force && Date.now()-lastHistory<5000))return;
+    historyPending=true;lastHistory=Date.now();const epoch=generation;
+    try{
+     const data=await api('alarms/history',{});
+     if(epoch!==generation || current!==record)return;
+     const recent=data.items.slice(0,10),signature=JSON.stringify(recent);
+     if(signature===historySignature)return;
+     historySignature=signature;history.replaceChildren();
+     if(!recent.length)add('p','No alarm history yet.',history,{className:'hint'});
+     for(const a of recent){
+      const row=add('div',null,history,{className:'alarm-attention-row'}),text=add('div',null,row);
+      add('strong',a.alarm_name,text);if(a.message)add('p',a.message,text);
+      add('small','Activated: '+stamp(a.activated_at),text);
+      add('small',a.cleared_at?'Cleared: '+stamp(a.cleared_at):a.ended?'Cleared (time not recorded)':'Active',text);
+      add('small',a.silenced_by?'Silenced by '+a.silenced_by+' · '+stamp(a.silenced_at):'Not silenced',text);
+     }
+    }catch(e){if(epoch===generation && current===record){status.textContent='Alarm history unavailable: '+e.message;if(!status.isConnected)history.append(status);historySignature='';}}
+    finally{historyPending=false;}
+   };
+   record.loadHistory();
+  }
   if(!user.kiosk){const open=add('button','Open Alarms',footer,{type:'button'});open.onclick=()=>{modal.close();location.hash='#alarms';};}
+  footer.append(close);
   document.body.append(modal);bell.setAttribute('aria-expanded','true');modal.showModal();close.focus();
  }
  function update(){
   const unsilenced=unsilencedAlarms(items);bell.classList.toggle('has-unsilenced',unsilenced.length>0);count.hidden=!unsilenced.length;count.textContent=unsilenced.length>99?'99+':String(unsilenced.length);bell.setAttribute('aria-label',`Alarms: ${unsilenced.length} not silenced`);bell.title=`Alarms: ${unsilenced.length} not silenced`;
+  if(current && !unsilenced.length && current.hadAlarms){closeCurrent();return;}
+  if(current && unsilenced.length)current.hadAlarms=true;
   if(current?.render){const signature=JSON.stringify(items);if(signature!==current.signature){current.signature=signature;current.render();}}
+  current?.loadHistory?.();
   if(!current && !document.querySelector('dialog[open]') && nextFocusedAlarm(items,dismissed))makeDialog();
  }
  async function refresh(){if(!user || pending || document.visibilityState==='hidden')return;const epoch=generation,version=mutationVersion;pending=true;

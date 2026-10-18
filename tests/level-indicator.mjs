@@ -28,3 +28,27 @@ const svg=element.querySelector('svg'),text=svg.children[3];
 assert.equal(text.textContent,'50%');assert.equal(text.attributes.x,'50');assert.equal(text.attributes.y,'100');assert.equal(text.attributes['text-anchor'],'middle');
 controls.level.update(element,{...c,showValue:false},{bindingValue:sample(20),editing:false});assert.equal(text.textContent,'');
 console.log('Optional centered fill percentage, clamping, unavailable data, and stable SVG text updates passed.');
+
+const fill=svg.children[1];assert.equal(fill.attributes['data-smooth'],'true');
+controls.level.update(element,c,{bindingValue:{value:20,quality:'bad'},editing:false});assert.equal(fill.attributes['data-smooth'],'false');
+controls.level.update(element,c,{bindingValue:sample(25),editing:false});assert.equal(fill.attributes['data-smooth'],'false');
+controls.level.update(element,c,{bindingValue:sample(30),editing:false});assert.equal(fill.attributes['data-smooth'],'true');
+controls.level.update(element,c,{bindingValue:sample(30),editing:true});assert.equal(fill.attributes['data-smooth'],'false');
+controls.level.update(element,{...c,fillDirection:'right_left'},{bindingValue:sample(30),editing:false});assert.equal(fill.attributes['data-smooth'],'false');
+console.log('Smooth level updates exclude initial values, unavailable/recovered samples, editing, and direction changes.');
+
+const surface=svg.children[4],surfaceClip=svg.children[0].children[1].firstElementChild;
+controls.level.update(element,c,{bindingValue:sample(20),editing:false});assert.equal(surface.attributes.display,'');assert.equal(surface.attributes['data-axis'],'x');assert.equal(surfaceClip.attributes.y,'100');assert.equal(surfaceClip.attributes.height,'2');
+controls.level.update(element,{...c,fillDirection:'top_down'},{bindingValue:sample(20),editing:false});assert.equal(surfaceClip.attributes.y,'98');
+controls.level.update(element,{...c,fillDirection:'left_right'},{bindingValue:sample(20),editing:false});assert.equal(surface.attributes['data-axis'],'y');assert.equal(surfaceClip.attributes.x,'48');assert.equal(surfaceClip.attributes.width,'2');
+controls.level.update(element,{...c,fillDirection:'right_left'},{bindingValue:sample(20),editing:false});assert.equal(surfaceClip.attributes.x,'50');
+for(const value of [10,30]){controls.level.update(element,c,{bindingValue:sample(value),editing:false});assert.equal(surface.attributes.display,'none');}
+controls.level.update(element,c,{bindingValue:undefined,editing:false});assert.equal(surface.attributes.display,'none');
+assert.equal(svg.children.length,5);
+console.log('Quiet surface tracks all four fill boundaries, keeps stable SVG nodes, and hides for empty/full/unavailable values.');
+
+assert.equal(controls.level.props.quietSurface.type,'checkbox');assert.equal(controls.level.defaults.quietSurface,true);
+controls.level.update(element,{...c,quietSurface:false},{bindingValue:sample(20),editing:false});assert.equal(surface.attributes.display,'none');
+controls.level.update(element,{...c,quietSurface:true},{bindingValue:sample(20),editing:false});assert.equal(surface.attributes.display,'');
+assert.equal(fill.attributes['data-smooth'],'true');
+console.log('Quiet Surface toggle hides and restores the sheen independently of smooth fill movement.');

@@ -152,6 +152,33 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(self.driver.browse(tree=True, search='Speed')['items'][0]['address'], 'Program:Main')
         self.assertEqual(self.driver.browse('Motor', tree=True)['total'], 2)
 
+    def test_invalid_writes_keep_connection_and_polling(self):
+        self.driver.read('Counter')
+        plc = self.driver.plc
+        for address, value in [('Counter', 1.5), ('Counter', 2**31),
+                               ('Counter', -2**31-1), ('Counter', float('inf')),
+                               ('Flags[0,0]', 2), ('Missing', 1)]:
+            with self.subTest(address=address, value=value):
+                with self.assertRaises(ValueError):self.driver.write(address, value)
+                self.assertIs(self.driver.plc, plc)
+                self.assertTrue(plc.connected)
+                self.assertEqual(self.driver.status()['quality'], 'good')
+                self.assertEqual(self.driver.retry_at, 0)
+                self.assertEqual(self.driver.read('Counter'), 7)
+        self.assertEqual(plc.writes, [])
+        with patch.object(plc, 'write', return_value=SimpleNamespace(error='PLC access denied')):
+            with self.assertRaisesRegex(ValueError, 'access denied'):self.driver.write('Counter', 1)
+        self.assertIs(self.driver.plc, plc)
+        self.assertTrue(plc.connected)
+        self.assertEqual(self.driver.status()['quality'], 'good')
+        self.driver.write('Counter', 2**31-1)
+        self.assertEqual(plc.writes[-1], ('Counter', 2**31-1))
+        with patch.object(plc, 'write', side_effect=OSError('Cable disconnected')):
+            with self.assertRaisesRegex(ValueError, 'Cable disconnected'):self.driver.write('Counter', 1)
+        self.assertFalse(plc.connected)
+        self.assertIsNone(self.driver.plc)
+        self.assertEqual(self.driver.status()['quality'], 'bad')
+
     def test_batched_read_per_tag_fault_write_and_reconnect(self):
         result = self.driver.read_many(['Counter', 'Missing'])
         self.assertEqual(result['Counter']['value'], 7)

@@ -1,4 +1,8 @@
 data/
 data-backup/
+data-before-restore-*/
+data.restore.zip
+data.restore.tmp
+*.oab-backup
 __pycache__/
 .venv/

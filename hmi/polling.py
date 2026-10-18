@@ -9,6 +9,7 @@ def page_tags(page):
     result = set()
     for control in [page, *page.get('controls', []), *page.get('groups', [])]:
         result.add(control.get('binding', {}).get('tag'))
+        if control.get('type')=='trend':result.update(s.get('tag') for s in control.get('series',[]))
         result.update(inline_ids(control))
         for action in control.get('actions', []):
             if action.get('action') not in ('navigate', 'popup'):

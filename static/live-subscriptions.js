@@ -4,6 +4,7 @@ export function pageTagIds(page,tags=[]) {
   const ids=new Set();
   for(const control of [page,...page.controls || [],...page.groups || []]) {
     ids.add(control.binding?.tag);
+    if(control.type==='trend')for(const series of control.series || [])ids.add(series.tag);
     for(const id of controlInlineTagIds(control,tags))ids.add(id);
     for(const action of control.actions || [])if(!['navigate','popup'].includes(action.action))ids.add(action.tag);
     for(const event of control.events || []) {

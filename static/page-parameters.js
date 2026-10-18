@@ -21,6 +21,7 @@ export function instantiatePage(template,connections={}){
   const params=parameterTags(template),paths=new Map(params.map(p=>['Parameters\\'+p.name,p.id]));
   for(const control of [page,...page.controls || [],...page.groups || []]){
     if(control.binding)control.binding.tag=resolve(control.binding.tag);
+    if(control.type==='trend')for(const series of control.series || [])series.tag=resolve(series.tag);
     for(const action of control.actions || []){
       action._access={page:template.id,control:control===page?'@page':control.id,action:action.id,bindings:{...connections}};
       action.tag=resolve(action.tag);

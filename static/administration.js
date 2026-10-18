@@ -1,5 +1,7 @@
 import {updateErrorLog} from './error-log-view.js';
 import {mountUserAccess} from './user-access-manager.js';
+import {mountBackupRestore} from './backup-restore.js';
+import {mountSite} from './site-settings.js';
 export function mountAdministration(parent,{node,button,api}) {
  const card=node('section',null,parent,{className:'card administration'});
  node('h2','Administration',card);
@@ -8,7 +10,7 @@ export function mountAdministration(parent,{node,button,api}) {
  let active='Users',closed=false,timer,previous,pending=false;
  const buttons=[];
 
- for(const title of ['Users','Access','Server Status'])buttons.push(button(title,tabs,async()=>{if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
+ for(const title of ['Users','Access','Server Status','Backup/Restore','Site'])buttons.push(button(title,tabs,async()=>{if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
  const format=n=>Number(n || 0).toLocaleString();
  function row(parent,label,value){const item=node('div',null,parent,{className:'admin-stat'});node('span',label,item);node('strong',String(value),item);}
  async function update(){
@@ -80,6 +82,8 @@ export function mountAdministration(parent,{node,button,api}) {
  }
  function render(){closeAccess?.();closeAccess=null;clearInterval(timer);previous=null;statusView=null;body.replaceChildren();buttons.forEach(b=>b.classList.toggle('active',b.textContent===active));
   if(active==='Users' || active==='Access'){closeAccess=mountUserAccess(body,{node,button,api,mode:active,onOpenRole:()=>{active='Access';render();}});}
+  else if(active==='Backup/Restore'){closeAccess=mountBackupRestore(body,{node,button,api});}
+  else if(active==='Site'){closeAccess=mountSite(body,{node,button,api});}
   else {node('p','Loading server status...',body);update();timer=setInterval(update,1000);}
  }
  render();const close=()=>{closed=true;closeAccess?.();clearInterval(timer);};close.isDirty=()=>Boolean(closeAccess?.isDirty?.());close.beforeLeave=()=>closeAccess?.beforeLeave?.() ?? Promise.resolve(true);return close;

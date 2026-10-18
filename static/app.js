@@ -1,3 +1,4 @@
+import {trendSeries,trendColors} from './live-trend.js';
 import {mountAlarmAttention} from './alarm-attention.js';
 import {mountAlarms} from './alarms-manager.js';
 import {mountControlPlacement} from './control-placement.js';
@@ -50,6 +51,7 @@ import { alignmentPicker } from './alignment-picker.js';
 import { contextMenu, closeContextMenu } from './context-menu.js';
 import { cloneControl, orderControl, stepControl, explorerLabel, togglePinned } from './control-edit.js';
 const collapsedGroups=new Set();
+const explorerTypes=new Map();
 let polylineDraft=null,pointEditingFocus=null;
 let gridStyle='lines';
 import { EditHistory } from './edit-history.js';
@@ -160,7 +162,7 @@ let lastNetworkError = '';
 let controlStates = {};
 let sourceManager,closeLibrary,closeEditorPanels;
 let actionQueue = Promise.resolve();
-let currentUser=null,accessRoles=[];
+let currentUser=null,accessRoles=[],siteLogo=false;
 let csrf,catalog,sources=[],tags=[],pages=[],page,values= {
 },selected,dirty=false,editing=true,grid=20,tab='Properties',ruleId,routedHash;
 function node(tag,text,parent,attrs= {
@@ -212,7 +214,7 @@ function sessionExpired(reason='expired') {
   modal.showModal();
 }
 async function api(path,data) {
-  if(!csrf && !['status','setup','login'].includes(path))throw new Error('Please log in again.');
+  if(!csrf && !['status','setup','setup/restore','login'].includes(path))throw new Error('Please log in again.');
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),['status','polling/interest','values/batch','sources','sources/status','admin/status'].includes(path)?10000:120000);
   let r,result;
   try {
@@ -292,6 +294,7 @@ async function start(afterLogin=false)  {
   document.querySelector('#exit-kiosk')?.remove();
   document.querySelector('#kiosk-home')?.remove();
   const status=await api('status');
+  siteLogo=Boolean(status.site_logo);
   csrf=status.csrf;currentUser=status.user;applyTheme(currentUser?.theme || 'system',currentUser?.app_background || '');document.body.classList.toggle('kiosk-mode',Boolean(status.authenticated && currentUser?.kiosk));
   document.body.classList.toggle('logged-out',!status.authenticated);
   account.replaceChildren();
@@ -357,15 +360,17 @@ function auth(setup)  {
   document.querySelector('#page-menu').replaceChildren();
   document.querySelector('#view-tools').replaceChildren();
   app.replaceChildren();
-  if(setup)return mountFirstRun(app,{node,button,field,onCreate:async data=>{await api('setup',data);await start(true);}});
+  if(setup)return mountFirstRun(app,{node,button,field,onCreate:async data=>{await api('setup',data);await start(true);},onRestore:data=>api('setup/restore',data)});
   const card=node('form',null,app, {
     className:'card auth'
   });
+  if(siteLogo)node('img',null,card,{src:'/api/site/logo',alt:'Site logo',className:'login-logo'});
   node('h2',setup?'Welcome — create your account':'Sign in',card);
-  const username=field('Username',card);
+  const credentials=node('div',null,card,{className:'login-credentials'});
+  const username=field('Username',credentials);
   username.autocomplete='username';
   username.required=true;
-  const password=field(setup?'Password (8+ characters)':'Password',card,'password');
+  const password=field(setup?'Password (8+ characters)':'Password',credentials,'password');
   password.required=true;
   password.autocomplete=setup?'new-password':'current-password';
   node('button',setup?'Create account':'Log in',card, {
@@ -474,8 +479,10 @@ function usageList(parent,uses,objectsOnly=false) {
 function sourceDialog(existing,sheetOnly=false) {
   dialog(sheetOnly?(existing?'Edit sheet settings':'Add sheet'):(existing?'Edit data source':'Add data source'),(body,submit)=> {
     body.closest('dialog').classList.add('source-dialog');
-    const name=field('Name',body,'text',existing?.name || existing?.id || '');name.required=true;
-    const kind=sheetOnly?{value:'sheet'}:select('Driver',body,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP (PyModbus)':x]));
+    function group(parent,title){const box=node('section',null,parent,{className:'settings-group'});node('h3',title,box);return node('div',null,box,{className:'settings-group-fields'});}
+    const identity=group(body,'Data source');
+    const name=field('Name',identity,'text',existing?.name || existing?.id || '');name.required=true;
+    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP (PyModbus)':x]));
     if(existing){kind.value=existing.kind;kind.disabled=true;}
     const settings=node('div',null,body),footer=submit.parentElement;
     let inputs={},testToken='',version=0,status;
@@ -490,31 +497,33 @@ function sourceDialog(existing,sheetOnly=false) {
     });
     footer.prepend(test);test.className='source-test-button';
     function changed() {testToken='';version++;if(status)status.textContent='Connection has not been tested with these settings.';}
-    function render() {
+    function renderFields() {
       const saved=existing?.settings || {};
       settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus'].includes(kind.value);
       if(kind.value==='database'){
-        inputs.filename=field('Database filename',settings,'text',saved.filename || 'Tags.sqlite3');inputs.filename.required=true;inputs.filename.readOnly=Boolean(existing);
+        const storage=group(settings,'Storage'),polling=group(settings,'Polling');
+        inputs.filename=field('Database filename',storage,'text',saved.filename || 'Tags.sqlite3');inputs.filename.required=true;inputs.filename.readOnly=Boolean(existing);
         const files=node('datalist',null,settings,{id:'database-files'});inputs.filename.setAttribute('list','database-files');
         api('database/files').then(names=>{for(const name of names)node('option',null,files,{value:name});}).catch(error=>notify(error.message));
         node('p','Select an existing file or enter a new filename. Stored on the server in data/databases. Values persist across restarts.',settings,{className:'hint'});
-        inputs.live=field('Live polling (seconds)',settings,'number',saved.live ?? .5);inputs.live.min=.1;inputs.live.step='any';
-        inputs.background=field('Background polling (seconds)',settings,'number',saved.background ?? 20);inputs.background.min=.1;inputs.background.step='any';return;
+        inputs.live=field('Live polling (seconds)',polling,'number',saved.live ?? .5);inputs.live.min=.1;inputs.live.step='any';
+        inputs.background=field('Background polling (seconds)',polling,'number',saved.background ?? 20);inputs.background.min=.1;inputs.background.step='any';return;
       }
       if(kind.value==='memory'){node('p','Simulation runs locally; no connection settings required.',settings,{className:'hint'});return;}
       if(kind.value==='sheet') {
-        inputs.filename=field('Filename',settings,'text',saved.filename || 'Sheet.sheet.json');inputs.filename.required=true;
+        const storage=group(settings,'Storage'),polling=group(settings,'Polling');
+        inputs.filename=field('Filename',storage,'text',saved.filename || 'Sheet.sheet.json');inputs.filename.required=true;
         node('p','Stored in data/sheets. Fixed size: A1:D15. Formulas use =A1+B1 or =TAG("Source\\Tag").',settings,{className:'hint'});
         for(const [key,label,value] of [['background','Background polling (seconds)',20],['live','Live polling (seconds)',.5]]) {
-          const input=inputs[key]=field(label,settings,'number',saved[key] ?? value);input.min=.1;input.max=60;input.step='any';input.required=true;
+          const input=inputs[key]=field(label,polling,'number',saved[key] ?? value);input.min=.1;input.max=60;input.step='any';input.required=true;
         }
         return;
       }
       if(kind.value==='modbus') {
-        const rows=node('div',null,settings,{className:'source-rates'});
+        const rows=group(settings,'Connection'),polling=group(settings,'Polling & timing');
         inputs.host=field('Device host / IP address',rows,'text',saved.host || '');inputs.host.required=true;inputs.host.placeholder='192.168.1.10';
         for(const [key,label,value,min,max,step] of [['port','TCP port',502,1,65535,1],['unit_id','Unit ID',1,0,255,1],['timeout','Connection timeout (seconds)',3,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any'],['live','Live polling (seconds)',.5,.1,60,'any']]){
-          const input=inputs[key]=field(label,rows,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
+          const input=inputs[key]=field(label,['port','unit_id'].includes(key)?rows:polling,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
         }
         node('p','Standard Modbus TCP. Tags use the register map supplied by the device manufacturer. Each source connects to one host and Unit ID.',settings,{className:'hint'});
         status=node('p','Connection has not been tested.',settings,{className:'hint'});
@@ -522,20 +531,21 @@ function sourceDialog(existing,sheetOnly=false) {
         return;
       }
       if(kind.value==='mqtt') {
-        const mqttFields=node('div',null,settings,{className:'mqtt-fields'});
+        const connection=group(settings,'Connection'),security=group(settings,'Security'),delivery=group(settings,'Delivery'),polling=group(settings,'Refresh & timing');
         for(const [key,label,type,value] of [['host','Broker host','text',''],['port','Port','number',1883],['client_id','Client ID (blank generates one)','text',''],['username','Username (optional)','text',''],['password','Password (optional)','password',''],['keepalive','Keep alive (seconds)','number',60],['timeout','Connection / publish timeout (seconds)','number',5],['background','Background refresh (seconds)','number',20],['live','Live refresh (seconds)','number',.5]]) {
-          inputs[key]=field(label,mqttFields,type,saved[key] ?? value);
+          inputs[key]=field(label,['host','port','client_id'].includes(key)?connection:['username','password'].includes(key)?security:polling,type,saved[key] ?? value);
           if(type==='number'){inputs[key].min=.1;inputs[key].step='any';}
         }
         inputs.host.required=true;
-        inputs.qos=select('QoS',mqttFields,[['0','0 - At most once'],['1','1 - At least once'],['2','2 - Exactly once']],String(saved.qos ?? 0));
-        for(const [key,label] of [['tls','Use TLS (system trusted certificates)'],['retain','Retain published values']])inputs[key]=select(label,mqttFields,[['false','No'],['true','Yes']],String(saved[key] ?? false));
+        inputs.qos=select('QoS',delivery,[['0','0 - At most once'],['1','1 - At least once'],['2','2 - Exactly once']],String(saved.qos ?? 0));
+        for(const [key,label] of [['tls','Use TLS (system trusted certificates)'],['retain','Retain published values']])inputs[key]=select(label,key==='tls'?security:delivery,[['false','No'],['true','Yes']],String(saved[key] ?? false));
         node('p','MQTT 3.1.1 over TCP. Typical ports: 1883, or 8883 with TLS. Tags use exact topics and scalar number, boolean, or text payloads.',settings,{className:'hint'});
         status=node('p','Connection has not been tested.',settings,{className:'hint'});
         for(const input of Object.values(inputs))input.addEventListener('input',changed);
         return;
       }
-      const local=inputs.local_ip=select('Local network interface',settings,[['','Automatic (system routing)']]);
+      const connection=group(settings,'Connection');
+      const local=inputs.local_ip=select('Local network interface',connection,[['','Automatic (system routing)']]);
       if(saved.local_ip){node('option',saved.local_ip+' (saved interface)',local,{value:saved.local_ip});local.value=saved.local_ip;}
       api('network/interfaces').then(interfaces=> {
         if(!local.isConnected)return;
@@ -547,38 +557,39 @@ function sourceDialog(existing,sheetOnly=false) {
       if(kind.value==='bacnet') {
         local.required=true;
         local.options[0].textContent='Choose BACnet interface…';
-        const addressing=node('div',null,settings,{className:'source-rates'});
+        inputs.target=field('Discovery target (optional)',connection,'text',saved.target || '');inputs.target.placeholder='Local broadcast, or 192.168.1.10:47808';
+        const addressing=node('div',null,connection,{className:'source-rates'});
         for(const [key,label,value,min,max] of [['prefix','Subnet prefix',24,1,32],['port','UDP port',47808,1,65535],['device_id','Local device instance',3056177,1,4194302]]) {
           const input=inputs[key]=field(label,addressing,'number',saved[key] ?? value);input.min=min;input.max=max;input.required=true;
         }
-        inputs.target=field('Discovery target (optional)',settings,'text',saved.target || '');inputs.target.placeholder='Local broadcast, or 192.168.1.10:47808';
-        node('p','Use this computer’s interface and subnet prefix. Device names come from Object Name; reads use device/object identifiers.',settings,{className:'hint'});
-        const rates=node('div',null,settings,{className:'source-rates'});
+        node('p','Use this computer’s interface and subnet prefix. Device names come from Object Name; reads use device/object identifiers.',connection,{className:'hint'});
+        const rates=group(settings,'Polling & timing');
         for(const [key,label,value] of [['timeout','Request timeout (seconds)',5],['background','Background polling (seconds)',20],['live','Live polling (seconds)',.5]]) {
           const input=inputs[key]=field(label,rates,'number',saved[key] ?? value);input.min=.1;input.max=60;input.step='any';input.required=true;
         }
-        const cov=inputs.use_cov=field('Use COV when available',settings,'checkbox');cov.checked=saved.use_cov===true;
+        const covGroup=group(settings,'Change of value (COV)');
+        const cov=inputs.use_cov=field('Use COV when available',covGroup,'checkbox');cov.checked=saved.use_cov===true;
         cov.parentElement.classList.add('checkbox-row');
-        const covOptions=node('div',null,settings,{className:'source-rates source-cov-options'});
+        const covOptions=node('div',null,covGroup,{className:'source-rates source-cov-options'});
         for(const [key,label,value,min,max] of [['cov_lifetime','COV subscription lifetime (seconds)',300,30,86400],['cov_verify','COV verification read (seconds)',30,1,3600]]){
           const input=inputs[key]=field(label,covOptions,'number',saved[key] ?? value);input.min=min;input.max=max;input.step=1;input.required=true;
         }
         const confirmed=inputs.cov_confirmed=field('Confirmed COV notifications',covOptions,'checkbox');confirmed.checked=saved.cov_confirmed===true;confirmed.parentElement.classList.add('checkbox-row');
-        const covHint=node('p','Present Value uses COV where supported, with automatic renewal and periodic verification reads. Unsupported objects and other properties keep polling. Browser refresh intervals stay the same.',settings,{className:'hint'});
+        const covHint=node('p','Present Value uses COV where supported, with automatic renewal and periodic verification reads. Unsupported objects and other properties keep polling. Browser refresh intervals stay the same.',covGroup,{className:'hint'});
         const showCov=()=>{covOptions.hidden=!cov.checked;covHint.hidden=!cov.checked;for(const input of covOptions.querySelectorAll('input'))input.disabled=!cov.checked;};
         cov.onchange=showCov;showCov();
         const advanced=node('details',null,settings);node('summary','Discovery and write settings',advanced);
-        const extra=node('div',null,advanced,{className:'source-rates'});
+        const extra=group(advanced,'Discovery & writes');
         for(const [key,label,value,min,max,step] of [['discovery_min','Device instance minimum',0,0,4194302,1],['discovery_max','Device instance maximum',4194302,0,4194302,1],['discovery_timeout','Discovery wait (seconds)',3,.1,30,'any'],['write_priority','Write priority',16,1,16,1],['batch_size','Properties per request',20,1,50,1],['bbmd_ttl','BBMD registration TTL',900,30,65535,1]]) {
           const input=inputs[key]=field(label,extra,'number',saved[key] ?? value);input.min=min;input.max=max;input.step=step;input.required=true;
         }
-        inputs.bbmd_address=field('BBMD address (optional)',advanced,'text',saved.bbmd_address || '');inputs.bbmd_address.placeholder='192.168.1.2:47808';
+        inputs.bbmd_address=field('BBMD address (optional)',extra,'text',saved.bbmd_address || '');inputs.bbmd_address.placeholder='192.168.1.2:47808';
         status=node('p',existing?.tested_at?'Connection previously tested.':'Connection has not been tested.',settings,{className:'hint'});
         for(const input of Object.values(inputs))input.addEventListener('input',changed);
         return;
       }
-      inputs.path=field('Device network path',settings,'text',saved.path || '');inputs.path.required=true;inputs.path.placeholder='192.168.1.10/0';
-      const typeRow=node('div',null,settings,{className:'source-type-row'});
+      inputs.path=field('Device network path',connection,'text',saved.path || '');inputs.path.required=true;inputs.path.placeholder='192.168.1.10/0';
+      const typeRow=node('div',null,connection,{className:'source-type-row'});
       inputs.protocol=select('Mode',typeRow,[['logix','Logix'],['slc','SLC'],['cip','CIP']],saved.protocol || 'logix');
       const typeLocked=Boolean(existing && tags.some(tag=>tag.source===existing.id));
       inputs.protocol.disabled=typeLocked;
@@ -594,17 +605,65 @@ function sourceDialog(existing,sheetOnly=false) {
         finally {auto.disabled=false;submit.disabled=false;test.disabled=false;auto.textContent='Auto Select';}
       });
       auto.hidden=typeLocked;
-      const typeHint=node('p','',settings,{className:'hint'});
+      const typeHint=node('p','',connection,{className:'hint'});
       function updateTypeHint() {
         typeHint.textContent={logix:'Logix: CompactLogix, ControlLogix, Micro800',slc:'SLC: SLC 500, MicroLogix',cip:'CIP: EtherNet/IP drives, meters, remote I/O, and other CIP devices'}[inputs.protocol.value];
       }
       inputs.protocol.onchange=updateTypeHint;updateTypeHint();
-      const rates=node('div',null,settings,{className:'source-rates'});
+      const rates=group(settings,'Polling & timing');
       for(const [key,label,value] of [['timeout','Connection timeout (seconds)',5],['background','Background polling (seconds)',20],['live','Live polling (seconds)',0.5]]) {
         const input=inputs[key]=field(label,rates,'number',saved[key] ?? value);input.min=0.1;input.max=key==='timeout'?3600:60;input.step='any';input.required=true;
       }
       status=node('p',existing?.tested_at?'Connection previously tested.':'Connection has not been tested.',settings,{className:'hint'});
       for(const input of Object.values(inputs))input.addEventListener('input',changed);
+    }
+    let hintNumber=0;
+    function addHint(input,text,placeholder){
+      if(!input || !text)return;
+      const label=input.parentElement;
+      input.setAttribute('aria-label',label.firstChild.textContent);
+      const hint=node('small',text,label,{className:'source-field-hint',id:'source-field-hint-'+(++hintNumber)});
+      input.setAttribute('aria-describedby',hint.id);
+      if(placeholder && input.tagName==='INPUT')input.placeholder=placeholder;
+    }
+    addHint(name,'Choose a recognizable name for this source.','Example: Main PLC');
+    if(!sheetOnly)addHint(kind,'Choose the protocol or storage used by this source.');
+    function render(){
+      renderFields();
+      const hints={
+        filename:[kind.value==='sheet'?'Sheet filename on this server.':'SQLite filename on this server; values persist after restart.',kind.value==='sheet'?'Example: Sheet.sheet.json':'Example: Tags.sqlite3'],
+        host:[kind.value==='mqtt'?'Broker hostname or IP address; enter the port separately.':'Device hostname or IP address; enter the port separately.','Example: 192.168.1.10'],
+        port:[kind.value==='bacnet'?'Usual BACnet/IP port: UDP 47808.':kind.value==='mqtt'?'Usual MQTT ports: TCP 1883, or 8883 with TLS.':'Usual Modbus TCP port: 502.'],
+        local_ip:[kind.value==='bacnet'?'Select this server’s interface on the BACnet network.':'Select this server’s interface, or let system routing choose.'],
+        path:['PLC IP address and optional routing path.','Example: 192.168.1.10/0'],
+        protocol:['Match the controller family, or use Auto Select.'],
+        target:['Leave blank for local broadcast, or enter a device IP and optional port.','Example: 192.168.1.10:47808'],
+        prefix:['Subnet prefix length; 24 corresponds to 255.255.255.0.'],
+        device_id:['Unique BACnet device instance for this server on the network.'],
+        unit_id:['Use the Unit ID configured on the device or gateway; commonly 1.'],
+        timeout:['Maximum time to wait for a device response, in seconds.'],
+        live:[kind.value==='mqtt'?'Refresh interval while tags are in use; messages arrive by subscription.':'Polling interval while tags are actively used, in seconds.'],
+        background:[kind.value==='mqtt'?'Background refresh interval; messages arrive by subscription.':'Polling interval when tags are not actively used, in seconds.'],
+        client_id:['Leave blank to generate a client ID; explicit IDs must be unique.','Blank: automatic'],
+        username:['Optional broker username.','Optional'],
+        password:['Optional broker password.','Optional'],
+        keepalive:['MQTT connection keep-alive interval, in seconds.'],
+        qos:['Requested delivery quality for MQTT subscriptions and publishing.'],
+        tls:['Use encrypted MQTT with a system-trusted server certificate.'],
+        retain:['Ask the broker to retain values published by this source.'],
+        use_cov:['Subscribe to changes where supported; other properties keep polling.'],
+        cov_lifetime:['Subscription lifetime before renewal, in seconds.'],
+        cov_verify:['Seconds between verification reads while COV is active.'],
+        cov_confirmed:['Request notifications that require acknowledgement.'],
+        discovery_min:['Lowest device instance included in discovery.'],
+        discovery_max:['Highest device instance included in discovery.'],
+        discovery_timeout:['Time to wait for discovery replies, in seconds.'],
+        write_priority:['BACnet write priority, from 1 (highest) to 16 (lowest).'],
+        batch_size:['Maximum properties grouped into one read request.'],
+        bbmd_ttl:['Foreign-device registration lifetime, in seconds.'],
+        bbmd_address:['Optional BBMD IP and port for routed BACnet networks.','Example: 192.168.1.2:47808']
+      };
+      for(const [key,input] of Object.entries(inputs))addHint(input,...(hints[key] || []));
     }
     kind.onchange=render;render();
     return async()=> {
@@ -776,7 +835,7 @@ function refreshEditedControl(c,refreshInspector=false) {
   if(c.type==='group'){const box=app.querySelector('.group-bounds');if(box){box.dataset.groupName=c.name;box.setAttribute('aria-label','Move group '+c.name);}}
   for(const el of app.querySelectorAll('.editor .control'))if(el.dataset.controlId===c.id)paint(el,c);
   for(const option of app.querySelectorAll('.control-selection option'))if(option.value===c.id){
-    const label=c.type==='group'?(collapsedGroups.has(c.id)?'▸ ':'▾ ')+c.name:(c.groupId?'\u00a0\u00a0\u00a0\u00a0↳ ':'')+explorerLabel(c);if(option.textContent!==label)option.textContent=label;
+    const label=c.type==='group'?((explorerTypes.get(page.id) || 'all')==='group'?'':(explorerTypes.get(page.id) || 'all')!=='all'?'▾ ':collapsedGroups.has(c.id)?'▸ ':'▾ ')+c.name:(c.groupId?'\u00a0\u00a0\u00a0\u00a0↳ ':'')+explorerLabel(c);if(option.textContent!==label)option.textContent=label;
   }
   const panel=app.querySelector('.inspector');
   if(refreshInspector && panel){const scroll=panel.scrollTop;showInspector(panel);panel.scrollTop=scroll;}
@@ -842,7 +901,7 @@ function renderPopupPage(container, owner) {
   const canvas=node('div',null,container,{className:'canvas'});stylePage(canvas,owner);runtimeOwners.set(canvas,owner);
   for(const c of paintOrder(owner))renderControl(canvas,c,owner,false);
 }
-async function executeAction(action, point) {
+async function executeAction(action, point, control) {
   if(action._access){
     const reference=action._access;
     try{action={...await api('actions/authorize',{_access:reference}),_access:reference};}
@@ -850,8 +909,8 @@ async function executeAction(action, point) {
   }
   if(action.action==='value_input') {
     const tag=tags.find(tag=>tag.id===action.tag),sample=values[action.tag];
-    const value=await openValueInput(action,{name:tag?tagPath(tag):'',value:sample?.quality==='good'?sample.value:undefined});
-    if(value!==null)return api('action',{...action,value});
+    const defaults=control?.type==='numeric'?control:{};
+    await openValueInput({...action,promptText:action.promptText || '',unitText:action.unitText || defaults.unitText || ''},{name:tag?tagPath(tag):'',value:sample?.quality==='good'?sample.value:undefined,onSubmit:value=>api('action',{...action,value})});
     return;
   }
   if (!['navigate','popup'].includes(action.action)) return api('action',action);
@@ -934,6 +993,9 @@ function showEditor(isEditing) {
     }
     node('hr', null, left, {className: 'sidebar-divider'});
     node('h3', 'Explorer', left);
+    const typeOptions=[...new Set([...Object.entries(controls).filter(([,definition])=>!definition.hidden).map(([type])=>type),...page.controls.map(c=>c.type),'group'])].map(type=>[type,type==='group'?'Group':controls[type]?.label || type]).sort((a,b)=>a[1].localeCompare(b[1]));
+    const typeFilter=select('',left,[['all','Everything'],...typeOptions],explorerTypes.get(page.id) || 'all',{className:'explorer-type-filter'});
+    typeFilter.setAttribute('aria-label','Filter Explorer by type');
     const controlList = node('select', null, left, {size: 12, className: 'listbox control-selection'});
     scrollableEditorList(controlList,true,JSON.stringify([page.id,'explorer']));
     controlList.setAttribute('aria-label', 'Select page or control');
@@ -942,14 +1004,21 @@ function showEditor(isEditing) {
       controlList.replaceChildren();
     if (page) node('option', page.name + ' (this page)', controlList, {value: PAGE_SELECTION});
     const optionFor=(c,indent=false)=>node('option',(indent?'\u00a0\u00a0\u00a0\u00a0↳ ':'')+explorerLabel(c),controlList,{value:c.id});
-    const listedGroups=new Set();
-    function groupOption(group,members){listedGroups.add(group.id);node('option',(collapsedGroups.has(group.id)?'▸ ':'▾ ')+group.name,controlList,{value:group.id});if(!collapsedGroups.has(group.id))for(const c of members)optionFor(c,true);}
-    for(const layer of layerBlocks(page)){if(layer.group)groupOption(layer.group,layer.controls);else optionFor(layer.controls[0]);}
+    const type=typeFilter.value,listedGroups=new Set(),matches=c=>type==='all' || c.type===type;
+    function groupOption(group,members){
+      listedGroups.add(group.id);const matching=members.filter(matches);
+      if(type!=='all' && type!=='group' && !matching.length)return;
+      const expanded=type!=='all' || !collapsedGroups.has(group.id);
+      node('option',(type==='group'?'':expanded?'▾ ':'▸ ')+group.name,controlList,{value:group.id});
+      if(expanded && type!=='group')for(const c of matching)optionFor(c,true);
+    }
+    for(const layer of layerBlocks(page)){if(layer.group)groupOption(layer.group,layer.controls);else if(matches(layer.controls[0]))optionFor(layer.controls[0]);}
     for(const group of page?.groups || [])if(!listedGroups.has(group.id))groupOption(group,[]);
-    for(const option of controlList.options)option.selected=option.value===(selected || PAGE_SELECTION);
+    controlList.value=selected || PAGE_SELECTION;
       controlList.scrollTop=top;controlList.scrollLeft=left;
     }
     refreshExplorerOptions();
+    typeFilter.onchange=()=>{explorerTypes.set(page.id,typeFilter.value);refreshExplorerOptions();controlList.scrollTop=0;controlList.scrollLeft=0;explorerHint.textContent=typeFilter.value==='all'?'Drag to change order. Double-click a group to collapse or expand.':'Drag to change order.';};
     let clickedOption;
     controlList.onpointerdown=event=>{clickedOption=event.target.closest('option')?.value;};
     controlList.onchange=()=> {
@@ -959,7 +1028,7 @@ function showEditor(isEditing) {
       if(wasDrawing){route();return;}
       updateEditorSelection([...page.controls,...page.groups].find(control=>control.id===selected));
     };
-    controlList.ondblclick=event=>{const id=event.target.closest('option')?.value;if(page.groups.some(g=>g.id===id)){if(collapsedGroups.has(id))collapsedGroups.delete(id);else collapsedGroups.add(id);selected=id;refreshExplorerOptions();updateEditorSelection(page.groups.find(group=>group.id===id));}};
+    controlList.ondblclick=event=>{if(typeFilter.value!=='all')return;const id=event.target.closest('option')?.value;if(page.groups.some(g=>g.id===id)){if(collapsedGroups.has(id))collapsedGroups.delete(id);else collapsedGroups.add(id);selected=id;refreshExplorerOptions();updateEditorSelection(page.groups.find(group=>group.id===id));}};
     mountExplorerDrag(controlList,{
       select:(id,changed)=>{if(changed){clickedOption=id;controlList.onchange();}},
       describeDrop:(source,target,after)=>layerDrop(page,source,target,after),
@@ -971,7 +1040,7 @@ function showEditor(isEditing) {
         const bounds=canvas.querySelector('.group-bounds');if(bounds)canvas.append(bounds);
       }
     });
-    node('p','Drag to change order. Double-click a group to collapse or expand.',left,{className:'hint'});
+    const explorerHint=node('p',typeFilter.value==='all'?'Drag to change order. Double-click a group to collapse or expand.':'Drag to change order.',left,{className:'hint'});
     controlList.oncontextmenu=event=>{
       const option=event.target.closest('option') || [...controlList.options].find(option=>{
         const rect=option.getBoundingClientRect();
@@ -1291,6 +1360,7 @@ function paint(el, c, owner=page, isEditing=editing) {
     editing:isEditing, values, appearance,
     canInteract:hasAccessRoles(currentUser,c.requiredRoles || []),
     bindingValue: values[c.binding?.tag],
+    tagLabel:id=>{const tag=tags.find(t=>t.id===id);return tag?tagPath(tag):id;},
     changeIndex: index => {
       if(!c.binding?.tag || !context.canInteract)return;
       context.execute(c,'user_changed',null,()=>api('actions/listbox',{page:owner.id,control:c.id,value:index,bindings:owner.accessBindings || {}}));
@@ -1304,7 +1374,7 @@ function paint(el, c, owner=page, isEditing=editing) {
           // Draft rules are saved freely and skipped until complete.
           try {await api('rules/validate',{kind:'actions',item:action});}
           catch {continue;}
-          await executeAction(action, point);
+          await executeAction(action, point, c);
         }
       });
       actionQueue.catch(error => {notify(error.message);});
@@ -1430,6 +1500,8 @@ function showInspector(panel) {
   if(c){
     const nameSection=node('div',null,panel,{className:'inspector-name'});
     const name=field(isPage?'Page Name':isGroup?'Group Name':'Control Name',nameSection,'text',c.name || c.id);
+    name.setAttribute('aria-label',isPage?'Page Name':isGroup?'Group Name':'Control Name');
+    node('small','Type: '+(isPage?'Page':isGroup?'Group':controls[c.type]?.label || c.type),name.parentElement,{className:'inspector-type'});
     name.required=true;
     if(isPage)name.oninput=()=>{
       page.name=name.value;markChanged('page-name');
@@ -1457,7 +1529,7 @@ function showInspector(panel) {
       if(prop.visibleWhen && !prop.visibleWhen(c))continue;
       if (key === 'tag') continue;
       if(props.text && textFields.includes(key) && key!=='text' && !(controls[c.type]?.category==='shapes' && ['backColor','foreColor'].includes(key)))continue;
-      const sections = {valueTag:'Content',elements:'Elements',strokeWidth:'Shape',text: 'Content', [props.visible?'visible':'left']: 'Layout', fontFamily: 'Font', [props.backColor?'backColor':'foreColor']: 'Colors'};
+      const sections = {trendSeries:'Content',valueTag:'Content',elements:'Elements',strokeWidth:'Shape',text: 'Content', [props.visible?'visible':'left']: 'Layout', fontFamily: 'Font', [props.backColor?'backColor':'foreColor']: 'Colors'};
       if (sections[key]) {
         if (key !== 'text' && propertyIndex>0) node('hr', null, panel, {className: 'sidebar-divider'});
         node('h3', sections[key], panel);
@@ -1478,6 +1550,32 @@ function showInspector(panel) {
         });
         choose.title='All selected roles are required to change the index. Administrators bypass this restriction.';
         continue;
+      }
+      if(prop.type==='trendSeries'){
+        const seriesBox=node('div',null,propertyParent,{className:'trend-series-editor'});
+        const store=series=>{c.series=series;delete c.binding;markChanged();refreshEditedControl(c);};
+        function drawSeries(){
+          seriesBox.replaceChildren();const series=trendSeries(c);
+          series.forEach((item,index)=>{
+            const row=node('div',null,seriesBox,{className:'trend-series-row'});
+            const fields=node('div',null,row,{className:'trend-series-fields'});
+            const tagBox=tagSelect('Tag '+(index+1),fields,item.tag,value=>{tagBox.title=tagBox.textContent;store(trendSeries(c).map(s=>s.id===item.id?{...s,tag:value}:s));});
+            tagBox.title=tagBox.textContent;
+            const color=field('Line Color',fields,'color',item.color);
+            color.onchange=()=>store(trendSeries(c).map(s=>s.id===item.id?{...s,color:color.value}:s));
+            const limits=node('div',null,row,{className:'designer-field-grid trend-series-limits'});
+            for(const [key,label] of [['minimum','Min'],['maximum','Max']]){
+              const input=field(label,limits,'number',item[key]);input.step='any';
+              input.onchange=()=>{const value=input.value===''?NaN:Number(input.value),current=trendSeries(c).find(s=>s.id===item.id);const next={...current,[key]:value};
+                if(!Number.isFinite(value) || next.maximum<=next.minimum){input.value=current[key];input.setCustomValidity('Max must be greater than Min.');input.reportValidity();return;}
+                input.setCustomValidity('');store(trendSeries(c).map(s=>s.id===item.id?next:s));
+              };
+            }
+            button('Remove',row,()=>{store(trendSeries(c).filter(s=>s.id!==item.id));drawSeries();});
+          });
+          const add=button('+ Add Tag',seriesBox,()=>{const series=trendSeries(c);store([...series,{id:randomId(),tag:'',color:trendColors[series.length%trendColors.length],minimum:0,maximum:100}]);drawSeries();});add.disabled=series.length>=16;
+        }
+        drawSeries();continue;
       }
       if(prop.type==='elements') {
         const label=node('label',prop.label,propertyParent);
@@ -1562,7 +1660,7 @@ function showInspector(panel) {
     return;
   }
   const isEvent = tab === 'Events';
-  if (isEvent && !['numeric','listbox','level'].includes(c.type) && (controls[c.type]?.bindable || c.binding?.tag)) {
+  if (isEvent && !['numeric','listbox','level','trend'].includes(c.type) && (controls[c.type]?.bindable || c.binding?.tag)) {
     node('h3', 'Display binding (optional)', panel);
     tagSelect('Display Source Tag', panel, c.binding?.tag || '', value => {
       c.binding = {tag: value}; markChanged();
@@ -1648,8 +1746,9 @@ function showInspector(panel) {
     if(!['navigate','popup'].includes(item.action))tagSelect('Tag', actionGroup, item.tag, value=>change('tag',value));
     if(item.action==='value_input') {
       item.minimum ??= 0;item.maximum ??= 100;item.allowDecimal ??= false;
-      const prompt=field('Prompt',actionGroup,'text',item.prompt || '');prompt.placeholder='Value Input';
-      prompt.onchange=()=>change('prompt',prompt.value);
+      for(const [key,label] of [['promptText','Prompt Text'],['unitText','Unit Text']]){
+        const input=field(label,actionGroup,'text',item[key] || '');input.placeholder=key==='promptText'?(item.prompt || 'Value'):(c.unitText || '');input.onchange=()=>change(key,input.value);
+      }
       for(const [key,label] of [['minimum','Minimum'],['maximum','Maximum']]) {
         const input=field(label,actionGroup,'number',item[key]);input.step='any';
         input.onchange=()=>change(key,input.value===''?'':Number(input.value));
@@ -1744,7 +1843,7 @@ function paintRuntime(updated=null) {
     const owner=runtimeOwner(el.closest('.canvas'));
     const control=owner?.controls.find(c=>c.id===el.dataset.controlId);
     const group=owner?.groups?.find(g=>g.id===control?.groupId);
-    if(control && (!updated || (group?.events || []).some(event=>eventTagIds(event).some(id=>updated.has(id))) || updated.has(control.binding?.tag) || controlInlineTagIds(control,tags).some(id=>updated.has(id)) || (control.events || []).some(event=>eventTagIds(event).some(id=>updated.has(id)))))paint(el,control,owner,false);
+    if(control && (!updated || (group?.events || []).some(event=>eventTagIds(event).some(id=>updated.has(id))) || updated.has(control.binding?.tag) || (control.type==='trend' && trendSeries(control).some(s=>updated.has(s.tag))) || controlInlineTagIds(control,tags).some(id=>updated.has(id)) || (control.events || []).some(event=>eventTagIds(event).some(id=>updated.has(id)))))paint(el,control,owner,false);
   }
 }
 const viewEventStates=new Map();

@@ -284,6 +284,8 @@ class PyComm3LogixDriver:
                 raise ValueError(str(error)) from error
             # A returned tag error (access denied, encoding, etc.) is not a lost socket.
             if result.error:
+                if self.plc is not None and not self.plc.connected:
+                    self._failed(result.error)
                 raise ValueError(str(result.error))
 
     def close(self):

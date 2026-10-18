@@ -111,6 +111,9 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(request('/api/alarms',cookie=kiosk_cookie)[0],403)
         self.assertEqual(request('/api/alarms/silence',{'all':True},kiosk_cookie,kiosk_csrf)[0],403)
         self.assertEqual(request('/api/alarms/attention',cookie=kiosk_cookie)[0],200)
+        history_status,history,_=request('/api/alarms/history',{},kiosk_cookie,kiosk_csrf)
+        self.assertEqual(history_status,200)
+        self.assertTrue(any(row['alarm_id']==alarm['id'] for row in history['items']))
         self.assertEqual(request('/api/alarms/silence',{'id':alarm['id'],'occurrence':state['occurrence']},kiosk_cookie,kiosk_csrf)[0],200)
 
         self.service.store.set('access_roles',[{'id':'silence','name':'Silence Alarms'}])

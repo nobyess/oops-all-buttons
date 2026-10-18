@@ -20,6 +20,9 @@ ACTIONS = {
 
 def validate_value_input(data, value=None):
     import math
+    for key,limit in [('promptText',200),('unitText',80)]:
+        if key in data and (not isinstance(data[key],str) or len(data[key])>limit):
+            raise ValueError(f'{key} must be text of at most {limit} characters')
     minimum, maximum = float(data.get('minimum', 0)), float(data.get('maximum', 100))
     if not math.isfinite(minimum) or not math.isfinite(maximum) or minimum > maximum:
         raise ValueError('Invalid Value Input minimum or maximum')

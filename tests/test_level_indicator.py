@@ -16,3 +16,10 @@ class LevelIndicatorTests(unittest.TestCase):
             self.assertEqual(page_tags(page),{'level'});self.assertTrue(service.usage('level'))
             for values in [{'minimum':20},{'maximum':float('inf')},{'fillDirection':'diagonal'}]:
                 with self.assertRaises(ValueError):service.validate_controls([{**control,**values}])
+
+    def test_quiet_surface_default_and_saved_choice(self):
+        old={'type':'level','id':'old'}
+        disabled={'type':'level','id':'off','quietSurface':False}
+        Service.migrate_controls([old,disabled])
+        self.assertTrue(old['quietSurface'])
+        self.assertFalse(disabled['quietSurface'])

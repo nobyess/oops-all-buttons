@@ -1,6 +1,6 @@
 // Presentation rules run only in open browser views, using received tag feedback.
 export const visualActions=new Set(['show','hide','set_colors','set_content','close_popup','spin','blink']);
-export const blinkControlTypes=new Set(['label','button','numeric','square','circle','triangle','polyline','symbol','image','level']);
+export const blinkControlTypes=new Set(['label','button','numeric','square','circle','triangle','polyline','symbol','image','level','trend']);
 export function eventTagIds(event) {
   return [event.tag,event.target,...[event.operand,event.end_operand].filter(value=>value?.kind==='tag').map(value=>value.tag)].filter(Boolean);
 }

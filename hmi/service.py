@@ -421,6 +421,13 @@ class Service:
             if not isinstance(control.get('name'), str) or not control['name'].strip():
                 control['name'] = control.get('id', '')
             control.setdefault('visible', True)
+            if control.get('type')=='level':control.setdefault('quietSurface',True)
+            if control.get('type')=='numeric':control.pop('promptText',None)
+            if control.get('type')=='trend' and isinstance(control.get('series'),list):
+                for series in control['series']:
+                    if isinstance(series,dict):
+                        series.setdefault('minimum',control.get('minimum',0));series.setdefault('maximum',control.get('maximum',100))
+                    if isinstance(series,dict) and isinstance(series.get('color'),str) and re.fullmatch(r'#[0-9a-fA-F]{8}',series['color']):series['color']=series['color'][:7]
             old_tag = control.pop('tag', '')
             if old_tag and control.get('type') in ('numeric', 'indicator'):
                 control.setdefault('binding', {'tag': old_tag})
@@ -489,6 +496,27 @@ class Service:
                     raise ValueError(f'{key} must be nonnegative')
             if 'displayDigits' in control and (not 0 <= control['displayDigits'] <= 15 or control['displayDigits'] != int(control['displayDigits'])):
                 raise ValueError('Display Digits must be a whole number from 0 to 15')
+            if control.get('type')=='numeric':
+                for key,limit in [('unitText',80)]:
+                    if key in control and (not isinstance(control[key],str) or len(control[key])>limit):
+                        raise ValueError(f'{key} must be text of at most {limit} characters')
+            if control.get('type') == 'trend':
+                series=control.get('series',[])
+                if not isinstance(series,list) or len(series)>16 or any(not isinstance(s,dict) or not isinstance(s.get('id'),str) or not s['id'] or not isinstance(s.get('tag',''),str) or not re.fullmatch(r'#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?',str(s.get('color',''))) for s in series):
+                    raise ValueError('Live Trend supports up to 16 tags with a color for each')
+                if len({s['id'] for s in series})!=len(series):raise ValueError('Live Trend series IDs must be unique')
+                if strict_bindings:
+                    for item in series:
+                        if item.get('tag'):reference(item['tag'])
+                for item in series:
+                    low,high=item.get('minimum',control.get('minimum',0)),item.get('maximum',control.get('maximum',100))
+                    if any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) for v in (low,high)) or high<=low or not math.isfinite(high-low):raise ValueError('Each Live Trend tag Max must be greater than its Min')
+                span=control.get('timespan',60)
+                minimum,maximum=control.get('minimum',0),control.get('maximum',100)
+                if isinstance(span,bool) or not isinstance(span,(int,float)) or not math.isfinite(span) or not 1<=span<=86400:
+                    raise ValueError('Live Trend timespan must be between 1 and 86400 seconds')
+                if any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) for v in (minimum,maximum)) or maximum<=minimum or not math.isfinite(maximum-minimum):
+                    raise ValueError('Live Trend maximum must be greater than its minimum')
             if control.get('type') == 'level':
                 minimum, maximum = control.get('minimum', 0), control.get('maximum', 100)
                 if (not isinstance(minimum, (int, float)) or not isinstance(maximum, (int, float))
@@ -630,6 +658,7 @@ class Service:
         for page in pages:
             for control in [page, *page['controls'], *page.get('groups', [])]:
                 refs = [control.get('binding', {}).get('tag'), *inline_ids(control)]
+                if control.get('type')=='trend':refs += [s.get('tag') for s in control.get('series',[])]
                 refs += [a.get('tag') for a in control.get('actions', []) if a.get('action') not in PAGE_ACTIONS]
                 refs += [identity for action in control.get('actions', [])
                          if action.get('action') in PAGE_ACTIONS and isinstance(action.get('parameters'), dict)

@@ -202,6 +202,13 @@ Wrap a field's label and editor, or an entire checkbox row, in a quiet surface u
 Color pickers already provide a surrounding surface, so their inner labels do not receive additional boxes. At inspector content widths of 220px or less, paired geometry fields and color cards stack vertically to avoid squeezing the editors. These styles remain restricted to the designer sidebars.
 
 
+### Related-field outer groups
+
+Use a `settings-group` outer frame for related settings, such as source identity, connection, security, delivery, storage, or polling. Add/Edit Data Source dialogs use these groups for every configurable driver. Keep connection testing and save/cancel commands in the dialog footer.
+
+The outer frame uses `--ui-panel`, a 1px `--ui-divider` border, 6px radius, 8px padding, and 12px separation between groups. A group heading is 14px/20px semibold with an 8px gap below it. The `settings-group-fields` grid uses equal flexible columns, 8px horizontal gaps and 12px vertical gaps; stack into one column at 600px. Individual fields retain their standard subtle surfaces, but remove their external margins inside the grid so spacing is not doubled. Related rows and explanatory hints span both columns. Do not add another decorative frame around an existing color card or filter input. Conditional settings remain hidden and disabled as before.
+
+
 ### Top-bar companion style
 
 Use the same theme-aware subtle field surface, 1px neutral border, 6px radius, and 8px gaps in the header. Top-bar fields keep labels inline and use compact 4px vertical / 8px horizontal padding with 30px-high selects. Header buttons are at least 40px high; the launcher is 40px square. Preserve the 64px single-row header, centered clock, scrolling command groups, primary Save & View emphasis, and kiosk/logged-out visibility rules. The compact field padding is a deliberate header-only exception to the designer sidebar's 8px padding.
@@ -339,3 +346,8 @@ Action settings start with Access Roles, then the trigger. Action and its tag/va
 
 
 Alarm requiredRoles follow action semantics: all selected IDs required, empty list allows any signed-in user, administrator bypass. Validate role IDs on alarm save. Alarms.can_silence is the authoritative server check; single denied silence returns 403, Silence All skips denied occurrences and reports a count. Add per-user canSilence to both main and attention payloads and disable matching UI controls, but never trust client flags or supplied roles. Role removal must check alarm references. Non-kiosk standard users have launcher/route access to Alarms/History but no Configuration tab; admin-only save/remove endpoints enforce this boundary. Keep live actor roles resolved by existing session validation so membership changes apply without relying on browser snapshots.
+
+
+### Data source field hints
+
+Add/Edit Data Source fields include a short, persistent secondary hint inside the field surface: centered 12px/18px, normal weight, `--ui-muted`, and the standard 6px label/editor gap. Use `aria-describedby` to associate hints without changing the field’s accessible name. Checkboxes keep their text and checkbox inline, with the hint spanning the row underneath. Address fields use consistent `Example: …` placeholders; distinguish local interfaces from remote devices. Port hints identify the transport and usual protocol port, including MQTT’s TLS alternative. Hints must not change saved values or silently switch ports. Keep optional fields explicitly optional and describe timing units and automatic behavior.

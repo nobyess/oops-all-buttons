@@ -53,6 +53,18 @@ class ModbusTests(unittest.TestCase):
   with self.assertRaises(ValueError):d.write('coil:0:bool:big:big',2)
   d.close()
   with self.assertRaisesRegex(ValueError,'closed'):d.read('holding:0:uint16:big:big')
+ def test_rejected_writes_preserve_connection(self):
+  d=self.driver();d.read('holding:0:uint16:big:big');client=d.client
+  for address,value in [('coil:0:bool:big:big',2),('holding:0:uint16:big:big',1.5),('holding:0:uint16:big:big',65536)]:
+   with self.assertRaises(ValueError):d.write(address,value)
+   self.assertTrue(client.connected);self.assertEqual(d.status()['quality'],'good')
+  client.error=True
+  with self.assertRaisesRegex(ValueError,'rejected'):d.write('holding:0:uint16:big:big',1)
+  self.assertTrue(client.connected);self.assertEqual(d.status()['quality'],'good')
+  client.error=False;self.assertEqual(d.read('holding:0:uint16:big:big'),0)
+  with patch.object(client,'write_register',side_effect=TimeoutError('Timed out')):
+   with self.assertRaisesRegex(ValueError,'Timed out'):d.write('holding:0:uint16:big:big',1)
+  self.assertFalse(client.connected);self.assertEqual(d.status()['quality'],'bad')
  def test_timeout_stops_other_requests_in_batch(self):
   d=self.driver();calls=[]
   def fail(*args,**kwargs):calls.append(args);raise TimeoutError('Timed out')

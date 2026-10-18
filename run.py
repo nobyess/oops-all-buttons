@@ -21,6 +21,7 @@ from hmi.actions import ACTIONS
 from hmi.drivers import DRIVERS
 from hmi.service import Service
 from hmi.store import Store
+from hmi.backup import export_backup, stage_restore, apply_pending, pending_path
 
 ROOT = Path(__file__).resolve().parent
 
@@ -111,17 +112,22 @@ def make_handler(service, request_log=None):
                 except ValueError as error:
                     return self.reply(400, {'error': str(error)})
                 return self.reply(200, tree)
-            if path.startswith('/api/images/'):
-                if not self.session():
+            if path.startswith('/api/images/') or path == '/api/site/logo':
+                if path != '/api/site/logo' and not self.session():
                     return self.reply(401, {'error': 'Please sign in'})
                 import base64
-                asset = service.store.get('image:' + path.rsplit('/', 1)[-1])
+                asset = service.store.get('site_logo') if path == '/api/site/logo' else service.store.get('image:' + path.rsplit('/', 1)[-1])
+                if not asset and path == '/api/site/logo':
+                    default_logo = ROOT / 'static' / 'images' / 'default-logo.png'
+                    if default_logo.is_file():
+                        asset = {'mime':'image/png','data':base64.b64encode(default_logo.read_bytes()).decode('ascii')}
                 if not asset:
                     return self.reply(404, {'error': 'Image not found'})
                 body = base64.b64decode(asset['data'])
                 self.send_response(200)
                 self.send_header('Content-Type', asset['mime'])
                 self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-store')
                 self.send_header('X-Content-Type-Options', 'nosniff')
                 self.send_header('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'")
                 self.end_headers()
@@ -129,6 +135,7 @@ def make_handler(service, request_log=None):
             if path == '/api/status':
                 record = self.session()
                 return self.reply(200, {'setup': not access.users(),
+                                       'site_logo':bool(service.store.get('site_logo')) or (ROOT/'static'/'images'/'default-logo.png').is_file(),
                                        'authenticated': bool(record), 'csrf': record['csrf'] if record else None,
                                        'username': record['user']['username'] if record else None,
                                        'user': record['user'] if record else None})
@@ -146,6 +153,8 @@ def make_handler(service, request_log=None):
                     '/api/alarms': lambda: service.alarm_snapshot(user),
                     '/api/alarms/attention': lambda: service.alarm_attention(user),
                     '/api/admin/users': lambda: [access.public(u) for u in access.users()],
+                    '/api/admin/backup/status': lambda: {'pending':pending_path(Path(service.store.path).parent).exists()},
+                    '/api/admin/site': lambda: {'logo_name':(service.store.get('site_logo') or {}).get('name',''), 'default_logo':(ROOT/'static'/'images'/'default-logo.png').is_file()},
                     '/api/admin/session-settings': lambda: session_settings(service.store.get('session_settings', {})),
                     '/api/admin/status': lambda: {
                         'uptime': time.monotonic() - started, 'cpu_seconds': time.process_time(),
@@ -181,7 +190,7 @@ def make_handler(service, request_log=None):
             file = (ROOT / 'static' / relative).resolve()
             if not file.is_relative_to((ROOT / 'static').resolve()) or not file.is_file():
                 return self.reply(404, {'error': 'Not found'})
-            types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml'}
+            types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png':'image/png'}
             body = file.read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', types.get(file.suffix, 'application/octet-stream'))
@@ -198,11 +207,16 @@ def make_handler(service, request_log=None):
                 if origin and origin != 'http://' + self.headers.get('Host', ''):
                     return self.reply(403, {'error': 'Origin rejected'})
                 length = int(self.headers.get('Content-Length', 0))
-                limit = 16_000_000 if urlsplit(self.path).path == '/api/pages/import' else 7_100_000 if urlsplit(self.path).path == '/api/images' else 1_000_000
+                limit = 90_000_000 if urlsplit(self.path).path in ('/api/admin/restore','/api/setup/restore') else 16_000_000 if urlsplit(self.path).path == '/api/pages/import' else 7_100_000 if urlsplit(self.path).path in ('/api/images','/api/admin/site') else 1_000_000
                 if not 0 < length <= limit:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(length))
                 path = urlsplit(self.path).path
+                if path == '/api/setup/restore':
+                    with auth_lock:
+                        if access.users():return self.reply(409,{'error':'Setup is already complete'})
+                        if data.get('safety_acknowledged') is not True:raise ValueError('Acknowledge the equipment safety notice before restoring')
+                        return self.reply(200,stage_restore(Path(service.store.path).parent,data))
                 if path in ('/api/setup', '/api/login'):
                     with auth_lock:
                         username = str(data['username']).strip()
@@ -225,9 +239,20 @@ def make_handler(service, request_log=None):
                     return self.reply(403, {'error': 'Invalid session token'})
                 user=record['user']
                 allowed={'/api/logout','/api/user/preferences','/api/session/activity','/api/session/kiosk/exit','/api/values/batch','/api/polling/interest','/api/rules/validate','/api/action','/api/actions/authorize','/api/actions/listbox','/api/sheets/get','/api/alarms/silence'}
-                if not user['kiosk']:allowed.add('/api/alarms/history')
+                allowed.add('/api/alarms/history')
                 if (not user['administrator'] or user['kiosk']) and (path not in allowed or (user['kiosk'] and path=='/api/sheets/get')):
                     return self.reply(403, {'error':'Administrator access required'})
+                if path == '/api/admin/backup':
+                    return self.reply(200,export_backup(service))
+                if path == '/api/admin/site':
+                    from hmi.images import prepare_image
+                    if 'logo' not in data:raise ValueError('Choose a logo image')
+                    asset=prepare_image(data['logo']) if data['logo'] is not None else None
+                    service.store.set('site_logo',asset)
+                    return self.reply(200,{'logo_name':asset['name'] if asset else ''})
+                if path == '/api/admin/restore':
+                    with auth_lock:
+                        return self.reply(200,stage_restore(Path(service.store.path).parent,data))
                 if path == '/api/alarms/history':
                     return self.reply(200,service.alarm_history(data))
                 if path == '/api/alarms/silence':
@@ -373,6 +398,19 @@ def make_handler(service, request_log=None):
     return Handler
 
 
+def print_network_interfaces():
+    print('Network interfaces (IPv4):')
+    try:
+        interfaces = local_interfaces()
+    except Exception as error:
+        print(f'  Unable to list interfaces: {error}')
+        return
+    if not interfaces:
+        print('  No active network interfaces found.')
+    for interface in interfaces:
+        print(f"  {interface['name']}: {interface['address']}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', default='127.0.0.1')
@@ -380,6 +418,7 @@ def main():
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--tray', action='store_true')
     args = parser.parse_args()
+    apply_pending(ROOT / 'data')
     service = Service(Store(ROOT / 'data' / 'hmi.sqlite3'))
     request_log = RequestLog()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(service, request_log))
@@ -389,6 +428,7 @@ def main():
     browser_host = '127.0.0.1' if args.host in ('', '0.0.0.0') else args.host
     url = f'http://{browser_host}:{args.port}'
     print(f'Oops! All Buttons: {url} (bind: {args.host}); Ctrl+C stops server')
+    print_network_interfaces()
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     if args.tray:

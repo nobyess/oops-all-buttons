@@ -1,5 +1,6 @@
 import {symbolDefinition} from './symbol.js';
 import {levelDefinition} from './level-indicator.js';
+import {trendDefinition} from './live-trend.js';
 import {listboxDefinition} from './listbox.js';
 import {shapeDefinitions} from './shapes.js';
 import {numericDisplayValue} from './value-format.js';
@@ -33,6 +34,7 @@ export const controls = {
   ...shapeDefinitions(common),
   listbox:listboxDefinition(common),
   level:levelDefinition(common),
+  trend:trendDefinition(common),
   symbol:symbolDefinition(common),
   image: {
     label:'Image',
@@ -56,15 +58,15 @@ export const controls = {
   },
   label: {
     label:'Label', props:{...common,roundedCorners:{label:'Rounded Corners',type:'checkbox'}},
-    defaults:{text:'Label', width:160, height:44,roundedCorners:false},
+    defaults:{text:'Label', width:160, height:44,roundedCorners:false,backColor:'#ffffff00'},
     render(el, c) { el.textContent = c.contentOverride ?? c.text; }
   },
   numeric: {
     label:'Numeric Display', bindable:true,
-    props:{valueTag:{label:'Tag',type:'binding'},displayDigits:{label:'Display Digits',type:'number',min:0,max:15,step:1},
+    props:{valueTag:{label:'Tag',type:'binding'},unitText:{label:'Unit Text',type:'text'},displayDigits:{label:'Display Digits',type:'number',min:0,max:15,step:1},
       ...Object.fromEntries(Object.entries(common).filter(([key])=>key!=='text'))},
-    defaults:{width:170,height:50,displayDigits:2},
-    render(el,c,ctx) {el.textContent=numericDisplayValue(ctx.bindingValue,c.displayDigits ?? 2);}
+    defaults:{width:170,height:50,displayDigits:2,unitText:'',backColor:'#ffffff00'},
+    render(el,c,ctx) {el.textContent=numericDisplayValue(ctx.bindingValue,c.displayDigits ?? 2,c.unitText);}
   },
   button: {
     label:'Button', props:common,

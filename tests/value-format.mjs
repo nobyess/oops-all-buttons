@@ -18,3 +18,11 @@ assert.equal(numericDisplayValue({quality:'good',value:'text'},2),'—');
 assert.equal(controls.numeric.hidden,undefined);assert.equal(controls.numeric.props.text,undefined);
 assert.equal(controls.numeric.props.valueTag.type,'binding');
 console.log('Numeric Display decimal places, zero, missing values, and tag-only content passed.');
+
+assert.equal(controls.numeric.props.promptText,undefined);
+assert.equal(numericDisplayValue({quality:'good',value:42.5},2,'RPM'),'42.50 RPM');
+assert.equal(numericDisplayValue({quality:'good',value:0},0,' % '),'0 %');
+assert.equal(numericDisplayValue({quality:'good',value:-1.25},1,'°C'),'-1.3 °C');
+assert.equal(numericDisplayValue({quality:'bad',value:42},2,'RPM'),'— RPM');
+const unitElement={};controls.numeric.render(unitElement,{displayDigits:2,unitText:'RPM'},{bindingValue:{quality:'good',value:7.5}});assert.equal(unitElement.textContent,'7.50 RPM');
+console.log('Numeric Display unit suffix, spacing, zero/negative values, unavailable data, and removed control prompt passed.');

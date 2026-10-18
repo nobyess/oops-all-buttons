@@ -11,6 +11,9 @@ def references(page):
     for owner in [page, *page.get('controls', []), *page.get('groups', [])]:
         if owner.get('binding', {}).get('tag'):
             yield owner['binding'], 'tag'
+        if owner.get('type')=='trend':
+            for series in owner.get('series',[]):
+                if series.get('tag'):yield series,'tag'
         for key in ('textRefs', 'contentRefs'):
             for name in owner.get(key, {}):
                 yield owner[key], name

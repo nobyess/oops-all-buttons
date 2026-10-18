@@ -4,6 +4,7 @@ const paths={
  button:'M4 7h16v10H4z M8 12h8',
  numeric:'M5 6v12 M3 8l2-2 M9 6h5v6H9v6h5 M17 6h4v12h-4 M17 12h4',
  listbox:'M3 3h18v18H3z M7 7h2 M11 7h6 M7 12h2 M11 12h6 M7 17h2 M11 17h6',
+ trend:'M3 3v18h18 M5 16l4-6 4 3 4-8 4 4',
  level:'M6 3h12v18H6z M6 12h12 M9 15v3 M12 15v3 M15 15v3',
  symbol:'M12 3l3 6 6 3-6 3-3 6-3-6-6-3 6-3z',
  image:'M3 3h18v18H3z M3 17l6-6 4 4 3-3 5 5 M15 7h2v2h-2z',
