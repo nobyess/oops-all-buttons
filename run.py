@@ -143,8 +143,8 @@ def make_handler(service, request_log=None):
                     return self.reply(403, {'error':'Kiosk Mode allows live views only'})
                 routes = {
                     '/api/access/roles': access.roles,
-                    '/api/alarms': service.alarm_snapshot,
-                    '/api/alarms/attention': service.alarm_attention,
+                    '/api/alarms': lambda: service.alarm_snapshot(user),
+                    '/api/alarms/attention': lambda: service.alarm_attention(user),
                     '/api/admin/users': lambda: [access.public(u) for u in access.users()],
                     '/api/admin/session-settings': lambda: session_settings(service.store.get('session_settings', {})),
                     '/api/admin/status': lambda: {

@@ -167,6 +167,9 @@ class ModbusTCPDriver:
                 elif len(registers)==1:response=self.client.write_register(offset,registers[0],**args)
                 else:response=self.client.write_registers(offset,registers,**args)
                 self._check(response);self.quality='good';self.message='Connected'
+            except ModbusDeviceError as error:
+                # The device answered; a rejected write does not break the connection.
+                raise ValueError(str(error)) from None
             except Exception as error:self._fault(error);raise ValueError(str(error)) from None
 
     def close(self):

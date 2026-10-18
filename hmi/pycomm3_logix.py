@@ -261,22 +261,30 @@ class PyComm3LogixDriver:
 
     def write(self, address, value):
         with self.lock:
+            # Validation errors belong to the write, not the transport connection.
+            dtype = self.describe(address)['type']
+            if dtype == 'BOOL':
+                if value not in (0, 1):
+                    raise ValueError('BOOL tags require 0 or 1')
+                value = bool(value)
+            elif dtype in ('SINT', 'INT', 'DINT', 'LINT', 'USINT', 'UINT', 'UDINT', 'ULINT', 'DWORD'):
+                if not float(value).is_integer():
+                    raise ValueError('Integer PLC tags require whole numbers')
+                value = int(value)
+                bits = {'SINT': 8, 'INT': 16, 'DINT': 32, 'LINT': 64,
+                        'USINT': 8, 'UINT': 16, 'UDINT': 32, 'ULINT': 64, 'DWORD': 32}[dtype]
+                unsigned = dtype.startswith('U') or dtype == 'DWORD'
+                low, high = (0, (1 << bits)-1) if unsigned else (-(1 << (bits-1)), (1 << (bits-1))-1)
+                if not low <= value <= high:
+                    raise ValueError(f'{dtype} tags require a value between {low} and {high}')
             try:
-                dtype = self.describe(address)['type']
-                if dtype == 'BOOL':
-                    if value not in (0, 1):
-                        raise ValueError('BOOL tags require 0 or 1')
-                    value = bool(value)
-                elif dtype in ('SINT', 'INT', 'DINT', 'LINT', 'USINT', 'UINT', 'UDINT', 'ULINT', 'DWORD'):
-                    if not float(value).is_integer():
-                        raise ValueError('Integer PLC tags require whole numbers')
-                    value = int(value)
                 result = self._connect().write((address, value))
-                if result.error:
-                    raise ValueError(result.error)
             except Exception as error:
                 self._failed(error)
                 raise ValueError(str(error)) from error
+            # A returned tag error (access denied, encoding, etc.) is not a lost socket.
+            if result.error:
+                raise ValueError(str(result.error))
 
     def close(self):
         with self.lock:

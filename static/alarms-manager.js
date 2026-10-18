@@ -1,3 +1,4 @@
+import {pickAccessRoles} from './access-ui.js';
 import {confirmMessage} from './message-dialog.js';
 import {confirmPageLeave} from './page-leave-dialog.js';
 import {tagPath} from './tag-selector.js';
@@ -9,7 +10,7 @@ export function filterActiveAlarms(items,text='',from='',to=''){
 }
 export function silenceLabel(state){return state?.silenced_at?`Silenced by ${state.silenced_by}`:'Not silenced';}
 
-export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,initialId}){
+export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,getRoles=()=>[],initialId}){
  const card=node('section',null,parent,{className:'card alarms-workspace'});node('h2','Alarms',card);
  const tabs=node('div',null,card,{className:'tabs alarms-tabs'}),activeButton=button('Active Alarms',tabs,()=>switchView('active'));
  const historyButton=button('Alarm History',tabs,()=>switchView('history'));
@@ -25,11 +26,11 @@ export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,
  const from=input('Activated From',filters,'datetime-local'),to=input('Activated To',filters,'datetime-local');from.step=to.step=1;
  const toolbar=node('div',null,active,{className:'alarm-live-toolbar'}),count=node('span','',toolbar,{role:'status'});
  button('Apply Filter',toolbar,()=>{if(from.value && to.value && from.value>to.value){showError('From must be before To.');return;}filterFrom=from.value;filterTo=to.value;showError();renderActive();});
- const silenceAll=button('Silence All',toolbar,async()=>{silenceAll.disabled=true;try{await api('alarms/silence',{all:true});await refresh();}catch(e){showError(e.message);}finally{renderActive(true);}});
+ const silenceAll=button('Silence All',toolbar,async()=>{silenceAll.disabled=true;try{const result=await api('alarms/silence',{all:true});await refresh();if(result.skipped)showError(`${result.skipped} ${result.skipped===1?'alarm requires':'alarms require'} additional access roles and ${result.skipped===1?'was':'were'} not silenced.`);}catch(e){showError(e.message);}finally{renderActive(true);}});
  const table=node('table',null,active,{className:'alarm-active-table'}),head=node('tr',null,node('thead',null,table));
  for(const title of ['Activated','Alarm','State',''])node('th',title,head);
  const rows=node('tbody',null,table);
- node('p','Silencing leaves an alarm active. Silence All includes alarms hidden by filters.',active,{className:'hint'});
+ node('p','Silencing leaves an alarm active. Silence All includes permitted alarms hidden by filters.',active,{className:'hint'});
  search.oninput=()=>renderActive();
  const historySearch=node('input',null,history,{type:'search',placeholder:'Search alarm names, messages, or users…',className:'alarm-search'});historySearch.setAttribute('aria-label','Filter alarm history');
  const historyDates=node('div',null,history,{className:'alarm-date-filters'}),historyFrom=input('Activated From',historyDates,'datetime-local'),historyTo=input('Activated To',historyDates,'datetime-local');historyFrom.step=historyTo.step=1;
@@ -64,8 +65,8 @@ export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,
  function renderActive(force=false){
   const decorated=items.map(a=>({...a,tagPath:tagName(a.event.tag)})),visible=filterActiveAlarms(decorated,search.value,filterFrom,filterTo),all=items.filter(a=>a.state?.active);
   activeButton.textContent=`Active Alarms (${all.length})`;count.textContent=`${visible.length} of ${all.length} active · ${all.filter(a=>!a.state.silenced_at).length} not silenced`;
-  silenceAll.disabled=!all.some(a=>!a.state.silenced_at);
-  const signature=JSON.stringify(visible.map(a=>[a.id,a.name,a.message,a.state]));if(!force && signature===liveSignature)return;liveSignature=signature;
+  silenceAll.disabled=!all.some(a=>!a.state.silenced_at && a.canSilence!==false);
+  const signature=JSON.stringify(visible.map(a=>[a.id,a.name,a.message,a.state,a.canSilence]));if(!force && signature===liveSignature)return;liveSignature=signature;
   rows.replaceChildren();
   if(!visible.length){node('td','No active alarms match these filters.',node('tr',null,rows),{colSpan:4});return;}
   for(const a of visible){const row=node('tr',null,rows),date=new Date(a.state.activated_at*1000),time=node('td',date.toLocaleDateString(),row);node('small',date.toLocaleTimeString(),time);
@@ -73,7 +74,7 @@ export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,
    const state=node('td',null,row);node('span','',state,{className:'alarm-dot active'});node('span',' Active',state);node('small',silenceLabel(a.state),state);
    if(a.state.silenced_at)node('small',new Date(a.state.silenced_at*1000).toLocaleString(),state);
    if(a.state.quality==='bad')node('small','Tag unavailable; last active state retained',state,{className:'bad'});
-   const action=node('td',null,row),silence=button(a.state.silenced_at?'Silenced':'Silence',action,async()=>{silence.disabled=true;try{await api('alarms/silence',{id:a.id,occurrence:a.state.occurrence});await refresh();}catch(e){showError(e.message);liveSignature='';await refresh();}});silence.disabled=Boolean(a.state.silenced_at);
+   const action=node('td',null,row),silence=button(a.state.silenced_at?'Silenced':'Silence',action,async()=>{silence.disabled=true;try{await api('alarms/silence',{id:a.id,occurrence:a.state.occurrence});await refresh();}catch(e){showError(e.message);liveSignature='';await refresh();}});silence.disabled=Boolean(a.state.silenced_at) || a.canSilence===false;if(a.canSilence===false)silence.title='Additional access roles are required to silence this alarm.';
   }
  }
  let stateBox,ruleBox;
@@ -87,11 +88,15 @@ export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,
   function showDetail(){for(const[key,b]of detailButtons){b.setAttribute('aria-selected',String(detail===key));}alarmPanel.hidden=detail!=='alarm';eventPanel.hidden=detail!=='event';}showDetail();
   const name=input('Name',alarmPanel,'text',draft.name);name.required=true;name.maxLength=150;name.oninput=()=>{draft.name=name.value;changed();};
   const message=input('Alarm Message',alarmPanel,'text',draft.message);message.maxLength=2000;message.oninput=()=>{draft.message=message.value;changed();};
+  let roles=getRoles();
+  const roleLabel=()=> 'Silence Access Roles: '+((draft.requiredRoles || []).length?(draft.requiredRoles || []).map(id=>roles.find(role=>role.id===id)?.name || 'Missing role').join(', '):'Any signed-in user');
+  const roleButton=button(roleLabel(),alarmPanel,async()=>{roles=await api('access/roles');const next=await pickAccessRoles(roles,draft.requiredRoles || []);if(next!==null){draft.requiredRoles=next;changed();roleButton.textContent=roleLabel();}});roleButton.className='alarm-roles-button';roleButton.title='All selected roles are required to silence. Administrators always have access.';
   const focused=input('Focused Alarm',alarmPanel,'checkbox');focused.checked=Boolean(draft.focused);focused.parentElement.className='checkbox-row';focused.onchange=()=>{draft.focused=focused.checked;changed();};
   const enabled=input('Enabled',alarmPanel,'checkbox');enabled.checked=draft.enabled;enabled.parentElement.className='checkbox-row';enabled.onchange=()=>{draft.enabled=enabled.checked;changed();showState();};
   tagSelect('Tag',eventPanel,draft.event.tag,value=>{draft.event.tag=value;changed();showState();});
-  const comparison=node('select',null,node('label','Comparison',eventPanel));for(const[value,title]of [['=','Equals'],['!=','Not Equal'],['<','Less Than'],['>','Greater Than'],['within_range','Within Range'],['out_of_range','Out Of Range']])node('option',title,comparison,{value});comparison.value=draft.event.operator;
-  const operands=node('div',null,eventPanel);
+  const conditionGroup=node('div',null,eventPanel,{className:'event-condition-group',role:'group'});conditionGroup.setAttribute('aria-label','Event condition');
+  const comparison=node('select',null,node('label','Comparison',conditionGroup));for(const[value,title]of [['=','Equals'],['!=','Not Equal'],['<','Less Than'],['>','Greater Than'],['within_range','Within Range'],['out_of_range','Out Of Range']])node('option',title,comparison,{value});comparison.value=draft.event.operator;
+  const operands=node('div',null,conditionGroup);
   // Refresh can replace the draft; handlers must resolve its current operand.
   function operand(label,key){const value=draft.event[key]??={kind:'value',value:0},group=node('div',null,operands,{className:'alarm-operand'}),mode=node('select',null,node('label',label+' type',group));for(const[k,title]of [['value','Value'],['tag','Tag']])node('option',title,mode,{value:k});mode.value=value.kind;mode.onchange=()=>{draft.event[key].kind=mode.value;changed();renderOperands();};if(value.kind==='tag')tagSelect(label,group,value.tag || '',tag=>{draft.event[key].tag=tag;changed();showState();});else{const box=input(label,group,'number',value.value??0);box.step='any';box.oninput=()=>{draft.event[key].value=box.value===''?null:Number(box.value);changed();showState();};}}
   function renderOperands(){operands.replaceChildren();const range=['within_range','out_of_range','range'].includes(draft.event.operator);operand(range?'Range Start':'Compare To','operand');if(range)operand('Range End','end_operand');showState();}

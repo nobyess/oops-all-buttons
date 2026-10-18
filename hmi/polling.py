@@ -34,7 +34,6 @@ class PollingManager:
         self.on_samples = None
         self.last_status_check = -math.inf
         self.status_busy = False
-        self.permanent_interest = set()
         self.error_log = None
         self.changed = threading.Event()
         self.changed.set()
@@ -137,7 +136,7 @@ class PollingManager:
         with self.lock:
             now = self.clock()
             self.leases = {k: v for k, v in self.leases.items() if v[0] > now}
-            live = set(self.permanent_interest).union(*(v[1] for v in self.leases.values()))
+            live = set().union(*(v[1] for v in self.leases.values())) if self.leases else set()
             jobs = {}
             for name, tag in self.tags.items():
                 if tag.get("connection_status"):continue
@@ -200,7 +199,7 @@ class PollingManager:
         with self.lock:
             now = self.clock()
             leases = [v for v in self.leases.values() if v[0] > now]
-            live = set(self.permanent_interest).union(*(v[1] for v in leases))
+            live = set().union(*(v[1] for v in leases)) if leases else set()
             return {'clients': len(leases), 'sources': {
                 source: {**self.statistics.get(source, {}), 'busy': source in self.busy,
                          'live_tags': sum(t['source'] == source and name in live for name, t in self.tags.items()),

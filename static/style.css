@@ -531,6 +531,8 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:1
 .library-preview[role="button"]:focus-visible{outline:2px solid var(--ui-link);outline-offset:2px}
 .kiosk-mode .header-start{display:none}
 .kiosk-mode header:has(#exit-kiosk) .header-start{display:flex}
+.kiosk-mode header:has(#kiosk-home) .header-start{display:flex}
+#kiosk-home{margin-left:auto;flex-shrink:0}
 #exit-kiosk{margin:0;order:0}
 /* One continuous designer toolbar, with scrolling instead of wrapped groups. */
 #page-menu,#view-tools{flex-wrap:nowrap;align-items:center;overflow-x:auto;min-width:0;padding:4px 0;gap:8px}
@@ -553,7 +555,7 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:1
 }
 #view-tools label{flex-direction:row;align-items:center;gap:6px}
 
-.header-end:has(#view-tools:not(:empty)) #account::before{content:'';display:block;flex:0 0 1px;width:1px;height:28px;background:var(--ui-divider);margin-right:2px}
+.header-end #view-tools:not(:empty)::after{content:'';display:block;flex:0 0 1px;width:1px;height:28px;background:var(--ui-divider);margin-left:2px}
 #account button{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 dialog.account-popup{position:fixed;top:calc(var(--header-height,64px) + 8px);right:16px;left:auto;bottom:auto;margin:0;width:min(340px,calc(100vw - 32px));max-height:calc(100dvh - var(--header-height,64px) - 24px);overflow:auto;padding:24px}
 .account-popup h2{margin:0 0 18px;font-size:20px}
@@ -1109,3 +1111,17 @@ body {background:var(--app-background,var(--ui-background))}
  .alarm-history-table td:nth-child(4)::before{content:'Silenced'}
  .alarm-history-table td[colspan]{grid-column:1/-1}
 }
+
+/* A comparison and all of its operands share one condition surface. */
+.editor > .sidebar .event-condition-group,.alarms-workspace .event-condition-group {display:flex;flex-direction:column;gap:12px;min-width:0;padding:8px;margin:0 0 12px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.editor > .sidebar .event-condition-group:focus-within,.alarms-workspace .event-condition-group:focus-within {border-color:var(--ui-link)}
+.editor > .sidebar .event-condition-group > label,.editor > .sidebar .event-condition-group .event-operand-group,.alarms-workspace .event-condition-group .alarm-operand {padding:0;margin:0;border:0;border-radius:0;background:transparent}
+.alarms-workspace .event-condition-group label {margin:0}
+.alarms-workspace .event-condition-group .alarm-operand + .alarm-operand {margin-top:12px}
+
+.editor > .sidebar .action-access-button {width:100%;margin:0 0 12px}
+.editor > .sidebar .event-action-group > button {margin:0}
+.alarms-workspace label.checkbox-row {gap:12px;margin:8px 0}
+.alarms-workspace label.checkbox-row input[type=checkbox] {align-self:auto;flex-shrink:0;width:auto;margin:0}
+
+.alarms-workspace .alarm-roles-button {width:100%;margin:0 0 12px;text-align:left;overflow-wrap:anywhere;white-space:normal}

@@ -94,7 +94,6 @@ class Service:
                 driver.configure_topics([tag['address'] for tag in self.tags() if tag['source'] == source['id'] and not tag.get('connection_status')])
         system=self.drivers.get('system')
         if system:system.disconnected_sources=lambda:sum(not sample.get('value',False) for sample in self.polling.samples({t['id'] for t in self.connection_tags}).values())
-        self.update_alarm_interest()
         self.polling.configure(self.sources(), self.tags(), self.drivers)
         self.evaluate_alarms()
 
@@ -154,28 +153,18 @@ class Service:
         with self.lock:
             if self.alarms.items:self.alarms.evaluate(self.values(self.alarms.dependencies()))
 
-    def update_alarm_interest(self):
-        wanted=self.alarms.dependencies()
-        if wanted:
-            tags={t['id']:t for t in self.tags()};pending=list(wanted)
-            while pending:
-                tag=tags.get(pending.pop())
-                driver=self.drivers.get(tag['source']) if tag else None
-                if isinstance(driver,SheetDriver):
-                    extra=driver.dependencies()-wanted;wanted.update(extra);pending.extend(extra)
-        self.polling.permanent_interest=wanted
-
-    def alarm_snapshot(self):
+    def alarm_snapshot(self, actor=None):
         with self.lock:
             result=self.alarms.snapshot()
             samples=self.values({a['event']['tag'] for a in result})
-            for alarm in result:alarm['current_value']=samples.get(alarm['event']['tag'],{}).get('value')
+            for alarm in result:
+                alarm['current_value']=samples.get(alarm['event']['tag'],{}).get('value')
+                if actor is not None:alarm['canSilence']=self.alarms.can_silence(alarm,actor)
             return result
 
     def save_alarm(self,data):
         with self.lock:
             result=self.alarms.save(data,self.tags())
-            self.update_alarm_interest()
             self.polling.changed.set()
             self.evaluate_alarms()
             return result
@@ -183,15 +172,15 @@ class Service:
     def remove_alarm(self,data):
         with self.lock:
             self.alarms.remove(data['id'])
-            self.update_alarm_interest()
 
     def silence_alarms(self,data,actor):
         with self.lock:return self.alarms.silence(data,actor)
 
-    def alarm_attention(self):
+    def alarm_attention(self, actor=None):
         with self.lock:
             return [{'id':alarm['id'],'name':alarm['name'],'message':alarm['message'],
-                     'focused':alarm.get('focused',False),'state':dict(self.alarms.states[alarm['id']])}
+                     'focused':alarm.get('focused',False),'state':dict(self.alarms.states[alarm['id']]),
+                     **({'canSilence':self.alarms.can_silence(alarm,actor)} if actor is not None else {})}
                     for alarm in self.alarms.items if self.alarms.states.get(alarm['id'],{}).get('active')]
 
     def alarm_history(self,data):

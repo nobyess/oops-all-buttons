@@ -105,6 +105,7 @@ class Access:
             if any(identity in u['roles'] for u in self.users()):raise ValueError('This role is assigned to a user')
             if any(c.get('type')=='listbox' and identity in c.get('requiredRoles',[]) for p in self.service.pages() for c in p.get('controls',[])):raise ValueError('This role is required by a saved listbox')
             if any(identity in a.get('requiredRoles',[]) for p in self.service.pages() for c in [p,*p.get('controls',[])] for a in c.get('actions',[])):raise ValueError('This role is required by a saved action')
+            if any(identity in alarm.get('requiredRoles',[]) for alarm in self.service.alarms.items):raise ValueError('This role is required to silence a saved alarm')
             self.store.set('access_roles',[r for r in self.roles() if r['id']!=identity])
 
     def authorize(self,user,data):

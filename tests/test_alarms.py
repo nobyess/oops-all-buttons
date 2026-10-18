@@ -52,12 +52,12 @@ class AlarmTests(unittest.TestCase):
         self.assertFalse(self.service.alarm_snapshot()[0]['state']['active'])
     def test_validation_dependencies_and_references(self):
         alarm=self.save_active()
-        self.assertIn('level',self.service.polling.permanent_interest)
+        self.assertIn('level',self.service.alarms.dependencies())
         self.assertEqual(self.service.usage('level')[0]['alarm'],alarm['id'])
         with self.assertRaises(ValueError):self.service.remove_tag({'id':'level'})
         for event in [{'tag':'missing','operator':'=','operand':{'value':1}}, {'tag':'level','operator':'=','operand':{'value':float('inf')}}, {'tag':'level','operator':'within_range','operand':{'value':10},'end_operand':{'value':2}}]:
             with self.assertRaises(ValueError):self.service.save_alarm({**self.rule,'name':'Invalid','event':event})
-        self.service.remove_alarm({'id':alarm['id']});self.assertNotIn('level',self.service.polling.permanent_interest)
+        self.service.remove_alarm({'id':alarm['id']});self.assertNotIn('level',self.service.alarms.dependencies())
         self.service.remove_tag({'id':'level'})
     def test_conditions_match_browser_semantics(self):
         values={'a':{'quality':'good','value':5},'b':{'quality':'good','value':10}}
@@ -100,6 +100,7 @@ class AlarmTests(unittest.TestCase):
         _,operator,operator_cookie=request('/api/login',{'username':'Operator','password':'test-password'});operator_csrf=request('/api/status',cookie=operator_cookie)[1]['csrf']
         self.assertEqual(request('/api/alarms',cookie=operator_cookie)[0],200)
         self.assertEqual(request('/api/admin/alarms/save',self.rule,operator_cookie,operator_csrf)[0],403)
+        self.assertEqual(request('/api/admin/alarms/remove',{'id':alarm['id']},operator_cookie,operator_csrf)[0],403)
         state=self.service.alarm_snapshot()[0]['state']
         self.assertEqual(request('/api/alarms/silence',{'id':alarm['id'],'occurrence':state['occurrence'],'username':'Forged'},operator_cookie,operator_csrf)[0],200)
         self.assertEqual(self.service.alarm_snapshot()[0]['state']['silenced_by'],'Operator')
@@ -111,6 +112,17 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(request('/api/alarms/silence',{'all':True},kiosk_cookie,kiosk_csrf)[0],403)
         self.assertEqual(request('/api/alarms/attention',cookie=kiosk_cookie)[0],200)
         self.assertEqual(request('/api/alarms/silence',{'id':alarm['id'],'occurrence':state['occurrence']},kiosk_cookie,kiosk_csrf)[0],200)
+
+        self.service.store.set('access_roles',[{'id':'silence','name':'Silence Alarms'}])
+        restricted=self.service.save_alarm({**self.rule,'name':'Protected','requiredRoles':['silence']})
+        occurrence=next(a for a in self.service.alarm_snapshot() if a['id']==restricted['id'])['state']['occurrence']
+        payload={'id':restricted['id'],'occurrence':occurrence,'roles':['silence'],'administrator':True}
+        self.assertEqual(request('/api/alarms/silence',payload,operator_cookie,operator_csrf)[0],403)
+        self.assertFalse(next(a for a in request('/api/alarms',cookie=operator_cookie)[1] if a['id']==restricted['id'])['canSilence'])
+        self.assertFalse(next(a for a in request('/api/alarms/attention',cookie=kiosk_cookie)[1] if a['id']==restricted['id'])['canSilence'])
+        operator_id=request('/api/status',cookie=operator_cookie)[1]['user']['id']
+        self.assertEqual(request('/api/admin/roles/save',{'id':'silence','name':'Silence Alarms','users':[operator_id]},cookie,csrf)[0],200)
+        self.assertEqual(request('/api/alarms/silence',payload,operator_cookie,operator_csrf)[0],200)
 
     def test_history_keeps_activation_clear_silence_and_removed_alarm(self):
         from unittest.mock import patch
@@ -153,3 +165,50 @@ class AlarmTests(unittest.TestCase):
         first=self.service.alarm_history({});last=self.service.alarm_history({'offset':50})
         self.assertEqual(first['total'],60);self.assertEqual(len(first['items']),50);self.assertEqual(len(last['items']),10)
         self.assertFalse({a['occurrence'] for a in first['items']} & {a['occurrence'] for a in last['items']})
+
+    def test_alarm_alone_uses_background_but_visible_page_uses_live(self):
+        sources=self.service.sources();sources[0]['settings'].update(live=.5,background=20)
+        self.service.store.set('sources',sources);self.service.configure_polling()
+        now=[0];self.service.polling.clock=lambda:now[0]
+        self.service.save_alarm(self.rule)
+        driver=self.service.drivers['system'];driver.write('Memory/level',95)
+        self.service.polling.poll_due(False)
+        self.assertTrue(self.service.alarm_snapshot()[0]['state']['active'])
+        driver.write('Memory/level',0);now[0]=1
+        self.service.polling.poll_due(False)
+        self.assertTrue(self.service.alarm_snapshot()[0]['state']['active'])
+        self.service.polling.interest('visible-page',['level'])
+        self.service.polling.poll_due(False)
+        self.assertFalse(self.service.alarm_snapshot()[0]['state']['active'])
+        self.service.polling.interest('visible-page',[])
+        driver.write('Memory/level',95);now[0]=2
+        self.service.polling.poll_due(False)
+        self.assertFalse(self.service.alarm_snapshot()[0]['state']['active'])
+        now[0]=21;self.service.polling.poll_due(False)
+        self.assertTrue(self.service.alarm_snapshot()[0]['state']['active'])
+
+    def test_silence_roles_all_required_and_admin_bypass(self):
+        self.service.store.set('access_roles',[{'id':'operators','name':'Operators'},{'id':'supervisors','name':'Supervisors'}])
+        self.sample(90)
+        alarm=self.service.save_alarm({**self.rule,'requiredRoles':['operators','supervisors']})
+        state=self.service.alarm_snapshot()[0]['state'];payload={'id':alarm['id'],'occurrence':state['occurrence']}
+        for roles in [[],['operators']]:
+            actor={**self.actor,'roles':roles}
+            with self.assertRaises(PermissionError):self.service.silence_alarms(payload,actor)
+            self.assertFalse(self.service.alarm_snapshot(actor)[0]['canSilence'])
+        actor={**self.actor,'roles':['operators','supervisors']}
+        self.assertTrue(self.service.alarm_snapshot(actor)[0]['canSilence'])
+        self.assertEqual(self.service.silence_alarms(payload,actor),{'silenced':1})
+        self.sample(0);self.sample(90);state=self.service.alarm_snapshot()[0]['state']
+        self.assertEqual(self.service.silence_alarms({'id':alarm['id'],'occurrence':state['occurrence']},{**self.actor,'administrator':True,'roles':[]}),{'silenced':1})
+    def test_silence_all_skips_protected_alarms_and_roles_cannot_be_deleted(self):
+        from hmi.access import Access
+        access=Access(self.service);role=access.save_role({'name':'Alarm Operators'})
+        self.sample(90)
+        protected=self.service.save_alarm({**self.rule,'requiredRoles':[role['id']]})
+        self.service.save_alarm({**self.rule,'name':'Public Alarm'})
+        self.assertEqual(self.service.silence_alarms({'all':True},self.actor),{'silenced':1,'skipped':1})
+        protected_state=next(a for a in self.service.alarm_snapshot() if a['id']==protected['id'])['state']
+        self.assertIsNone(protected_state['silenced_at'])
+        with self.assertRaises(ValueError):access.remove_role(role['id'])
+        with self.assertRaises(ValueError):self.service.save_alarm({**self.rule,'name':'Invalid','requiredRoles':['missing']})

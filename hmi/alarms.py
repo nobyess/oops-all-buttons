@@ -65,6 +65,12 @@ class Alarms:
     def event_tags(event):
         return {event.get('tag'), *[event.get(key, {}).get('tag') for key in ('operand', 'end_operand') if event.get(key, {}).get('kind') == 'tag']} - {None, ''}
 
+    @staticmethod
+    def can_silence(alarm, actor):
+        if actor.get('administrator'):return True
+        required=alarm.get('requiredRoles',[])
+        return isinstance(required,list) and set(required).issubset(actor.get('roles',[]))
+
     def persist(self, audits=(), definitions=False, history=()):
         with self.store.connect() as db:
             entries = [('alarm_states', self.states)]
@@ -102,6 +108,9 @@ class Alarms:
         if not name or len(name) > 150: raise ValueError('Alarm name is required (150 characters maximum)')
         if len(message) > 2000: raise ValueError('Alarm message is too long')
         if any(a['id'] != identity and a['name'].casefold() == name.casefold() for a in self.items): raise ValueError('Alarm name already exists')
+        required=data.get('requiredRoles',(original or {}).get('requiredRoles',[]))
+        known_roles={role['id'] for role in self.store.get('access_roles',[])}
+        if not isinstance(required,list) or any(not isinstance(role,str) or role not in known_roles for role in required):raise ValueError('Choose existing access roles for silencing')
         event = data.get('event', {})
         if not isinstance(event, dict) or event.get('operator') not in OPERATORS: raise ValueError('Choose an alarm comparison')
         known = {t['id'] for t in tags}
@@ -120,7 +129,7 @@ class Alarms:
                 rule[key] = {'kind': 'value', 'value': value}
             else: raise ValueError('Choose Value or Tag')
         if len(keys) == 2 and all(rule[k]['kind'] == 'value' for k in keys) and rule['operand']['value'] > rule['end_operand']['value']: raise ValueError('Range end must be at least range start')
-        alarm = {'id': identity, 'name': name, 'message': message, 'enabled': data.get('enabled', True) is True, 'focused': data.get('focused', False) is True, 'event': rule}
+        alarm = {'id': identity, 'name': name, 'message': message, 'enabled': data.get('enabled', True) is True, 'focused': data.get('focused', False) is True, 'requiredRoles':list(dict.fromkeys(required)), 'event': rule}
         if original: self.items[self.items.index(original)] = alarm
         else: self.items.append(alarm)
         # A changed condition begins a fresh occurrence on the next evaluation.
@@ -175,12 +184,18 @@ class Alarms:
         previous_states = copy.deepcopy(self.states)
         all_alarms = data.get('all') is True
         if not all_alarms:
+            alarm=next((alarm for alarm in self.items if alarm['id']==data.get('id')),None)
+            if alarm is not None and not self.can_silence(alarm,actor):raise PermissionError('You do not have the required access roles to silence this alarm')
             state = self.states.get(data.get('id'), {})
             if not state.get('active') or state.get('occurrence') != data.get('occurrence'): raise ValueError('Alarm changed; refresh the active list')
         audits = []
+        skipped=0
         for alarm in self.items:
             state = self.states.get(alarm['id'], {})
             if not state.get('active') or state.get('silenced_at') or (not all_alarms and alarm['id'] != data['id']): continue
+            if not self.can_silence(alarm,actor):
+                skipped+=1
+                continue
             stamp = time.time()
             state.update(silenced_by=actor['username'], silenced_user_id=actor['id'], silenced_at=stamp)
             audits.append((uuid.uuid4().hex, state['occurrence'], alarm['id'], alarm['name'], actor['id'], actor['username'], stamp))
@@ -189,7 +204,7 @@ class Alarms:
             except Exception:
                 self.states = previous_states
                 raise
-        return {'silenced': len(audits)}
+        return {'silenced': len(audits),**({'skipped':skipped} if skipped else {})}
 
     def snapshot(self):
         return copy.deepcopy([{**alarm, 'state': self.states.get(alarm['id'], {})} for alarm in self.items])

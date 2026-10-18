@@ -290,6 +290,7 @@ async function start(afterLogin=false)  {
   closeAccountPopup();
   alarmAttention.setUser(null);
   document.querySelector('#exit-kiosk')?.remove();
+  document.querySelector('#kiosk-home')?.remove();
   const status=await api('status');
   csrf=status.csrf;currentUser=status.user;applyTheme(currentUser?.theme || 'system',currentUser?.app_background || '');document.body.classList.toggle('kiosk-mode',Boolean(status.authenticated && currentUser?.kiosk));
   document.body.classList.toggle('logged-out',!status.authenticated);
@@ -318,6 +319,17 @@ async function start(afterLogin=false)  {
   userButton.setAttribute('aria-haspopup','dialog');userButton.setAttribute('aria-expanded','false');
   [catalog,sources,tags,pages,accessRoles]=await Promise.all(['catalog','sources','tags','pages','access/roles'].map(p=>api(p)));
   pages.forEach(normalize);
+  if(currentUser?.kiosk){
+    const homePage=pages.find(p=>p.id===currentUser.starting_page)||pages[0];
+    const home=button('Home',document.querySelector('.header-start'),()=>{
+      if(!homePage)return;
+      closePageWindows();
+      location.hash='#runtime/'+homePage.id;
+    });
+    home.id='kiosk-home';
+    home.disabled=!homePage;
+    home.title=homePage?'Go to starting page: '+homePage.name:'No starting page available';
+  }
   if(suspendedEditor && currentUser?.administrator && !currentUser?.kiosk){
     ({page,selected,tab,ruleId}=suspendedEditor);suspendedEditor=null;dirty=true;
   } else {page=pages.find(p=>p.id===page?.id)||pages[0];dirty=false;}
@@ -336,6 +348,7 @@ function auth(setup)  {
   closeAccountPopup();
   document.body.classList.remove('kiosk-mode');
   document.querySelector('#exit-kiosk')?.remove();
+  document.querySelector('#kiosk-home')?.remove();
   navigation.accept();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
@@ -430,7 +443,7 @@ function route() {
     
     routedHash=location.hash;
   }
-  if(name==='alarms')closeLibrary=mountAlarms(app,{node,button,api,canManage:currentUser.administrator,tagSelect,getTags:()=>tags,initialId:id});
+  if(name==='alarms')closeLibrary=mountAlarms(app,{node,button,api,canManage:currentUser.administrator,tagSelect,getTags:()=>tags,getRoles:()=>accessRoles,initialId:id});
   else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api});
   else if(name==='pages')safe(showPages);
   else if(name==='tags')showSources();
@@ -1617,12 +1630,6 @@ function showInspector(panel) {
   }
   if (isEvent) tagSelect('Source Tag', panel, item.tag, value => change('tag', value));
   if (!isEvent) {
-    const trigger = select(isPage?'Page event':'Mouse event', panel,
-      isPage?[['page_open','Page Open'],['page_close','Page Close']]:c.type==='listbox'?[['user_changed','User Changed']]:[['mouse_down', 'Mouse Down'], ['mouse_up', 'Mouse Up'], ['click', 'Click']], item.trigger);
-    trigger.onchange = () => change('trigger', trigger.value);
-    const pageActionUnavailable=isPage && ['navigate','popup'].includes(item.action);
-    const action = select('Action', panel, [...(pageActionUnavailable?[['','Select an action…']]:[]), ...Object.entries(catalog.actions).map(([key, a]) => [key, a.label]), ['value_input','Value Input'], ...(!isPage?[['navigate','Navigate to Page'], ['popup','Popup Page']]:[])], pageActionUnavailable?'':item.action);
-    action.onchange = () => change('action', action.value, true);
     const required=item.requiredRoles || [];
     const rolesButton=button('Access Roles: '+(required.length?required.map(id=>accessRoles.find(role=>role.id===id)?.name || 'Missing role').join(', '):'Any signed-in user'),panel,async()=>{
       const roles=await api('access/roles');accessRoles=roles;
@@ -1630,49 +1637,58 @@ function showInspector(panel) {
       if(next!==null)change('requiredRoles',next,true);
     });
     rolesButton.title='All selected roles are required. Administrators can run any action.';
-    if(!['navigate','popup'].includes(item.action))tagSelect('Tag', panel, item.tag, value=>change('tag',value));
+    rolesButton.classList.add('action-access-button');
+    const trigger = select(isPage?'Page event':'Mouse event', panel,
+      isPage?[['page_open','Page Open'],['page_close','Page Close']]:c.type==='listbox'?[['user_changed','User Changed']]:[['mouse_down', 'Mouse Down'], ['mouse_up', 'Mouse Up'], ['click', 'Click']], item.trigger);
+    trigger.onchange = () => change('trigger', trigger.value);
+    const pageActionUnavailable=isPage && ['navigate','popup'].includes(item.action);
+    const actionGroup=node('div',null,panel,{className:'event-condition-group event-action-group',role:'group','aria-label':'Action details'});
+    const action = select('Action', actionGroup, [...(pageActionUnavailable?[['','Select an action…']]:[]), ...Object.entries(catalog.actions).map(([key, a]) => [key, a.label]), ['value_input','Value Input'], ...(!isPage?[['navigate','Navigate to Page'], ['popup','Popup Page']]:[])], pageActionUnavailable?'':item.action);
+    action.onchange = () => change('action', action.value, true);
+    if(!['navigate','popup'].includes(item.action))tagSelect('Tag', actionGroup, item.tag, value=>change('tag',value));
     if(item.action==='value_input') {
       item.minimum ??= 0;item.maximum ??= 100;item.allowDecimal ??= false;
-      const prompt=field('Prompt',panel,'text',item.prompt || '');prompt.placeholder='Value Input';
+      const prompt=field('Prompt',actionGroup,'text',item.prompt || '');prompt.placeholder='Value Input';
       prompt.onchange=()=>change('prompt',prompt.value);
       for(const [key,label] of [['minimum','Minimum'],['maximum','Maximum']]) {
-        const input=field(label,panel,'number',item[key]);input.step='any';
+        const input=field(label,actionGroup,'number',item[key]);input.step='any';
         input.onchange=()=>change(key,input.value===''?'':Number(input.value));
       }
-      const decimal=field('Allow Decimal',panel,'checkbox');decimal.checked=item.allowDecimal;
+      const decimal=field('Allow Decimal',actionGroup,'checkbox');decimal.checked=item.allowDecimal;
       decimal.parentElement.classList.add('checkbox-row');decimal.onchange=()=>change('allowDecimal',decimal.checked);
     }
     if (!isPage && ['navigate', 'popup'].includes(item.action)) {
-      const destination = select('Page', panel, [['','Select page…'], ...pages.map(p => [p.id,p.name])], item.page || '');
+      const destination = select('Page', actionGroup, [['','Select page…'], ...pages.map(p => [p.id,p.name])], item.page || '');
       destination.onchange = () => {item.parameters={};change('page', destination.value,true);};
-      const editDestination=button('Edit Page',panel,async()=>{
+      const editDestination=button('Edit Page',actionGroup,async()=>{
         const id=item.page;if(!(await choosePage(id)))return;
         selected=PAGE_SELECTION;tab='Properties';location.hash='#editor/'+id;route();
       });
       editDestination.disabled=!pages.some(p=>p.id===item.page);
-      const connections=button('Connect Parameters',panel,async()=>{
+      const connections=button('Connect Parameters',actionGroup,async()=>{
         const target=pages.find(p=>p.id===item.page);if(!target)return;
         const result=await connectParameters(target,item.parameters || {},(parent,name,value,onChange)=>tagPicker(parent,{label:'Tag for '+name,hideLabel:true,value,onChange,...pickerProviders()}));
         if(result!==null)change('parameters',result);
       });
       connections.disabled=!pages.some(p=>p.id===item.page);
       if (item.action === 'popup') {
-        const position = select('Placement', panel, [['centered','Centered'], ['mouse','Mouse Location']], item.position || 'centered');
+        const position = select('Placement', actionGroup, [['centered','Centered'], ['mouse','Mouse Location']], item.position || 'centered');
         position.onchange = () => change('position', position.value);
       }
     }
     if (catalog.actions[item.action]?.needs_value) {
-      const value = field('Action value', panel, 'number', item.value);
+      const value = field('Action value', actionGroup, 'number', item.value);
       value.onchange = () => change('value', Number(value.value));
     }
     return;
   }
-  const comparison = select('Comparison', panel,
+  const conditionGroup=node('div',null,panel,{className:'event-condition-group',role:'group','aria-label':'Event condition'});
+  const comparison = select('Comparison', conditionGroup,
     [['=', 'Equals'], ['!=', 'Not Equal'], ['<', 'Less Than'], ['>', 'Greater Than'],
      ['within_range', 'Within Range'], ['out_of_range', 'Out Of Range']], item.operator);
   comparison.onchange = () => change('operator', comparison.value, true);
   function operandEditor(label, key) {
-    const group=node('div',null,panel,{className:'event-operand-group',role:'group','aria-label':label});
+    const group=node('div',null,conditionGroup,{className:'event-operand-group',role:'group','aria-label':label});
     const operand = item[key] ??= {kind: 'value', value: 0};
     const mode = select(label + ' type', group, [['value', 'Value'], ['tag', 'Tag']], operand.kind || 'value');
     mode.onchange = () => change(key,{...operand,kind:mode.value},true);
