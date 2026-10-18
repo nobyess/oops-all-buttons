@@ -83,7 +83,7 @@ class PyComm3CIPDriver(PyComm3LogixDriver):
             return self.plc
         except Exception as error:
             self._failed(error)
-            raise ValueError(str(error)) from error
+            raise ValueError(self.health['message']) from error
 
     def test(self):
         with self.lock:
@@ -93,7 +93,7 @@ class PyComm3CIPDriver(PyComm3LogixDriver):
                 return {'quality': 'good', 'message': info.get('product_name', 'CIP device'), 'tag_count': 0}
             except Exception as error:
                 self._failed(error)
-                raise ValueError(str(error)) from error
+                raise ValueError(self.health['message']) from error
 
     @staticmethod
     def specification(address):
@@ -137,7 +137,7 @@ class PyComm3CIPDriver(PyComm3LogixDriver):
                 return result
             except Exception as error:
                 self._failed(error)
-                raise ValueError(str(error)) from error
+                raise ValueError(self.health['message']) from error
 
     def write(self, address, value):
         with self.lock:

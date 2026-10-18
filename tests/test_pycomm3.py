@@ -85,6 +85,21 @@ class DriverTests(unittest.TestCase):
             self.assertEqual(driver.status()['quality'],'good')
             self.assertEqual(len(FakePLC.instances),2)
 
+    def test_connection_errors_include_the_underlying_socket_cause(self):
+        class FailingPLC(FakePLC):
+            def open(self):
+                try:
+                    raise ConnectionRefusedError(111, 'Connection refused')
+                except OSError as error:
+                    raise RuntimeError('failed to open a connection') from error
+        driver=PyComm3LogixDriver(SETTINGS,FailingPLC)
+        with self.assertRaisesRegex(ValueError,'Connection refused'):
+            driver.test()
+        message=driver.status()['message']
+        self.assertIn('failed to open a connection',message)
+        self.assertEqual(message.count('Connection refused'),1)
+        self.assertIsNone(driver.plc)
+
     def test_settings_defaults_and_validation(self):
         self.assertEqual(connection_settings(SETTINGS)['live'], 0.5)
         self.assertEqual(connection_settings(SETTINGS)['background'], 20)

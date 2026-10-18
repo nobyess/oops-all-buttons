@@ -90,7 +90,7 @@ class PyComm3LogixDriver:
             return plc
         except Exception as error:
             self._failed(error)
-            raise ValueError(str(error)) from error
+            raise ValueError(self.health['message']) from error
 
     def _index(self):
         self.nodes = {}
@@ -101,12 +101,18 @@ class PyComm3LogixDriver:
         self.discovered_at = time.time()
 
     def _failed(self, error):
-        message = str(error)
-        if self.settings.get('local_ip'):
-            suffix = ' (local interface ' + self.settings['local_ip'] + ')'
-            while message.endswith(suffix):
-                message = message[:-len(suffix)]
-            message += suffix
+        suffix = ' (local interface ' + self.settings['local_ip'] + ')' if self.settings.get('local_ip') else ''
+        messages, seen = [], set()
+        current = error
+        for _ in range(8):
+            if current is None or id(current) in seen:break
+            seen.add(id(current))
+            for part in (str(current) or type(current).__name__).split(' — '):
+                if suffix:
+                    while part.endswith(suffix):part=part[:-len(suffix)]
+                if part and part not in messages:messages.append(part)
+            current = current.__cause__ or current.__context__
+        message = ' — '.join(messages) + suffix
         # A cached cooldown error is not a new failed connection attempt.
         if (self.plc is None and self.health.get('quality') == 'bad'
                 and self.health.get('message') == message and time.monotonic() < self.retry_at):
@@ -131,7 +137,7 @@ class PyComm3LogixDriver:
                 return {'quality': 'good', 'message': product or 'PLC connected', 'tag_count': len(self.roots)}
             except Exception as error:
                 self._failed(error)
-                raise ValueError(str(error)) from error
+                raise ValueError(self.health['message']) from error
 
     @staticmethod
     def _members(spec):
@@ -196,7 +202,7 @@ class PyComm3LogixDriver:
                 if isinstance(error, ValueError) and str(error).startswith('Browse from'):
                     raise
                 self._failed(error)
-                raise ValueError(str(error)) from error
+                raise ValueError(self.health['message']) from error
 
     def describe(self, address):
         # Resolve a leaf without materializing all members/array elements.
@@ -251,7 +257,7 @@ class PyComm3LogixDriver:
                 return result
             except Exception as error:
                 self._failed(error)
-                raise ValueError(str(error)) from error
+                raise ValueError(self.health['message']) from error
 
     def read(self, address):
         sample = self.read_many([address])[address]
@@ -281,7 +287,7 @@ class PyComm3LogixDriver:
                 result = self._connect().write((address, value))
             except Exception as error:
                 self._failed(error)
-                raise ValueError(str(error)) from error
+                raise ValueError(self.health['message']) from error
             # A returned tag error (access denied, encoding, etc.) is not a lost socket.
             if result.error:
                 if self.plc is not None and not self.plc.connected:
