@@ -65,6 +65,10 @@ def smoke(bundle):
             assert isinstance(interfaces, list)
             assert (root / 'data' / 'hmi.sqlite3').is_file()
             assert not (root / '_internal' / 'data').exists()
+            # Back up, change the account, then stage a restore through the real API.
+            backup = request('/api/admin/backup', {})
+            request('/api/admin/users/save', {'username': 'AfterBackup', 'password': 'portable-test-456'})
+            request('/api/admin/restore', backup)
         finally:
             process.terminate()
             process.wait(timeout=10)
@@ -75,10 +79,13 @@ def smoke(bundle):
             assert request('/api/status')['setup'] is False
             request('/api/login', {'username': 'PortableTest', 'password': 'portable-test-123'})
             assert request('/api/status')['authenticated'] is True
+            assert 'AfterBackup' not in {user['username'] for user in request('/api/admin/users')}
+            assert list(root.glob('data-before-restore-*'))
+            assert not (root / 'data.restore.zip').exists()
         finally:
             process.terminate()
             process.wait(timeout=10)
-    print('Portable smoke test passed: frozen dependencies/formulas, web assets/logo, setup, drivers, interfaces, data location, restart and login.')
+    print('Portable smoke test passed: frozen dependencies/formulas, web assets/logo, setup, drivers, interfaces, data location, backup/restore with restart, retained previous data and login.')
 
 
 if __name__ == '__main__':

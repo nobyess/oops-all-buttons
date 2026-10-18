@@ -363,3 +363,5 @@ Stored `mouse_down` and `mouse_up` action triggers use Pointer Events through `c
 `run.ROOT` locates bundled static resources. `run.application_directory()` locates the executable folder when frozen and the source folder otherwise; only this directory owns writable `data/` and restore staging. Keep these paths separate. `portable.py` is the windowless entry point, with startup logging, visible failure reporting, and a dependency self-check used by the smoke test. Source users continue to launch `run.py`.
 
 See BUILDING.md for the isolated build environment, PyInstaller spec, release assets, executable smoke tests, and GitHub draft-release workflow. Never add real project databases or credentials to the portable bundle. Generated `build/`, `dist/`, `release/`, and `.venv-build/` directories are ignored by Git.
+
+Apply any pending restore before opening `data/server.log` in the portable entry point. An open file inside `data` prevents Windows from renaming that folder. Keep restore failures logged, close the log on exit, and exercise backup/restore through the frozen executable smoke test.

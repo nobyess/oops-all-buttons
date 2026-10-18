@@ -12,16 +12,26 @@ def show_error(message):
         print(message, file=sys.stderr)
 
 
+def open_startup_log(directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / 'server.log'
+    if path.exists() and path.stat().st_size > 1024 * 1024:
+        path.replace(directory / 'server.previous.log')
+    return path.open('a', encoding='utf-8', buffering=1)
+
+
 def main():
     from run import application_directory, main as run_server
+    from hmi.backup import apply_pending
     log = None
+    directory = None
+    original_stdout, original_stderr = sys.stdout, sys.stderr
     try:
         directory = application_directory() / 'data'
-        directory.mkdir(parents=True, exist_ok=True)
-        path = directory / 'server.log'
-        if path.exists() and path.stat().st_size > 1024 * 1024:
-            path.replace(directory / 'server.previous.log')
-        log = path.open('a', encoding='utf-8', buffering=1)
+        # Windows cannot rename the data directory with server.log open inside it.
+        # Complete the restore before opening any file in that directory.
+        apply_pending(directory)
+        log = open_startup_log(directory)
         sys.stdout = sys.stderr = log
         if '--check-installation' in sys.argv:
             import importlib
@@ -38,6 +48,11 @@ def main():
             return 0
         run_server()
     except Exception as error:
+        if log is None and directory is not None:
+            try:
+                log = open_startup_log(directory)
+            except OSError:
+                pass
         if log or sys.stderr:
             traceback.print_exc(file=log or sys.stderr)
         if '--check-installation' not in sys.argv:
@@ -48,6 +63,8 @@ def main():
     finally:
         if log:
             log.flush()
+            sys.stdout, sys.stderr = original_stdout, original_stderr
+            log.close()
     return 0
 
 

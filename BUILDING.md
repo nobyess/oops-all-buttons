@@ -32,7 +32,7 @@ The executable is unsigned. No signing certificate or signing service is configu
 .venv-build\Scripts\python.exe tools/smoke_portable.py build/portable/dist/OopsAllButtons
 ```
 
-The test uses a disposable copy. It checks frozen dependency imports, a formula calculation, web assets and logo, first-run setup, driver availability, network interface enumeration, the writable data location, restarting, and login. It does not connect to physical controllers or modify your project.
+The test uses a disposable copy. It checks frozen dependency imports, a formula calculation, web assets and logo, first-run setup, driver availability, network interface enumeration, the writable data location, a real backup/restore across restart, retained previous data, and login. It does not connect to physical controllers or modify your project.
 
 Also test the release on a Windows machine without Python, including your devices, tray behavior, and backup/restore. Driver libraries are bundled; device interoperability still depends on the equipment and network.
 
@@ -56,6 +56,6 @@ The workflow uses GitHub's built-in token. No personal access token is needed. M
 1. Make a backup in **Administration → Backup/Restore**.
 2. Stop the server from its tray menu.
 3. Extract the new release into a new writable folder.
-4. Copy your old `data` folder beside the new executable, then start it. Alternatively, restore your backup through first run.
+4. Copy your old `data` folder beside the new executable. If a restore is pending, copy `data.restore.zip` beside it too. Start the new executable. Alternatively, restore your backup through first run.
 
 Keep the previous folder until you have verified the update. Build ZIPs never include your project data, accounts, logs, or test installations.
