@@ -33,11 +33,8 @@ Provide one portable project export/import covering pages, sheets, data sources,
 
 ## Executable packaging with PyInstaller
 
-Added: October 18, 2026. Status: deferred.
+Added: October 18, 2026. Status: Windows portable build implemented in v283.
 
-Package the server so users can run Oops! All Buttons without installing Python, while continuing to use a browser for the interface. Start with a portable Windows folder containing the executable and support files; consider single-file packaging or an installer afterward. Build Linux releases separately.
+The portable build includes Python, web assets, the app icon, all supported drivers, sheet calculations, DXF import, and tray support. It separates bundled resources from writable data beside the executable. The build command produces a versioned ZIP and checksum; a GitHub Actions workflow can create draft releases from version tags. See BUILDING.md.
 
-- Separate bundled read-only application resources from permanent writable data, including databases, sheets, backups, and restore staging. Preserve data across upgrades and restarts.
-- Create a repeatable PyInstaller spec/build process covering static web assets, the default logo, tray support, drivers, spreadsheet calculations, and DXF import, including dynamically loaded dependencies.
-- Provide the application name/icon and a practical double-click startup experience with useful startup error reporting.
-- Test on a clean machine without Python: first run, browser launch, tray, network interfaces, each driver, imports, backup/restore, and saved-data persistence. Distribute a clean build without development credentials or project data.
+Remaining ideas: a signed distribution, an installer or single-file variant if useful, and separate Linux packages. Additional testing on Windows machines without Python and with physical devices remains useful; the executable smoke test covers frozen imports, formulas, setup, resources, interfaces, data location, restart and login.

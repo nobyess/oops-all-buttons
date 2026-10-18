@@ -1,0 +1,10 @@
+# Full Windows portable distribution. Install in a dedicated virtual environment.
+-r requirements.txt
+-r requirements-plc.txt
+-r requirements-bacnet.txt
+-r requirements-modbus.txt
+-r requirements-mqtt.txt
+-r requirements-sheet.txt
+-r requirements-dxf.txt
+PyInstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8

@@ -1,3 +1,4 @@
+import {bindControlActions} from './control-actions.js';
 import {trendSeries,trendColors} from './live-trend.js';
 import {mountAlarmAttention} from './alarm-attention.js';
 import {mountAlarms} from './alarms-manager.js';
@@ -1381,10 +1382,8 @@ function paint(el, c, owner=page, isEditing=editing) {
       return actionQueue;
     }
   };
-  // Standard mouse triggers work for every control type, not just buttons.
-  for (const [name, trigger] of [['onmousedown', 'mouse_down'], ['onmouseup', 'mouse_up'], ['onclick', 'click']]) {
-    el[name] = isEditing || c.type==='listbox' ? null : event => {if (event.button === 0) context.execute(c, trigger, event.detail === 0 && trigger === 'click' ? null : {x:event.clientX,y:event.clientY});};
-  }
+  // Keep stored trigger names while supporting mouse, touch, and pen equally.
+  bindControlActions(el,{enabled:!isEditing && c.type!=='listbox',execute:(trigger,point)=>context.execute(c,trigger,point)});
   const definition = controls[c.type];
   if (definition?.update && content.dataset.rendered) definition.update(content, effective, context);
   else {

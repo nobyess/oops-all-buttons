@@ -351,3 +351,15 @@ Alarm requiredRoles follow action semantics: all selected IDs required, empty li
 ### Data source field hints
 
 Add/Edit Data Source fields include a short, persistent secondary hint inside the field surface: centered 12px/18px, normal weight, `--ui-muted`, and the standard 6px label/editor gap. Use `aria-describedby` to associate hints without changing the field’s accessible name. Checkboxes keep their text and checkbox inline, with the hint spanning the row underneath. Address fields use consistent `Example: …` placeholders; distinguish local interfaces from remote devices. Port hints identify the transport and usual protocol port, including MQTT’s TLS alternative. Hints must not change saved values or silently switch ports. Keep optional fields explicitly optional and describe timing units and automatic behavior.
+
+
+### Live control press and release
+
+Stored `mouse_down` and `mouse_up` action triggers use Pointer Events through `control-actions.js`, supporting mouse, touch, and pen. Track the primary pointer across repaints and capture it so release is delivered outside the control. Pointer cancellation or unexpected lost capture sends the matching release once; secondary pointers and non-left mouse buttons are ignored. Keep Click as a native click handler for keyboard activation. Do not overwrite designer drag handlers when runtime actions are disabled. The action queue preserves press/release ordering.
+
+
+### Portable build paths
+
+`run.ROOT` locates bundled static resources. `run.application_directory()` locates the executable folder when frozen and the source folder otherwise; only this directory owns writable `data/` and restore staging. Keep these paths separate. `portable.py` is the windowless entry point, with startup logging, visible failure reporting, and a dependency self-check used by the smoke test. Source users continue to launch `run.py`.
+
+See BUILDING.md for the isolated build environment, PyInstaller spec, release assets, executable smoke tests, and GitHub draft-release workflow. Never add real project databases or credentials to the portable bundle. Generated `build/`, `dist/`, `release/`, and `.venv-build/` directories are ignored by Git.

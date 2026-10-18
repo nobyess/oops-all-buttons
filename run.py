@@ -26,6 +26,11 @@ from hmi.backup import export_backup, stage_restore, apply_pending, pending_path
 ROOT = Path(__file__).resolve().parent
 
 
+def application_directory():
+    """Bundled resources are read-only; portable data lives beside the executable."""
+    return Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else ROOT
+
+
 class ThreadingHTTPServer(BaseThreadingHTTPServer):
     # Login/module loads and independent source timers can arrive together.
     # The stdlib backlog of five can force TCP retries even on localhost.
@@ -416,10 +421,14 @@ def main():
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--no-browser', action='store_true')
-    parser.add_argument('--tray', action='store_true')
+    tray_options = parser.add_mutually_exclusive_group()
+    tray_options.add_argument('--tray', action='store_true', dest='tray')
+    tray_options.add_argument('--no-tray', action='store_false', dest='tray')
+    parser.set_defaults(tray=bool(getattr(sys, 'frozen', False)))
     args = parser.parse_args()
-    apply_pending(ROOT / 'data')
-    service = Service(Store(ROOT / 'data' / 'hmi.sqlite3'))
+    data_directory = application_directory() / 'data'
+    apply_pending(data_directory)
+    service = Service(Store(data_directory / 'hmi.sqlite3'))
     request_log = RequestLog()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(service, request_log))
     stopped = threading.Event()
@@ -433,7 +442,18 @@ def main():
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     if args.tray:
         from hmi.tray import run_tray
-        threading.Thread(target=run_tray, args=(url,), daemon=True).start()
+        def tray_worker():
+            try:
+                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'app-icon.png')
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                # A windowless portable server must not remain invisible after tray failure.
+                if getattr(sys, 'frozen', False):
+                    from portable import show_error
+                    show_error('The tray could not start. See data/server.log for details.')
+                    server.shutdown()
+        threading.Thread(target=tray_worker, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

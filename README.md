@@ -13,7 +13,29 @@ A browser-based HMI for building live operator screens, connecting device tags, 
 - **Manage access** with users, administrators, roles, kiosk mode, and per-user preferences.
 - **Back up and restore** the project from Administration or restore a backup during first run.
 
-## Quick start
+## Screenshots
+
+A demo project using simulated values.
+
+### Designer
+
+![Page designer with the toolbox, Explorer, canvas, and control properties](docs/images/designer.png)
+
+### Live view
+
+![Live process page with a level indicator, numeric values, a button, and a multitag trend](docs/images/live-view.png)
+
+### Data Sources & Tags
+
+![Data source and tag management with current values and linked control references](docs/images/data-sources-tags.png)
+
+## Run the portable app (Windows)
+
+Download the Windows portable ZIP from **Releases**, extract the whole folder, and double-click `OopsAllButtons.exe`. Python is included. Use the tray icon to open the app or select **Stop Server** to quit.
+
+Your project lives in the `data` folder beside the executable. Keep the `_internal` folder in place. See [BUILDING.md](BUILDING.md) for building releases, GitHub uploads, and updating a portable installation.
+
+## Run from source
 
 Install Python 3.11 or newer, then open a terminal in the project folder:
 
@@ -53,7 +75,8 @@ python run.py --host 0.0.0.0 --port 8080 --no-browser
 | `--host` | Address to listen on. Defaults to `127.0.0.1`; use `0.0.0.0` for network access. |
 | `--port` | HTTP port. Defaults to `8080`. |
 | `--no-browser` | Start without opening a browser. |
-| `--tray` | Show the optional desktop tray icon. |
+| `--tray` | Show the desktop tray icon. Enabled by default in the portable executable. |
+| `--no-tray` | Start without a tray icon. |
 
 Startup lists available IPv4 interfaces. For network access, open `http://<server-IP>:8080` from another device and allow the server through the host firewall. The app serves HTTP. Press **Ctrl+C** in the terminal to stop the server.
 

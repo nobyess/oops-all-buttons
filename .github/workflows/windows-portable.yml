@@ -1,0 +1,82 @@
+name: Windows portable build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (for example 0.1.0)'
+        required: true
+        type: string
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install build dependencies
+        run: |
+          python -m venv .venv-build
+          .venv-build/Scripts/python.exe -m pip install -r requirements-build.txt
+      - name: Test Python code
+        run: .venv-build/Scripts/python.exe -m unittest discover -s tests
+      - name: Test browser modules
+        shell: pwsh
+        run: |
+          Get-ChildItem tests -Filter *.mjs | ForEach-Object {
+            node $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Failed: $($_.Name)" }
+          }
+      - name: Build portable release
+        env:
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+        run: .venv-build/Scripts/python.exe tools/build_portable.py --version "$env:RELEASE_VERSION"
+      - name: Smoke-test executable
+        run: .venv-build/Scripts/python.exe tools/smoke_portable.py build/portable/dist/OopsAllButtons
+      - uses: actions/upload-artifact@v6
+        with:
+          name: windows-portable-release
+          path: |
+            release/*.zip
+            release/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+
+  draft-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: windows-portable-release
+          path: release
+      - name: Attach files to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+              echo "This release is already published; upload or revise it manually."
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" release/*.zip release/*.sha256
+          else
+            gh release create "$RELEASE_TAG" release/*.zip release/*.sha256 --draft --verify-tag --title "Oops! All Buttons $RELEASE_TAG" --notes "Windows x64 portable build. Extract the whole ZIP and run OopsAllButtons.exe."
+          fi
