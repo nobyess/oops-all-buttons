@@ -71,14 +71,17 @@ export const controls = {
     defaults:{text:'Press', width:140, height:48},
     render(el, c, ctx) {
       const button = document.createElement('button');
-      button.textContent = c.contentOverride ?? c.text;
+      const text = document.createElement('span');
+      text.className = 'button-text';
+      text.textContent = c.contentOverride ?? c.text;
+      button.append(text);
       button.disabled = ctx.editing;
       el.append(button);
     },
     // Live updates must retain the button DOM node between mouse-down and mouse-up.
     update(el, c, ctx) {
       const button = el.querySelector('button');
-      button.textContent = c.contentOverride ?? c.text;
+      button.querySelector('.button-text').textContent = c.contentOverride ?? c.text;
       button.disabled = ctx.editing;
     }
   },

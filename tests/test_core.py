@@ -22,22 +22,22 @@ class ServiceTests(unittest.TestCase):
     def test_memory_auto_identity_and_rename(self):
         self.service.add_tag({'name': 'First', 'source': 'sim'})
         self.service.add_tag({'name': 'Second', 'source': 'sim'})
-        first, second = self.service.tags()[-2:]
+        first, second = [t for t in self.service.tags() if not t.get('builtin')][-2:]
         self.assertNotEqual(first['id'], second['id'])
         self.assertEqual(first['address'], first['id'])
         self.service.act({'tag': first['id'], 'action': 'set', 'value': 42})
         self.service.edit_tag({'id': first['id'], 'name': 'Renamed', 'address': 'ignored'})
         self.assertEqual(self.service.values()[first['id']]['value'], 42)
         self.assertEqual(self.service.values()[second['id']]['value'], 0)
-        self.assertEqual(self.service.tags()[-2]['address'], first['id'])
+        self.assertEqual([t for t in self.service.tags() if not t.get('builtin')][-2]['address'], first['id'])
 
     def test_legacy_memory_address_is_preserved(self):
-        tags = self.service.tags()
+        tags = [t for t in self.service.tags() if not t.get('builtin')]
         tags[0]['address'] = 'legacy-object'
         self.service.store.set('tags', tags)
         self.service.drivers['sim'].write('legacy-object', 7)
         self.service.edit_tag({'id': 'counter', 'name': 'Renamed'})
-        self.assertEqual(self.service.tags()[0]['address'], 'legacy-object')
+        self.assertEqual([t for t in self.service.tags() if not t.get('builtin')][0]['address'], 'legacy-object')
         self.assertEqual(self.service.values()['counter']['value'], 7)
 
     def test_actions(self):
@@ -62,9 +62,8 @@ class ServiceTests(unittest.TestCase):
 
     def test_configuration_persists(self):
         reloaded = Service(Store(self.service.store.path))
-        self.assertEqual(reloaded.tags()[0]['id'],'counter')
-        with self.assertRaises(ValueError):
-            reloaded.add_source({'id':'sim','kind':'memory'})
+        self.assertEqual([t for t in reloaded.tags() if not t.get('builtin')][0]['id'],'counter')
+        self.assertEqual([t for t in reloaded.tags() if t['id']=='counter'][0]['source'],'system')
 
     def test_multiple_pages_and_usage_protection(self):
         page = self.service.add_page({'name': 'Plant room'})
@@ -79,8 +78,8 @@ class ServiceTests(unittest.TestCase):
             self.service.remove_source({'id': 'sim'})
         self.service.remove_page({'id': page['id']})
         self.service.remove_source({'id': 'sim'})
-        self.assertEqual(self.service.tags(), [])
-        self.assertEqual(self.service.sources(), [])
+        self.assertEqual([t for t in self.service.tags() if not t.get('builtin')], [])
+        self.assertEqual([s for s in self.service.sources() if s['kind']!='system'], [])
 
     def test_actions_and_events_count_as_usage(self):
         page = self.service.pages()[0]

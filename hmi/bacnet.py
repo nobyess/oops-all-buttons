@@ -9,6 +9,7 @@ import math
 import re
 import threading
 import time
+from .bacnet_cov import COVManager
 
 PROPERTIES = {'presentValue': 'PV', 'eventState': 'Event State', 'units': 'Units'}
 COMMON_TYPES = {0: 'analog-input', 1: 'analog-output', 2: 'analog-value',
@@ -24,7 +25,8 @@ def bacnet_settings(settings):
     for key, default, low, high in [('prefix', 24, 1, 32), ('port', 47808, 1, 65535),
             ('device_id', 3056177, 1, 4194302), ('discovery_min', 0, 0, 4194302),
             ('discovery_max', 4194302, 0, 4194302), ('bbmd_ttl', 900, 30, 65535),
-            ('write_priority', 16, 1, 16), ('batch_size', 20, 1, 50)]:
+            ('write_priority', 16, 1, 16), ('batch_size', 20, 1, 50),
+            ('cov_lifetime', 300, 30, 86400), ('cov_verify', 30, 1, 3600)]:
         value = float(result.get(key, default))
         if not math.isfinite(value) or not value.is_integer() or not low <= value <= high:
             raise ValueError(f'{key} must be a whole number from {low} to {high}')
@@ -34,6 +36,11 @@ def bacnet_settings(settings):
         value = float(result.get(key, default))
         if not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'{key} must be from {low} to {high} seconds')
+        result[key] = value
+    for key in ('use_cov', 'cov_confirmed'):
+        value = result.get(key, False)
+        if not isinstance(value, bool):
+            raise ValueError(f'{key} must be true or false')
         result[key] = value
     if result['live'] > result['background']:
         raise ValueError('Live polling must be no slower than Background')
@@ -211,6 +218,7 @@ class BACnetDriver:
         self.health = {'quality': 'idle', 'message': 'Waiting for BACnet discovery or polling'}
         self.retry_at = 0
         self.closed = False
+        self.cov = COVManager(self, parse_address, scalar)
         self.session_key = tuple(self.settings[key] for key in NETWORK_FIELDS) + (factory,)
         with _pool_lock:
             if _runtime is None:
@@ -434,7 +442,26 @@ class BACnetDriver:
         with self.lock:
             return self._call(read,max(30,self.settings['timeout']*3+2))
 
+    def configure_tags(self, addresses):
+        if not self.closed and self.settings['use_cov']:
+            _runtime.loop.call_soon_threadsafe(self.cov.configure, list(addresses))
+
     def read_many(self, addresses):
+        if not self.settings['use_cov']:
+            return self._poll_many(addresses)
+        with self.lock:
+            try:
+                self._call(lambda client: self.cov.ensure(client, addresses))
+            except Exception:
+                # Subscription startup must never prevent ordinary reads.
+                pass
+            cached, needed, versions = self.cov.split(addresses)
+            samples = self._poll_many(needed) if needed else {}
+            self.cov.remember(samples, versions)
+            cached.update(samples)
+            return cached
+
+    def _poll_many(self, addresses):
         with self.lock:
             if time.monotonic() < self.retry_at:
                 return {address: {'value': None, 'quality': 'bad', 'error': self.health['message']} for address in addresses}
@@ -521,7 +548,8 @@ class BACnetDriver:
             return samples
 
     def read(self, address):
-        sample = self.read_many([address])[address]
+        # Read/modify/write actions need actual device feedback, not a COV snapshot.
+        sample = self._poll_many([address])[address]
         if sample['quality'] != 'good':
             raise ValueError(sample['error'])
         return sample['value']
@@ -545,6 +573,8 @@ class BACnetDriver:
         with self.lock:
             try:
                 self._call(write)
+                if self.settings['use_cov']:
+                    self.cov.invalidate(address)
             except Exception as error:
                 raise ValueError(f'BACnet write to {prop} failed: {error}') from error
 
@@ -557,13 +587,23 @@ class BACnetDriver:
             return {**self.health, 'device_count': len(devices)}
 
     def status(self):
-        return dict(self.health)
+        result = dict(self.health)
+        if self.settings['use_cov']:
+            cov = self.cov.diagnostics()
+            result['cov'] = cov
+            result['message'] += f"; COV: {cov['active']} active, {cov['polling']} polling fallback"
+        return result
 
     def close(self):
         with self.lock, _pool_lock:
             if self.closed:
                 return
             self.closed = True
+            if self.settings['use_cov']:
+                try:
+                    _runtime.call(self.cov.close(), self.settings['timeout'] + 2)
+                except Exception:
+                    pass  # Finite remote leases expire even if shutdown cannot unsubscribe.
             self.session.users -= 1
             if self.session.users == 0:
                 try:

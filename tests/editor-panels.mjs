@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {constrainPanelWidth,mountEditorPanels,scrollableEditorList} from '../static/editor-panels.js';
+import {constrainPanelWidth,mountEditorPanels,scrollableEditorList,saveEditorListScroll} from '../static/editor-panels.js';
 assert.equal(constrainPanelWidth(700,1200,320),600);assert.equal(constrainPanelWidth(500,900,320),420);assert.equal(constrainPanelWidth(10,1200,320),160);
 const properties={},saved={};let observerClosed=false;
 class Element{constructor(){this.dataset={};this.attrs={};this.classList={add(){},remove(){}};}setAttribute(k,v){this.attrs[k]=v;}setPointerCapture(){}append(el){(this.children??=[]).push(el);}before(el){this.wrapper=el;}}
@@ -12,3 +12,22 @@ right.onkeydown({key:'ArrowLeft',shiftKey:false,preventDefault(){}});assert.equa
 const list=new Element(),wrapper=scrollableEditorList(list,true);assert.equal(wrapper,list.wrapper);assert.equal(wrapper.children[0],list);assert(wrapper.className.includes('explorer-list-scroll'));
 close();assert(observerClosed);
 console.log('Designer sidebar drag/keyboard sizing, bounds, saved widths, cleanup, and list overflow wrappers passed.');
+
+// Preserve each list's native vertical and wrapper horizontal scroll independently.
+class ScrollElement extends Element {
+ constructor(){super();this.scrollTop=0;this.scrollLeft=0;this.isConnected=true;this.listeners={};}
+ append(el){super.append(el);el.parentElement=this;}
+ addEventListener(event,fn){this.listeners[event]=fn;}
+}
+const frames=[];globalThis.requestAnimationFrame=fn=>frames.push(fn);
+globalThis.document.createElement=()=>new ScrollElement();
+const firstList=new ScrollElement(),firstWrapper=scrollableEditorList(firstList,false,'main:control:Actions');frames.shift()();
+firstList.scrollTop=160;firstWrapper.scrollLeft=80;firstList.listeners.scroll();firstWrapper.listeners.scroll();
+const replacement=new ScrollElement(),replacementWrapper=scrollableEditorList(replacement,false,'main:control:Actions');frames.shift()();
+assert.equal(replacement.scrollTop,160);assert.equal(replacementWrapper.scrollLeft,80);
+const eventsList=new ScrollElement();scrollableEditorList(eventsList,false,'main:control:Events');frames.shift()();assert.equal(eventsList.scrollTop,0);
+replacement.scrollTop=220;replacementWrapper.scrollLeft=120;
+saveEditorListScroll({querySelectorAll:()=>[replacement]});
+const third=new ScrollElement(),thirdWrapper=scrollableEditorList(third,false,'main:control:Actions');frames.shift()();
+assert.equal(third.scrollTop,220);assert.equal(thirdWrapper.scrollLeft,120);
+console.log('Inspector list refreshes preserve scroll without mixing controls or tabs.');

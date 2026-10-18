@@ -2,7 +2,7 @@ import {displayValue} from './value-format.js';
 const tokens=text=>[...String(text ?? '').matchAll(/@\{([^{}\r\n]+)\}/g)];
 function identity(path,refs,tags) {
   if(Object.hasOwn(refs || {},path))return refs[path] || undefined;
-  return tags.find(tag=>`${tag.source_name || tag.source}\\${tag.name || tag.address || tag.id}`.toLowerCase()===path.toLowerCase())?.id;
+  return tags.find(tag=>`${tag.source_name || tag.source}\\${tag.folder?tag.folder+'\\':''}${tag.name || tag.address || tag.id}`.toLowerCase()===path.toLowerCase())?.id;
 }
 export function inlineTagIds(text,refs={},tags=[]) {
   return [...new Set(tokens(text).map(match=>identity(match[1],refs,tags)).filter(Boolean))];

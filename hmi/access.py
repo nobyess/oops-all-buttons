@@ -4,6 +4,8 @@ import hmac
 import secrets
 import threading
 import uuid
+import re
+from .session_settings import session_settings
 
 
 def password_hash(password, salt):
@@ -24,8 +26,7 @@ class Access:
 
     def users(self):return self.store.get('users', [])
     def roles(self):return self.store.get('access_roles', [])
-    @staticmethod
-    def public(user):return {**{key:user[key] for key in ('id','username','administrator','roles')},'kiosk':user.get('kiosk',False),'starting_page':user.get('starting_page',''),'theme':user.get('theme','system')}
+    def public(self,user):return {**{key:user[key] for key in ('id','username','administrator','roles')},'kiosk':user.get('kiosk',False),'starting_page':user.get('starting_page',''),'theme':user.get('theme','system'),'app_background':user.get('app_background',''),'session_settings':session_settings(user.get('session_settings',self.store.get('session_settings',{})))}
 
     def current(self, record):
         user=next((u for u in self.users() if u['id']==record.get('user_id') and u['revision']==record.get('revision')),None)
@@ -44,7 +45,7 @@ class Access:
             if setup and users:raise ValueError('Setup is already complete')
             name=str(data.get('username','')).strip()
             if not name or len(name)>100 or any(u['id']!=data.get('id') and u['username'].casefold()==name.casefold() for u in users):raise ValueError('Username is empty or already exists')
-            roles=data.get('roles',[])
+            roles=data.get('roles',original.get('roles',[]) if original else [])
             if not isinstance(roles,list) or any(role not in {r['id'] for r in self.roles()} for role in roles):raise ValueError('Unknown access role')
             user={**(original or {}),'id':original['id'] if original else uuid.uuid4().hex,'username':name,'administrator':True if setup else data.get('administrator') is True,'roles':list(dict.fromkeys(roles)),'revision':original.get('revision',1) if original else 1}
             user['kiosk']=data.get('kiosk',original.get('kiosk',False) if original else False) is True
@@ -52,9 +53,13 @@ class Access:
             if user['starting_page'] and not any(page['id']==user['starting_page'] for page in self.service.pages()):raise ValueError('Choose an existing starting page')
             user['theme']=data.get('theme',original.get('theme','system') if original else 'system')
             if user['theme'] not in ('light','dark','system'):raise ValueError('Choose Light, Dark, or System theme')
+            if 'session_settings' in data:user['session_settings']=session_settings(data['session_settings'])
+            background=data.get('app_background',original.get('app_background','') if original else '')
+            if not isinstance(background,str) or background and not re.fullmatch(r'#[0-9a-fA-F]{6}',background):raise ValueError('Choose an app background color or the theme default')
+            user['app_background']=background
             password=str(data.get('password',''))
             if password or not original:
-                if len(password)<12:raise ValueError('Use a password of at least 12 characters')
+                if len(password)<8:raise ValueError('Use a password of at least 8 characters')
                 user['salt']=secrets.token_hex(16);user['hash']=password_hash(password,user['salt'])
                 if original:user['revision']+=1
             next_users=[user if u['id']==user['id'] else u for u in users] if original else users+[user]
@@ -85,7 +90,15 @@ class Access:
             roles=self.roles();identity=data.get('id') or uuid.uuid4().hex;name=str(data.get('name','')).strip()
             if data.get('id') and not any(r['id']==identity for r in roles):raise ValueError('Unknown role')
             if not name or len(name)>100 or any(r['id']!=identity and r['name'].casefold()==name.casefold() for r in roles):raise ValueError('Role name is empty or already exists')
-            role={'id':identity,'name':name};self.store.set('access_roles',[r for r in roles if r['id']!=identity]+[role]);return role
+            role={'id':identity,'name':name}
+            updates={'access_roles':[r for r in roles if r['id']!=identity]+[role]}
+            if 'users' in data:
+                members=data['users'];users=self.users()
+                if not isinstance(members,list) or any(not isinstance(member,str) or member not in {u['id'] for u in users} for member in members):
+                    raise ValueError('Choose existing users for this role')
+                updates['users']=[{**user,'roles':list(dict.fromkeys([*user['roles'],identity])) if user['id'] in members else [r for r in user['roles'] if r!=identity]} for user in users]
+            self.store.set_many(updates)
+            return role
 
     def remove_role(self,identity):
         with self.lock:

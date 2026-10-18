@@ -89,9 +89,10 @@ def make_handler(service, request_log=None):
             cookie.load(self.headers.get('Cookie', ''))
             token = cookie.get('session')
             record = sessions.get(token.value) if token else None
-            if not session_valid(record, session_settings(service.store.get('session_settings', {}))):return None
+            if not record:return None
             user=access.current(record)
             if user is None:return None
+            if not session_valid(record, session_settings(user.get('session_settings',service.store.get('session_settings', {})))):return None
             record['user']=access.public(user)
             if record.get('kiosk_exited') and user['administrator']:record['user']['kiosk']=False
             return record
@@ -136,12 +137,14 @@ def make_handler(service, request_log=None):
                 if not record:
                     return self.reply(401, {'error': 'Please sign in'})
                 user=record['user']
-                if (not user['administrator'] or user['kiosk']) and (path.startswith('/api/admin/') or path in ('/api/network/interfaces','/api/sources/status')):
+                if (not user['administrator'] or user['kiosk']) and (path.startswith('/api/admin/') or path in ('/api/network/interfaces','/api/sources/status','/api/database/files')):
                     return self.reply(403, {'error':'Administrator access required'})
-                if user['kiosk'] and path not in {'/api/pages','/api/sources','/api/tags','/api/catalog','/api/access/roles','/api/values','/api/control-state','/api/events/status'}:
+                if user['kiosk'] and path not in {'/api/pages','/api/sources','/api/tags','/api/catalog','/api/access/roles','/api/values','/api/control-state','/api/events/status','/api/alarms/attention'}:
                     return self.reply(403, {'error':'Kiosk Mode allows live views only'})
                 routes = {
                     '/api/access/roles': access.roles,
+                    '/api/alarms': service.alarm_snapshot,
+                    '/api/alarms/attention': service.alarm_attention,
                     '/api/admin/users': lambda: [access.public(u) for u in access.users()],
                     '/api/admin/session-settings': lambda: session_settings(service.store.get('session_settings', {})),
                     '/api/admin/status': lambda: {
@@ -162,7 +165,8 @@ def make_handler(service, request_log=None):
                     '/api/events/status': lambda: [],
                     '/api/values': service.values,
                     '/api/page': lambda: service.store.get('page', {'controls': []}),
-                    '/api/catalog': lambda: {'drivers': list(DRIVERS), 'actions': {
+                    '/api/database/files': lambda: sorted(p.name for p in (Path(service.store.path).parent/'databases').glob('*') if p.is_file() and p.suffix.lower() in ('.db','.sqlite','.sqlite3')),
+                    '/api/catalog': lambda: {'drivers': [kind for kind in DRIVERS if kind not in ('memory','system')], 'actions': {
                         key: {'label': action.label, 'needs_value': action.needs_value}
                         for key, action in ACTIONS.items()}},
                 }
@@ -205,6 +209,8 @@ def make_handler(service, request_log=None):
                         password = str(data['password'])
                         if path == '/api/setup':
                             if access.users():return self.reply(409, {'error':'Setup is already complete'})
+                            if data.get('safety_acknowledged') is not True:
+                                return self.reply(400, {'error':'Acknowledge the equipment safety notice before creating an administrator'})
                             user=access.save_user({'username':username,'password':password},setup=True)
                         else:
                             user=access.login(username,password)
@@ -218,9 +224,20 @@ def make_handler(service, request_log=None):
                 if not hmac.compare_digest(self.headers.get('X-CSRF-Token', ''), record['csrf']):
                     return self.reply(403, {'error': 'Invalid session token'})
                 user=record['user']
-                allowed={'/api/logout','/api/user/preferences','/api/session/activity','/api/session/kiosk/exit','/api/values/batch','/api/polling/interest','/api/rules/validate','/api/action','/api/actions/authorize','/api/actions/listbox','/api/sheets/get'}
+                allowed={'/api/logout','/api/user/preferences','/api/session/activity','/api/session/kiosk/exit','/api/values/batch','/api/polling/interest','/api/rules/validate','/api/action','/api/actions/authorize','/api/actions/listbox','/api/sheets/get','/api/alarms/silence'}
+                if not user['kiosk']:allowed.add('/api/alarms/history')
                 if (not user['administrator'] or user['kiosk']) and (path not in allowed or (user['kiosk'] and path=='/api/sheets/get')):
                     return self.reply(403, {'error':'Administrator access required'})
+                if path == '/api/alarms/history':
+                    return self.reply(200,service.alarm_history(data))
+                if path == '/api/alarms/silence':
+                    if user['kiosk'] and (data.get('all') or not data.get('id') or not data.get('occurrence')):
+                        return self.reply(403,{'error':'Kiosk Mode allows silencing individual alarm occurrences only'})
+                    return self.reply(200,service.silence_alarms(data,user))
+                if path == '/api/admin/alarms/save':
+                    return self.reply(200,service.save_alarm(data))
+                if path == '/api/admin/alarms/remove':
+                    service.remove_alarm(data);return self.reply(200,{'ok':True})
                 if path == '/api/user/preferences':
                     return self.reply(200, access.preferences(user['id'],data))
                 if path == '/api/session/kiosk/exit':
@@ -253,6 +270,7 @@ def make_handler(service, request_log=None):
                     record['activity'] = time.time()
                     return self.reply(200, {'ok': True})
                 if path == '/api/sources':
+                    if data.get('kind') in ('memory','system'):raise ValueError('Use the built-in System source for Memory tags')
                     service.add_source(data)
                 elif path == '/api/sources/edit':
                     service.edit_source(data)

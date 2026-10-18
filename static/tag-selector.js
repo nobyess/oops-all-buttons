@@ -13,7 +13,7 @@ function element(tag, text, parent, attributes = {}) {
 }
 // User-facing paths use display names, never device network routes or internal IDs.
 export function tagPath(tag) {
-  return `${tag.source_name || tag.source}\\${tag.name || tag.address || tag.id}`;
+  return `${tag.source_name || tag.source}\\${tag.folder?tag.folder+'\\':''}${tag.name || tag.address || tag.id}`;
 }
 
 // Shared friendly reference for picker summaries and fields.
@@ -31,7 +31,7 @@ function rememberPicker(state){try{localStorage.setItem(pickerStateKey,JSON.stri
 export function openTagSelector({value = '', getSources, getTags, getValues, onInterest, getSheet, onSheetInterest, ensureSheetTag}) {
   return new Promise(resolve => {
     const remembered=pickerState(),sheetCells={...remembered.sheetCells};
-    const modal = element('dialog', null, document.body, {className: 'tag-selector'});
+    const modal = element('dialog', null, document.body, {className: 'tag-selector designer-dialog'});
     element('h2', 'Select Tag', modal);
     const sheetSources=getSources().filter(source=>source.kind==='sheet');
     const filterLabel = element('label', null, modal);
@@ -41,11 +41,11 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
     const columns = element('div', null, modal, {className: 'tag-selector-columns'});
     const sourceLabel = element('div', null, columns, {className:'tag-source-column'});
     element('div','Sources',sourceLabel,{className:'tag-source-heading'});
-    const sources={value:getSources().some(source=>source.id===remembered.source)?remembered.source:''},sourceButtons=[];
+    const sources={value:getSources().some(source=>source.id===remembered.source?.split('::')[0])?remembered.source:''},sourceButtons=[];
     const sourceList=element('div',null,sourceLabel,{className:'tag-source-list',role:'group'});
     sourceList.setAttribute('aria-label','Sources');
     function sourceButton(source,parent) {
-      const id=source?.id || '';
+      const id=source?(source.id+(source.folder?'::'+source.folder:'')):'';
       const button=element('button',source?.name || source?.id || 'All Sources',parent,{type:'button',className:'tag-source-button'});
       if(!source)button.className+=' tag-source-all';
       sourceButtons.push([button,id]);
@@ -62,8 +62,10 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
       const children=element('div',null,sheetGroup,{className:'tag-source-children'});
       for(const source of sheetSources)sourceButton(source,children);
     }
+    const system=getSources().find(source=>source.kind==='system');
+    if(system){const group=element('details',null,sourceList,{open:true});element('summary','System',group);const children=element('div',null,group,{className:'tag-source-children'});for(const folder of ['Memory','Time','Runtime','Constants','Heartbeat','Connections'])sourceButton({...system,name:folder,folder},children);}
     sourceButton(null,sourceList);
-    for(const source of getSources().filter(source=>source.kind!=='sheet' && source.kind!=='parameters'))sourceButton(source,sourceList);
+    for(const source of getSources().filter(source=>!['sheet','parameters','system'].includes(source.kind)))sourceButton(source,sourceList);
     function refreshSources(){for(const [button,id] of sourceButtons)button.setAttribute('aria-pressed',String(id===sources.value));}
     const tagLabel = element('label', 'Tags', columns);
     const tags = element('select', null, tagLabel, {size: 12, className: 'listbox'});
@@ -80,11 +82,11 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
     let selected = value || (getTags().some(tag=>tag.id===remembered.selected)?remembered.selected:''), samples = {}, finished = false, polling = false;
     const initialSource=getSources().find(source=>source.id===getTags().find(tag=>tag.id===selected)?.source);
     if(value && initialSource){
-      sources.value=initialSource.id;
+      sources.value=initialSource.kind==='system'?initialSource.id+'::'+(getTags().find(tag=>tag.id===value)?.folder || 'Memory'):initialSource.id;
       const current=getTags().find(tag=>tag.id===value);
       if(!`${tagDisplayName(current)} ${tagPath(current)} ${current.address} ${current.description || ''}`.toLowerCase().includes(filter.value.trim().toLowerCase()))filter.value='';
     }
-    else if(selected && !sources.value && initialSource)sources.value=initialSource.id;
+    else if(selected && !sources.value && initialSource)sources.value=initialSource.kind==='system'?initialSource.id+'::'+(getTags().find(tag=>tag.id===value)?.folder || 'Memory'):initialSource.id;
     if(sheetGroup)sheetGroup.open=Boolean(remembered.sheetsOpen || getSources().find(source=>source.id===sources.value)?.kind==='sheet');
     refreshSources();
 
@@ -111,9 +113,9 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
       tags.replaceChildren();
       const search = filter.value.trim().toLowerCase();
       const sheetIds=new Set(sheetSources.map(source=>source.id));
-      const matches = getTags().filter(tag => !sheetIds.has(tag.source) && (!sources.value || tag.source === sources.value)
+      const matches = getTags().filter(tag => !sheetIds.has(tag.source) && (!sources.value || tag.source === sources.value.split('::')[0] && (!sources.value.includes('::') || tag.folder===sources.value.split('::')[1]))
         && `${tagDisplayName(tag)} ${tagPath(tag)} ${tag.address} ${tag.description || ""}`.toLowerCase().includes(search));
-      for (const tag of matches) element('option', sources.value?(tag.name || tag.address || tag.id):tagDisplayName(tag), tags, {value: tag.id});
+      for (const tag of matches) element('option', sources.value?((tag.folder && !sources.value.includes('::')?tag.folder+'\\':'')+(tag.name || tag.address || tag.id)):tagDisplayName(tag), tags, {value: tag.id});
       tags.value = selected;
       empty.textContent = matches.length ? `${matches.length} tag(s)` : 'No matching tags.';
       refreshFooter();

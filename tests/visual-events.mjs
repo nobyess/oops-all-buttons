@@ -62,3 +62,20 @@ assert.deepEqual(evaluateControlEvents({type:'symbol',events:[spinRule]},values)
 values.a={quality:'good',value:25};
 assert.deepEqual(evaluateControlEvents({type:'symbol',events:[{...spinRule,operator:'within_range',operand:{value:20},end_operand:{value:30}}]},values),{spinRpm:30});
 assert.deepEqual(evaluateControlEvents({type:'symbol',events:[{...spinRule,operator:'<',operand:{kind:'tag',tag:'b'}}]},values),{spinRpm:0});
+
+assert.equal(evaluateControlEvents({type:'label',events:[{id:'blink',tag:'a',operator:'>',operand:{value:0},action:'set_content',content:'Test',contentStyle:{blink:true}}]}, {a:{quality:'good',value:1}}).blink,true);
+
+// Blink shares ordinary conditions, restores defaults, and never produces writes.
+for(const type of ['label','button','numeric','square','circle','triangle','polyline','symbol','image','level']) {
+ const control={type,events:[{...rule,action:'blink'}]},writes=[];
+ assert.deepEqual(evaluateControlEvents(control,{a:{quality:'good',value:8},b:{quality:'good',value:5}},new Map(),write=>writes.push(write)),{controlBlink:true});
+ assert.deepEqual(evaluateControlEvents(control,{a:{quality:'good',value:0},b:{quality:'good',value:5}}),{});
+ assert.deepEqual(evaluateControlEvents(control,{a:{quality:'bad',value:8},b:{quality:'good',value:5}}),{});
+ assert.equal(writes.length,0);
+}
+for(const type of ['listbox','page','group'])assert.deepEqual(evaluateControlEvents({type,events:[{...rule,action:'blink'}]},{a:{quality:'good',value:8},b:{quality:'good',value:5}}),{});
+console.log('Conditional Blink supports eligible controls and restores on false or unavailable data.');
+
+// Event Blink is independent of content styling and cannot be canceled by Set Content.
+const bothBlinks={type:'button',events:[{...rule,action:'blink'},{...rule,id:'content',action:'set_content',content:'Alarm',contentStyle:{blink:false}}]};
+assert.deepEqual(evaluateControlEvents(bothBlinks,{a:{quality:'good',value:8},b:{quality:'good',value:5}}),{controlBlink:true,contentOverride:'Alarm',blink:false});

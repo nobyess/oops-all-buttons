@@ -19,6 +19,23 @@ class PollingTests(unittest.TestCase):
         self.tags = [{'id': 'a', 'source': 'plc', 'address': 'A'}, {'id': 'b', 'source': 'plc', 'address': 'B'}]
         self.poll.configure(self.sources, self.tags, {'plc': self.driver})
 
+    def test_cov_sample_timestamp_is_not_refreshed_by_cached_reads(self):
+        class CachedDriver:
+            def read_many(self, addresses):
+                return {address: {'value': 7, 'quality': 'good', 'timestamp': 1234.5} for address in addresses}
+        self.poll.configure(self.sources, self.tags, {'plc': CachedDriver()})
+        self.poll.poll_due(False)
+        self.assertEqual(self.poll.samples()['a']['timestamp'], 1234.5)
+
+    def test_driver_tag_configuration_tracks_removal(self):
+        class ConfiguredDriver(PollDriver):
+            def configure_tags(self, addresses): self.addresses = addresses
+        driver = ConfiguredDriver()
+        self.poll.configure(self.sources, self.tags, {'plc': driver})
+        self.assertEqual(driver.addresses, ['A', 'B'])
+        self.poll.configure(self.sources, self.tags[:1], {'plc': driver})
+        self.assertEqual(driver.addresses, ['A'])
+
     def test_diagnostics_count_batches_without_reading(self):
         self.poll.interest('viewer', ['a'])
         self.poll.poll_due(False)
@@ -94,3 +111,40 @@ class PollingTests(unittest.TestCase):
         self.poll.configure(self.sources, self.tags, {'plc': DuringWrite()})
         self.poll.poll_due(False)
         self.assertEqual(self.poll.samples()['a']['value'], 99)
+
+
+class ConnectionStatusTests(unittest.TestCase):
+    def test_status_never_sent_to_device_and_only_published_on_change(self):
+        class Driver(PollDriver):
+            connected=True
+            def status(self):return {'quality':'good' if self.connected else 'bad'}
+            def configure_tags(self,addresses):self.addresses=addresses
+        driver=Driver();poll=PollingManager()
+        tag={'id':'connected','source':'plc','address':'$status/connected','connection_status':True}
+        poll.configure([{'id':'plc','kind':'pycomm3','settings':{'live':.5,'background':20}}],[tag],{'plc':driver})
+        self.assertEqual(driver.addresses,[])
+        initial=poll.samples()['connected']
+        poll.poll_due(False)
+        self.assertEqual(driver.batches,[])
+        self.assertEqual(poll.samples()['connected'],initial)
+        driver.connected=False;poll.refresh_connections(force=True)
+        self.assertIs(poll.samples()['connected']['value'],False)
+        self.assertEqual(poll.samples()['connected']['quality'],'good')
+
+    def test_slow_status_does_not_block_other_source_polling(self):
+        release=threading.Event();entered=threading.Event();read=threading.Event()
+        class SlowDriver(PollDriver):
+            block=False
+            def status(self):
+                if self.block:entered.set();release.wait(2)
+                return {'quality':'good'}
+        class FastDriver(PollDriver):
+            def read_many(self,addresses):read.set();return super().read_many(addresses)
+        slow=SlowDriver();fast=FastDriver();clock=[0];poll=PollingManager(clock=lambda:clock[0])
+        sources=[{'id':name,'kind':'pycomm3','settings':{'background':20}} for name in ['slow','fast']]
+        tags=[{'id':'connected','source':'slow','address':'$status/connected','connection_status':True},{'id':'value','source':'fast','address':'A'}]
+        poll.configure(sources,tags,{'slow':slow,'fast':fast});slow.block=True;clock[0]=1
+        try:
+            poll.poll_due()
+            self.assertTrue(entered.wait(1));self.assertTrue(read.wait(1))
+        finally:release.set()

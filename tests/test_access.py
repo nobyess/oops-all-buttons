@@ -10,6 +10,43 @@ class AccessTests(unittest.TestCase):
  def setUp(self):
   self.folder=tempfile.TemporaryDirectory();self.service=Service(Store(Path(self.folder.name)/'db.sqlite3'));self.access=Access(self.service)
  def tearDown(self):self.folder.cleanup()
+ def test_app_background_is_per_user_and_validated(self):
+  admin=self.access.save_user({'username':'Admin','password':'12345678','app_background':'#123456'},setup=True)
+  viewer=self.access.save_user({'username':'Viewer','password':'12345678'})
+  self.assertEqual(self.access.public(admin)['app_background'],'#123456')
+  self.assertEqual(self.access.public(viewer)['app_background'],'')
+  with self.assertRaises(ValueError):self.access.save_user({'id':viewer['id'],'username':'Viewer','app_background':'url(bad)'})
+  self.access.save_user({'id':admin['id'],'username':'Admin','administrator':True,'app_background':''})
+  self.assertEqual(self.access.public(self.access.login('Admin','12345678'))['app_background'],'')
+ def test_eight_character_password_minimum(self):
+  with self.assertRaises(ValueError):self.access.save_user({'username':'Admin','password':'1234567'},setup=True)
+  admin=self.access.save_user({'username':'Admin','password':'12345678'},setup=True)
+  self.assertIsNotNone(self.access.login('Admin','12345678'))
+  with self.assertRaises(ValueError):self.access.save_user({'id':admin['id'],'username':'Admin','password':'short'})
+  self.assertIsNotNone(self.access.login('Admin','12345678'))
+ def test_role_membership_editor_preserves_other_roles(self):
+  admin=self.access.save_user({'username':'Admin','password':'test-password-123'},setup=True)
+  viewer=self.access.save_user({'username':'Viewer','password':'viewer-password-123'})
+  first=self.access.save_role({'name':'First','users':[admin['id'],viewer['id']]})
+  second=self.access.save_role({'name':'Second','users':[viewer['id']]})
+  self.access.save_role({'id':first['id'],'name':'Renamed','users':[admin['id']]})
+  user=self.access.save_user({'id':viewer['id'],'username':'Viewer','theme':'dark'})
+  self.assertEqual(user['roles'],[second['id']])
+  before=self.access.roles()
+  with self.assertRaises(ValueError):self.access.save_role({'id':first['id'],'name':'Bad rename','users':['missing']})
+  self.assertEqual(self.access.roles(),before)
+  self.assertIn(first['id'],self.access.login('Admin','test-password-123')['roles'])
+ def test_individual_session_settings(self):
+  from hmi.session_settings import session_valid
+  admin=self.access.save_user({'username':'Admin','password':'test-password-123'},setup=True)
+  viewer=self.access.save_user({'username':'Viewer','password':'viewer-password-123','session_settings':{'mode':'never','hours':8}})
+  self.assertEqual(self.access.public(admin)['session_settings']['mode'],'fixed')
+  self.assertEqual(self.access.public(viewer)['session_settings']['mode'],'never')
+  record={'created':0,'activity':3500}
+  self.assertTrue(session_valid(record,self.access.public(viewer)['session_settings'],40000))
+  self.assertFalse(session_valid(record,self.access.public(admin)['session_settings'],40000))
+  with self.assertRaises(ValueError):self.access.save_user({'id':viewer['id'],'username':'Viewer','session_settings':{'mode':'invalid','hours':8}})
+  self.assertEqual(self.access.public(self.access.login('Viewer','viewer-password-123'))['session_settings']['mode'],'never')
  def test_user_theme_isolated_and_validated(self):
   admin=self.access.save_user({'username':'Admin','password':'test-password-123'},setup=True)
   viewer=self.access.save_user({'username':'Viewer','password':'viewer-password-123'})
@@ -74,7 +111,7 @@ class AccessTests(unittest.TestCase):
    sock=Socket();handler(sock,('127.0.0.1',12345),SimpleNamespace());head,body=sock.output.getvalue().split(b'\r\n\r\n',1);lines=head.decode().split('\r\n');headers=dict(line.split(': ',1) for line in lines[1:]);return int(lines[0].split()[1]),json.loads(body),headers
   def login(name,password):
    code,_,headers=request('/api/login',{'username':name,'password':password});self.assertEqual(code,200);cookie=headers['Set-Cookie'].split(';')[0];status=request('/api/status',cookie=cookie)[1];return cookie,status['csrf']
-  request('/api/setup',{'username':'Admin','password':'test-password-123'});admin_cookie,admin_csrf=login('Admin','test-password-123')
+  request('/api/setup',{'username':'Admin','password':'test-password-123','safety_acknowledged':True});admin_cookie,admin_csrf=login('Admin','test-password-123')
   import base64
   from hmi.symbols import prepare_symbol
   symbol={'name':'margin.svg','data':base64.b64encode(b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="20" y="30" width="40" height="50"/></svg>').decode(),'symbol':True,'prepare_only':True}

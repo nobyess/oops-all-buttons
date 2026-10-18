@@ -1,8 +1,27 @@
 const STORAGE='hmi-designer-panel-widths';
+const listScrollState=new Map();
+function rememberList(list){
+ const key=list.dataset.editorListKey;if(!key)return;
+ listScrollState.set(key,{top:list.scrollTop,left:list.parentElement.scrollLeft});
+}
+export function saveEditorListScroll(root){
+ for(const list of root.querySelectorAll('[data-editor-list-key]'))rememberList(list);
+}
 export function constrainPanelWidth(value,available,other){return Math.round(Math.max(160,Math.min(600,Math.max(160,available-other-160),value)));}
-export function scrollableEditorList(list,explorer=false){
+export function scrollableEditorList(list,explorer=false,stateKey=''){
  const wrapper=document.createElement('div');wrapper.className='editor-list-scroll'+(explorer?' explorer-list-scroll':'');
  list.before(wrapper);wrapper.append(list);list.classList.add('editor-scroll-list');
+ if(stateKey){
+  list.dataset.editorListKey=stateKey;
+  const previous=listScrollState.get(stateKey);let ready=false;
+  const remember=()=>{if(ready && list.isConnected)rememberList(list);};
+  list.addEventListener('scroll',remember);wrapper.addEventListener('scroll',remember);
+  requestAnimationFrame(()=>{
+   if(!list.isConnected)return;
+   if(previous){list.scrollTop=previous.top;wrapper.scrollLeft=previous.left;}
+   ready=true;rememberList(list);
+  });
+ }
  return wrapper;
 }
 export function mountEditorPanels(layout){

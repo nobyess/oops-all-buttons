@@ -74,7 +74,7 @@ class Element {
   showModal() {this.open = true;}
   close() {this.open = false; this.onclose?.();}
   remove() {this.parent.children = this.parent.children.filter(child => child !== this);}
-  querySelector(tag) {return this.children.find(child => child.tagName === tag);}
+  querySelector(tag) {return this.children.find(child => tag.startsWith('.') ? child.className === tag.slice(1) : child.tagName === tag);}
 }
 globalThis.document = {body: new Element('body'), createElement: tag => new Element(tag),
   createElementNS: (namespace, tag) => new Element(tag)};
@@ -150,7 +150,9 @@ controls.button.render(content, {text: 'Press'}, context);
 const originalButton = content.querySelector('button');
 controls.button.update(content, {text: 'Updated'}, context);
 assert.equal(content.querySelector('button'), originalButton);
-assert.equal(originalButton.textContent, 'Updated');
+const originalText=originalButton.querySelector('.button-text');
+assert.equal(originalText.textContent, 'Updated');
+assert.equal(originalButton.disabled,false);
 assert(!('tag' in controls.button.props));
 
 const launcherButton = new Element('button');
@@ -160,8 +162,8 @@ modal = document.body.children[0];
 assert.equal(launcherButton['aria-expanded'], 'true');
 assert(!descendants(modal).some(node=>node.tagName==='button'));
 const links = descendants(modal).filter(node => node.tagName === 'a');
-assert.deepEqual(links.map(link => link.href), ['#sources', '#sheets', '#pages', '#administration']);
-assert.deepEqual(links.map(link => link.children[1].textContent), ['Data Sources & Tags', 'Sheets', 'Pages', 'Administration']);
+assert.deepEqual(links.map(link => link.href), ['#sources', '#sheets', '#pages', '#administration', '#alarms']);
+assert.deepEqual(links.map(link => link.children[1].textContent), ['Data Sources & Tags', 'Sheets', 'Pages', 'Administration', 'Alarms']);
 links[2].onclick({preventDefault() {}});
 assert.equal(window.location.hash, '#pages');
 assert.equal(document.body.children.length, 0);
@@ -197,7 +199,8 @@ try {
 
 controls.button.update(content,{text:'Base',contentOverride:'<b>Literal</b>\nNext'},context);
 assert.equal(content.querySelector('button'),originalButton);
-assert.equal(originalButton.textContent,'<b>Literal</b>\nNext');
+assert.equal(originalButton.querySelector('.button-text'),originalText);
+assert.equal(originalText.textContent,'<b>Literal</b>\nNext');
 const numericContent=new Element('div');
 controls.numeric.render(numericContent,{text:'Value',contentOverride:'Stopped'},{bindingValue:{quality:'good',value:42}});
 assert.equal(numericContent.textContent,'42.00');

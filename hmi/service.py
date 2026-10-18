@@ -1,3 +1,5 @@
+from .alarms import Alarms
+from .local_drivers import SYSTEM_SOURCE, system_tags, connection_tags, DatabaseDriver, database_settings
 """Application operations shared by HTTP handlers and future automation workers."""
 from .error_log import ErrorLog
 from .mqtt import mqtt_settings, topic_name
@@ -26,7 +28,9 @@ class Service:
         self.lock = threading.RLock()
         self.drivers = {}
         self.source_errors = {}
+        self.connection_tags = []
         self.error_log = ErrorLog()
+        self.alarms = Alarms(store)
         self.polling = PollingManager()
         self.polling.error_log = self.error_log
         self.sheet_lock = threading.RLock()
@@ -43,6 +47,15 @@ class Service:
         existing_tags = self.store.get('tags', [])
         if any('name' not in tag for tag in existing_tags):
             self.store.set('tags', [{**tag, 'name': tag.get('name', tag['id'])} for tag in existing_tags])
+        stored_sources=self.store.get('sources',[])
+        legacy={s['id']:s for s in stored_sources if s['kind']=='memory'}
+        stored_tags=self.store.get('tags',[])
+        for tag in stored_tags:
+            if tag['source'] in legacy:
+                tag.update(source='system',folder='Memory',address='Memory/'+tag['id'])
+        if legacy or not any(s['id']=='system' for s in stored_sources):
+            self.store.set_many({'sources':[s for s in stored_sources if s['kind'] not in ('memory','system')]+[SYSTEM_SOURCE],
+                                 'tags':stored_tags})
         self.test_receipts = {}
         self.action_locks = {}
         if self.store.get('pages') is None:
@@ -57,6 +70,7 @@ class Service:
         for source in self.sources():
             try:
                 driver = DRIVERS[source['kind']](source['settings'])
+                if isinstance(driver,DatabaseDriver):driver.bind(Path(self.store.path).parent/'databases')
                 if isinstance(driver, SheetDriver):
                     identity = source['id']
                     driver.bind(Path(self.store.path).parent / 'sheets', lambda identity=identity: self.sheet_snapshot()[identity], self.recalculate_sheets, self.sheet_lock)
@@ -67,6 +81,7 @@ class Service:
         self.configure_polling()
 
     def configure_polling(self):
+        self.connection_tags=connection_tags(self.sources())
         for source in self.sources():
             driver = self.drivers.get(source['id'])
             if isinstance(driver, SheetDriver):
@@ -76,8 +91,12 @@ class Service:
         for source in self.sources():
             driver = self.drivers.get(source['id'])
             if source['kind'] == 'mqtt' and driver:
-                driver.configure_topics([tag['address'] for tag in self.tags() if tag['source'] == source['id']])
+                driver.configure_topics([tag['address'] for tag in self.tags() if tag['source'] == source['id'] and not tag.get('connection_status')])
+        system=self.drivers.get('system')
+        if system:system.disconnected_sources=lambda:sum(not sample.get('value',False) for sample in self.polling.samples({t['id'] for t in self.connection_tags}).values())
+        self.update_alarm_interest()
         self.polling.configure(self.sources(), self.tags(), self.drivers)
+        self.evaluate_alarms()
 
     def check_sheet_filename(self, filename, exclude=None):
         if any(s['kind'] == 'sheet' and s['id'] != exclude and s['settings']['filename'].casefold() == filename.casefold()
@@ -129,6 +148,54 @@ class Service:
     def recalculate_sheets(self):
         if any(isinstance(driver, SheetDriver) for driver in self.drivers.values()):
             self.sheet_snapshot()
+        self.evaluate_alarms()
+
+    def evaluate_alarms(self):
+        with self.lock:
+            if self.alarms.items:self.alarms.evaluate(self.values(self.alarms.dependencies()))
+
+    def update_alarm_interest(self):
+        wanted=self.alarms.dependencies()
+        if wanted:
+            tags={t['id']:t for t in self.tags()};pending=list(wanted)
+            while pending:
+                tag=tags.get(pending.pop())
+                driver=self.drivers.get(tag['source']) if tag else None
+                if isinstance(driver,SheetDriver):
+                    extra=driver.dependencies()-wanted;wanted.update(extra);pending.extend(extra)
+        self.polling.permanent_interest=wanted
+
+    def alarm_snapshot(self):
+        with self.lock:
+            result=self.alarms.snapshot()
+            samples=self.values({a['event']['tag'] for a in result})
+            for alarm in result:alarm['current_value']=samples.get(alarm['event']['tag'],{}).get('value')
+            return result
+
+    def save_alarm(self,data):
+        with self.lock:
+            result=self.alarms.save(data,self.tags())
+            self.update_alarm_interest()
+            self.polling.changed.set()
+            self.evaluate_alarms()
+            return result
+
+    def remove_alarm(self,data):
+        with self.lock:
+            self.alarms.remove(data['id'])
+            self.update_alarm_interest()
+
+    def silence_alarms(self,data,actor):
+        with self.lock:return self.alarms.silence(data,actor)
+
+    def alarm_attention(self):
+        with self.lock:
+            return [{'id':alarm['id'],'name':alarm['name'],'message':alarm['message'],
+                     'focused':alarm.get('focused',False),'state':dict(self.alarms.states[alarm['id']])}
+                    for alarm in self.alarms.items if self.alarms.states.get(alarm['id'],{}).get('active')]
+
+    def alarm_history(self,data):
+        with self.lock:return self.alarms.history(data)
 
     def get_sheet(self, data):
         driver = self.sheet_driver(data['source'])
@@ -215,7 +282,7 @@ class Service:
                             tag = next((tag for tag in self.tags() if tag['source'] == source['id'] and tag['address'] == address), None)
                             if not tag:
                                 if address not in CELLS and address in self.sheet_driver(source['id']).cells:
-                                    self.store.set('tags', self.tags() + [{'id': uuid.uuid4().hex, 'name': address, 'source': source['id'], 'address': address, 'writable': True}])
+                                    self.store.set('tags', self.store.get('tags',[]) + [{'id': uuid.uuid4().hex, 'name': address, 'source': source['id'], 'address': address, 'writable': True}])
                                     self.configure_polling()
                                 else:
                                     self.add_tag({'source': source['id'], 'name': address, 'address': address})
@@ -417,6 +484,7 @@ class Service:
         def reference(name, writable=False):
             if name not in tags:
                 raise ValueError(f'Unknown target tag: {name}')
+            if writable and tags[name].get('builtin'):raise ValueError('Built-in tags are read only')
             if writable and tags[name].get('data_type', '') in ('STRING', 'STRINGN') and not any(s['id']==tags[name]['source'] and s['kind']=='bacnet' for s in self.sources()):
                 raise ValueError('Numeric actions cannot write string tags')
         for control in controls:
@@ -589,6 +657,9 @@ class Service:
                         'control': '@page' if control is page else control['id'],
                         'controlName': page['name'] if control is page else control.get('name', control['id']),
                         'tag': paths.get(identity, identity)})
+        for alarm in self.alarms.items:
+            for identity in self.alarms.event_tags(alarm['event']):
+                uses.setdefault(identity, []).append({'page':None,'name':'Alarms','control':alarm['name'],'controlName':alarm['name'],'alarm':alarm['id'],'tag':paths.get(identity,identity)})
         for source in sources:
             driver = self.drivers.get(source['id'])
             if isinstance(driver, SheetDriver):
@@ -653,19 +724,21 @@ class Service:
         return result
 
     def remove_tag(self, data):
+        if any(t['id']==data['id'] and t.get('builtin') for t in self.tags()):raise ValueError('Built-in tags cannot be removed')
         with self.lock:
             if self.usage(data['id']):
                 raise ValueError('Tag is used by a saved page or sheet formula. Remove those references first.')
-            self.store.set('tags', [t for t in self.tags() if t['id'] != data['id']])
+            self.store.set('tags', [t for t in self.store.get('tags',[]) if t['id'] != data['id']])
             self.configure_polling()
 
     def remove_source(self, data):
+        if data['id']=='system':raise ValueError('System is built in and cannot be removed')
         with self.lock:
             related = [t for t in self.tags() if t['source'] == data['id']]
             if any(use.get('source') != data['id'] for tag in related for use in self.usage(tag['id'])):
                 raise ValueError('Source tags are used by saved pages or another sheet. Remove those references first.')
             driver = self.drivers.get(data['id'])
-            self.store.set('tags', [t for t in self.tags() if t['source'] != data['id']])
+            self.store.set('tags', [t for t in self.store.get('tags',[]) if t['source'] != data['id']])
             self.store.set('sources', [s for s in self.sources() if s['id'] != data['id']])
             self.drivers.pop(data['id'], None)
             self.configure_polling()
@@ -673,10 +746,11 @@ class Service:
             driver.close()
 
     def sources(self):
-        return self.store.get('sources', [])
+        sources=self.store.get('sources',[])
+        return [s for s in sources if s['kind']!='system']+[s for s in sources if s['kind']=='system']
 
     def tags(self):
-        return self.store.get('tags', [])
+        return self.store.get('tags', [])+system_tags()+self.connection_tags
 
     def add_source(self, data):
         with self.lock:
@@ -684,6 +758,7 @@ class Service:
             name = str(data.get('name', data.get('id', ''))).strip()
             identity = str(data.get('id') or uuid.uuid4().hex)
             kind = data['kind']
+            if kind=='system':raise ValueError('System is built in; add Memory tags to it instead')
             if not name or any(s.get('name', s['id']).casefold() == name.casefold() for s in sources):
                 raise ValueError('Source name is empty or already exists')
             if kind not in DRIVERS:
@@ -691,6 +766,9 @@ class Service:
             if any(s['id'] == identity for s in sources):
                 raise ValueError('Source identity already exists')
             source = {'id': identity, 'name': name, 'kind': kind, 'settings': data.get('settings', {})}
+            if kind == 'database':
+                source['settings']=database_settings(source['settings'])
+                if any(s['kind']=='database' and s['settings']['filename'].casefold()==source['settings']['filename'].casefold() for s in sources):raise ValueError('This database file already has a source')
             if kind == 'modbus':
                 source['settings'] = modbus_settings(source['settings'])
             if kind == 'mqtt':
@@ -703,6 +781,7 @@ class Service:
                 receipt = self.test_receipts.get(data.get('test_token'))
                 source['tested_at'] = receipt[1] if receipt and receipt[0] == source['settings'] and time.time() - receipt[1] < 1800 else None
             driver = DRIVERS[kind](source['settings'])
+            if isinstance(driver,DatabaseDriver):driver.bind(Path(self.store.path).parent/'databases')
             if isinstance(driver, SheetDriver):
                 driver.bind(Path(self.store.path).parent / 'sheets', lambda: self.sheet_snapshot()[identity], self.recalculate_sheets, self.sheet_lock)
             self.store.set('sources', sources + [source])
@@ -710,6 +789,7 @@ class Service:
             self.configure_polling()
 
     def edit_source(self, data):
+        if data['id']=='system':raise ValueError('System settings are built in')
         old_driver = None
         with self.lock:
             sources = self.sources()
@@ -720,6 +800,9 @@ class Service:
             if not name or any(s['id'] != source['id'] and s.get('name', s['id']).casefold() == name.casefold() for s in sources):
                 raise ValueError('Source name is empty or already exists')
             settings = data.get('settings', source['settings'])
+            if source['kind']=='database':
+                settings=database_settings(settings)
+                if settings['filename']!=source['settings']['filename']:raise ValueError('Create a new source to select another database file')
             if source['kind'] == 'sheet':
                 settings = sheet_settings(settings)
                 self.check_sheet_filename(settings['filename'], source['id'])
@@ -732,9 +815,9 @@ class Service:
             if source['kind'] == 'pycomm3':
                 settings = connection_settings(settings)
             previous = source['settings']
-            if previous.get('protocol', 'logix') != settings.get('protocol', 'logix') and any(t['source'] == source['id'] for t in self.tags()):
+            if previous.get('protocol', 'logix') != settings.get('protocol', 'logix') and any(t['source'] == source['id'] and not t.get('builtin') for t in self.tags()):
                 raise ValueError('Remove this source’s tags before changing its protocol type')
-            connection_changed = (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] == 'modbus' and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max'))
+            connection_changed = (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] == 'modbus' and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max', 'use_cov', 'cov_lifetime', 'cov_verify', 'cov_confirmed'))
             current_driver = self.drivers.get(source['id'])
             if connection_changed or current_driver is None:
                 driver = DRIVERS[source['kind']](settings)
@@ -765,11 +848,12 @@ class Service:
             original = next((t for t in self.tags() if t['id'] == data['id']), None)
             if original is None:
                 raise ValueError('Unknown tag')
+            if original.get('builtin'):raise ValueError('Built-in tags cannot be edited')
             source = next(s for s in self.sources() if s['id'] == original['source'])
             driver = self.drivers.get(source['id'])
         if driver is None:
             raise ValueError('Source unavailable')
-        address = original['address'] if source['kind'] in ('memory', 'pycomm3', 'bacnet', 'sheet') else str(data.get('address', original['address'])).strip()
+        address = original['address'] if source['kind'] in ('memory','system','database', 'pycomm3', 'bacnet', 'sheet') else str(data.get('address', original['address'])).strip()
         if source['kind'] == 'mqtt':
             address = topic_name(address)
         if not address:
@@ -777,7 +861,7 @@ class Service:
         if source['kind'] == 'modbus':address = canonical_address(address)
         metadata = driver.describe(address) if source['kind'] in ('pycomm3', 'bacnet', 'modbus') else None
         name = str(data.get('name', original.get('name', original['id']))).strip()
-        rename_allowed = source['kind'] in ('memory', 'bacnet', 'mqtt', 'modbus') or source['settings'].get('protocol') == 'slc'
+        rename_allowed = source['kind'] in ('memory','system','database', 'bacnet', 'mqtt', 'modbus') or source['settings'].get('protocol') == 'slc'
         if not rename_allowed and name != original.get('name', original['id']):
             raise ValueError('This tag type has a fixed name')
         if not name:
@@ -789,7 +873,7 @@ class Service:
                 raise ValueError('Tag or source changed; reopen Edit')
             if any(t['id'] != tag['id'] and t['source'] == tag['source'] and t['address'] == address for t in tags):
                 raise ValueError('This address is already added for this source')
-            if any(t['id'] != tag['id'] and t['source'] == tag['source'] and t.get('name', t['id']).casefold() == name.casefold() for t in tags):
+            if any(t['id'] != tag['id'] and t['source'] == tag['source'] and t.get('folder')==tag.get('folder') and t.get('name', t['id']).casefold() == name.casefold() for t in tags):
                 raise ValueError('Tag name already exists in this source')
             tag.update(name=name, address=address)
             tag['writable'] = True  # Compatibility field only; never used to authorize writes.
@@ -797,7 +881,7 @@ class Service:
                 tag.update(reported_access='Read/Write' if metadata['writable'] else 'Read only', data_type=metadata['type'])
             if source['kind'] == 'bacnet':
                 tag.update(bacnet_path=metadata['bacnet_path'], property=metadata['property'])
-            self.store.set('tags', tags)
+            self.store.set('tags', [t for t in tags if not t.get('builtin')])
             self.configure_polling()
 
     def add_tag(self, data):
@@ -811,22 +895,22 @@ class Service:
                 raise ValueError('Source unavailable')
             metadata = driver.describe(str(data['address']).strip())
         with self.lock:
-            tags = self.tags()
+            tags = self.store.get('tags',[])
             name = str(data.get('name', data.get('id', ''))).strip()
             if source and source['kind'] == 'pycomm3' and source['settings'].get('protocol', 'logix') == 'logix' and 'name' in data:
                 name = str(data['address']).strip().removeprefix('Program:')
             if source and source['kind'] == 'bacnet' and not name:
                 raise ValueError('Tag name is required')
-            if not name or (any(t['source'] == data['source'] and t.get('name', t['id']).casefold() == name.casefold() for t in tags)):
+            if not name or (any(t['source'] == data['source'] and t.get('name', t['id']).casefold() == name.casefold() for t in self.tags())):
                 raise ValueError('Tag name is empty or already exists in this source')
             if source and source['kind'] == 'sheet':
                 name = cell_address(data['address'])
             identity = str(data.get('id') or uuid.uuid4().hex)
-            if any(t['id'] == identity for t in tags):
+            if any(t['id'] == identity for t in self.tags()):
                 identity = uuid.uuid4().hex
             if data['source'] not in self.drivers:
                 raise ValueError('Unknown source')
-            address = identity if source and source['kind'] == 'memory' else str(data['address']).strip()
+            address = ('Memory/'+identity if source['kind']=='system' else identity) if source['kind'] in ('memory','system','database') else str(data['address']).strip()
             if source and source['kind'] == 'sheet':
                 address = cell_address(address)
                 if address not in CELLS:
@@ -840,6 +924,7 @@ class Service:
             if any(t['source'] == data['source'] and t['address'] == address for t in tags):
                 raise ValueError('This PLC address is already added for this source')
             tag = {'id': identity, 'name': name, 'source': data['source'], 'address': address, 'writable': True}
+            if source['kind']=='system':tag['folder']='Memory'
             source = next(s for s in self.sources() if s['id'] == data['source'])
             if source['kind'] == 'sheet':
                 tag['name'] = address
@@ -890,6 +975,7 @@ class Service:
             tag = next((t for t in self.tags() if t['id'] == data['tag']), None)
             if not tag:
                 raise ValueError('Unknown tag')
+            if tag.get('builtin'):raise ValueError('Built-in tags are read only')
             kind = data['action']
             operand = float(data.get('value', 1))
             if kind == 'value_input':
@@ -907,6 +993,8 @@ class Service:
                 raise ValueError('Value must be finite')
             driver.write(tag['address'], value)
             self.polling.acknowledge_write(tag['id'])
-            if isinstance(driver, SheetDriver) or isinstance(driver, DRIVERS['memory']):
+            if isinstance(driver,(DRIVERS['system'],DatabaseDriver)):
+                self.polling.update(tag['id'],driver.read(tag['address']))
+            if isinstance(driver, (SheetDriver,DRIVERS['memory'],DRIVERS['system'],DatabaseDriver)):
                 self.recalculate_sheets()
             return value

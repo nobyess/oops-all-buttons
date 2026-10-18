@@ -5,7 +5,7 @@ export function accountProfile(user,roles){
 }
 export function openAccountPopup({anchor,user,roles,onLogout}){
  closeAccountPopup();
- const profile=accountProfile(user,roles),modal=document.createElement('dialog');modal.className='account-popup';modal.setAttribute('aria-label','User account');
+ const profile=accountProfile(user,roles),modal=document.createElement('dialog');modal.className='account-popup designer-dialog';modal.setAttribute('aria-label','User account');
  const add=(tag,text,parent=modal)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;parent.append(el);return el;};
  add('h2','Account');const info=add('dl');
  for(const [label,value] of [['User',profile.username],['Level',profile.level]]){add('dt',label,info);add('dd',value,info);}

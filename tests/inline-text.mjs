@@ -15,3 +15,9 @@ assert.deepEqual(controlInlineTagIds(control,tags),['a','b']);
 assert.deepEqual(pageTagIds({controls:[control]},tags),['a','b']);
 assert.equal(renderInlineText('Unfinished @{WWTP',{},tags,values),'Unfinished @{WWTP');
 console.log('Inline text quality, values, base/event dependencies, and stable rename bindings passed.');
+
+const systemTags=[{id:'clock',source_name:'System',folder:'Time',name:'DateTime'},{id:'memory',source_name:'System',folder:'Memory',name:'Example'}];
+const systemText=String.raw`@{System\Time\DateTime} / @{System\Memory\Example}`;
+assert.deepEqual(inlineTagIds(systemText,{},systemTags),['clock','memory']);
+assert.equal(renderInlineText(systemText,{},systemTags,{clock:{quality:'good',value:'2026-10-18T12:34:56-04:00'},memory:{quality:'good',value:7}}),'2026-10-18T12:34:56-04:00 / 7');
+assert.deepEqual(pageTagIds({controls:[{type:'label',text:systemText}]},systemTags),['clock','memory']);

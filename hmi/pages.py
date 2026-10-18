@@ -6,7 +6,7 @@ PAGE_ACTIONS = {'navigate', 'popup'}
 
 
 def page_defaults(page):
-    for key, value in {'width': 1000, 'height': 640, 'backColor': '#ffffff', 'showBorder': True,
+    for key, value in {'width': 1000, 'height': 640, 'backColor': '#ffffff', 'showBorder': True, 'showBackground': True,
                        'horizontalAlignment': 'left', 'verticalAlignment': 'top', 'gridSize': 20, 'gridStyle': 'lines'}.items():
         page.setdefault(key, value)
     page.setdefault('actions', [])
@@ -62,6 +62,8 @@ def validate_page(page):
         raise ValueError('Invalid grid style')
     if not isinstance(page['showBorder'], bool):
         raise ValueError('Show Border must be enabled or disabled')
+    if not isinstance(page['showBackground'], bool):
+        raise ValueError('Show Background must be enabled or disabled')
     for key in ('width', 'height'):
         value = page[key]
         if not isinstance(value, (int, float)) or not math.isfinite(value) or not 20 <= value <= 10000:

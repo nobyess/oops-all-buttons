@@ -15,11 +15,11 @@ class PreviewTests(unittest.TestCase):
 
     def test_preview_reads_without_adding_or_writing(self):
         driver=self.prepare()
-        before=self.service.tags()
+        before=[t for t in self.service.tags() if not t.get('builtin')]
         result=self.service.preview_source_tag({'source':'sim','address':'RunMotor'})
         self.assertEqual(result['quality'],'good');self.assertIs(result['value'],True)
         driver.read.assert_called_once_with('RunMotor');driver.write.assert_not_called()
-        self.assertEqual(before,self.service.tags())
+        self.assertEqual(before,[t for t in self.service.tags() if not t.get('builtin')])
 
     def test_failure_is_unavailable(self):
         driver=self.prepare();driver.read.side_effect=ValueError('Disconnected')

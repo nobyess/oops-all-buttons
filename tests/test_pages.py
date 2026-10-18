@@ -18,6 +18,15 @@ class PageTests(unittest.TestCase):
         self.assertNotIn('enabled', self.service.pages()[0]['controls'][0]['events'][0])
         self.assertFalse(hasattr(self.service,'tick'))
 
+    def test_page_background_visibility(self):
+        page=self.service.pages()[0]
+        self.assertTrue(page['showBackground'])
+        page['showBackground']=False
+        self.service.save_page(page)
+        self.assertFalse(self.service.pages()[0]['showBackground'])
+        page['showBackground']='false'
+        with self.assertRaises(ValueError):self.service.save_page(page)
+
     def test_layout_defaults_and_persistence(self):
         page = self.service.pages()[0]
         self.assertEqual(page['width'], 1000)

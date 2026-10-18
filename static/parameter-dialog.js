@@ -2,7 +2,7 @@ import {randomId} from './uuid.js';
 // Draft dialogs: Cancel leaves the page/action untouched.
 function el(tag,text,parent,attrs={}){const n=document.createElement(tag);if(text!==null)n.textContent=text;Object.assign(n,attrs);parent?.append(n);return n;}
 export function configureParameters(parameters=[]){return new Promise(resolve=>{
-  const draft=structuredClone(parameters),modal=el('dialog',null,document.body,{className:'parameter-dialog parameter-config-dialog'});
+  const draft=structuredClone(parameters),modal=el('dialog',null,document.body,{className:'designer-dialog parameter-dialog parameter-config-dialog'});
   const header=el('div',null,modal,{className:'parameter-config-header'});
   el('h2','Configure Parameters',header);
   const list=el('div',null,modal,{className:'parameter-list'});
@@ -32,7 +32,7 @@ export function configureParameters(parameters=[]){return new Promise(resolve=>{
   modal.oncancel=e=>{e.preventDefault();finish(null);};render();modal.showModal();
 });}
 export function connectParameters(destination,connections={},makePicker){return new Promise(resolve=>{
-  const draft={...connections},modal=el('dialog',null,document.body,{className:'parameter-dialog parameter-connect-dialog'});
+  const draft={...connections},modal=el('dialog',null,document.body,{className:'designer-dialog parameter-dialog parameter-connect-dialog'});
   el('h2','Connect Parameters — '+destination.name,modal);
   const list=el('div',null,modal,{className:'parameter-list'});
   for(const parameter of destination.parameters || []){

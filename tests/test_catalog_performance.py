@@ -21,6 +21,9 @@ class CatalogPerformanceTests(unittest.TestCase):
         self.service.lock = threading.RLock()
         self.service.drivers = {}
         self.service.source_errors = {}
+        self.service.connection_tags = []
+        from types import SimpleNamespace
+        self.service.alarms=SimpleNamespace(items=[])
         self.service.polling = PollingManager()
         self.data = {
             'sources': [{'id': 's', 'name': 'PLC', 'kind': 'memory'}],

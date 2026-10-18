@@ -1,7 +1,8 @@
+import {confirmMessage} from './message-dialog.js';
 import {applyTheme} from './theme.js';
 export function hasAccessRoles(user,required=[]){return Array.isArray(required) && Boolean(user) && (user.administrator || required.every(id=>user.roles?.includes(id)));}
 function modalForm(title,build){
- const modal=document.createElement('dialog'),form=document.createElement('form');modal.className='access-dialog';modal.append(form);
+ const modal=document.createElement('dialog'),form=document.createElement('form');modal.className='access-dialog designer-dialog';modal.append(form);
  const heading=document.createElement('h2');heading.textContent=title;form.append(heading);
  const body=document.createElement('div');form.append(body);const error=document.createElement('p');error.className='error';error.setAttribute('role','alert');form.append(error);
  const footer=document.createElement('div');footer.className='row dialog-footer';form.append(footer);
@@ -34,7 +35,7 @@ export function mountAccessManager(parent,{node,button,api}){
    node('h3','Users',userPanel);
    function editUser(user){modalForm(user?'Edit User':'Add User',body=>{
     const name=input(body,'Username',user?.username || '');name.required=true;name.maxLength=100;
-    const password=input(body,user?'New password (leave blank to keep current)':'Password (12+ characters)','','password');password.autocomplete='new-password';password.required=!user;
+    const password=input(body,user?'New password (leave blank to keep current)':'Password (8+ characters)','','password');password.autocomplete='new-password';password.required=!user;
     const administrator=checkbox(body,'Administrator',Boolean(user?.administrator));
     const kiosk=checkbox(body,'Kiosk Mode',Boolean(user?.kiosk));
     const themeLabel=document.createElement('label');themeLabel.textContent='Interface Theme';const theme=document.createElement('select');themeLabel.append(theme);body.append(themeLabel);
@@ -43,7 +44,7 @@ export function mountAccessManager(parent,{node,button,api}){
     for(const page of [{id:'',name:'Default (first page)'},...pages]){const option=document.createElement('option');option.value=page.id;option.textContent=page.name;starting.append(option);}starting.value=user?.starting_page || '';
     const kioskHint=document.createElement('p');kioskHint.className='hint';kioskHint.textContent='Kiosk users have live views only, with username and Log Out. Page navigation must be provided by page actions.';body.append(kioskHint);
     const title=document.createElement('h3');title.textContent='Assigned Roles';body.append(title);const assigned=roleInputs(body,roles,user?.roles || []);
-    return async()=>{await api('admin/users/save',{id:user?.id,username:name.value,password:password.value,administrator:administrator.checked,kiosk:kiosk.checked,theme:theme.value,starting_page:starting.value,roles:assigned.filter(([,field])=>field.checked).map(([id])=>id)});const status=await api('status');applyTheme(status.user?.theme || 'system');await refresh();};
+    return async()=>{await api('admin/users/save',{id:user?.id,username:name.value,password:password.value,administrator:administrator.checked,kiosk:kiosk.checked,theme:theme.value,starting_page:starting.value,roles:assigned.filter(([,field])=>field.checked).map(([id])=>id)});const status=await api('status');applyTheme(status.user?.theme || 'system',status.user?.app_background || '');await refresh();};
    });}
    if(!users.some(user=>user.id===userId))userId=users[0]?.id || '';
    if(!roles.some(role=>role.id===roleId))roleId=roles[0]?.id || '';
@@ -54,7 +55,7 @@ export function mountAccessManager(parent,{node,button,api}){
    button('+ Add User',userActions,()=>editUser());
    const editUserButton=button('Edit',userActions,()=>editUser(users.find(user=>user.id===userId)));editUserButton.className='access-edit-button';
    const removeUserButton=button('Remove',userActions,async()=>{
-    const user=users.find(user=>user.id===userId);if(!user || !window.confirm('Remove user '+user.username+'?'))return;
+    const user=users.find(user=>user.id===userId);if(!user || !await confirmMessage('Remove user '+user.username+'?',{title:'Remove User?',confirmText:'Remove'}))return;
     try{await api('admin/users/remove',{id:user.id});await refresh();}catch(e){error.textContent=e.message;}
    });
    const userDetails=node('div',null,userPanel,{className:'access-selection-details'});userDetails.setAttribute('aria-live','polite');
@@ -66,7 +67,7 @@ export function mountAccessManager(parent,{node,button,api}){
    button('+ Add Role',roleActions,()=>editRole());
    const editRoleButton=button('Edit',roleActions,()=>editRole(roles.find(role=>role.id===roleId)));editRoleButton.className='access-edit-button';
    const removeRoleButton=button('Remove',roleActions,async()=>{
-    const role=roles.find(role=>role.id===roleId);if(!role || !window.confirm('Remove role '+role.name+'?'))return;
+    const role=roles.find(role=>role.id===roleId);if(!role || !await confirmMessage('Remove role '+role.name+'?',{title:'Remove Role?',confirmText:'Remove'}))return;
     try{await api('admin/roles/remove',{id:role.id});await refresh();}catch(e){error.textContent=e.message;}
    });
    const roleDetails=node('div',null,rolePanel,{className:'access-selection-details'});roleDetails.setAttribute('aria-live','polite');

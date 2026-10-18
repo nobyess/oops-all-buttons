@@ -5,7 +5,7 @@ const source=fs.readFileSync('static/app.js','utf8');
 let release,groups;
 const interest=new Promise(resolve=>{release=resolve;});
 const context=vm.createContext({
- liveTiming:{setActive:()=>{}},csrf:true,syncPageLifecycles:()=>{},sendInterest:()=>interest,
+ csrf:true,syncPageLifecycles:()=>{},sendInterest:()=>interest,
  document:{visibilityState:'visible',querySelectorAll:()=>[{dataset:{pageId:'main'}}]},
  activeViewIds:['main'],controlStates:{},liveOwners:()=>[{id:'main'}],pageTagIds:()=>['value'],
  tags:[{id:'value',source:'memory'}],sources:[{id:'memory',settings:{live:.5}}],

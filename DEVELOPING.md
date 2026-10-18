@@ -181,3 +181,154 @@ Persisted addresses use device/type:instance/property, for example 1443213/2:200
 Run the regular unit tests with optional Sheet dependencies to cover BACnet/Sheet integration. BACnet adapter tests use an async fake and require no UDP sockets. `tests/bacnet-loopback.py` is a separate opt-in real-library test on loopback ports.
 
 Shapes are defined in static/shapes.js through shapeDefinitions(common), registered in controls.js with category:shapes. Toolbox grouping uses the definition category and keeps the same control IDs/model/action/event pipeline. SVG nodes remain stable during live updates; the containing control stays transparent so fill opacity is not applied twice. ShapeGeometry insets strokes to keep them inside bounds. New text-bearing shape types should be added to the Set Content runtime allowlist in visual-events.js. Stroke Width and Edge Diameter are saved numeric properties and validated as finite/nonnegative.
+
+
+## Designer chrome guidelines
+
+These rules apply to the designer sidebars, not the controls authored on an HMI page. Keep their styles scoped under `.editor > .sidebar`.
+
+- Both sidebars use 16px padding. Button groups use the shared 8px gap, including toolbox, tabs, alignment, and Actions/Events commands. Grouped buttons have no individual margins.
+- Field groups use 12px vertical spacing and a 6px label-to-input gap. Position and size fields use two equal columns with an 8px column gap.
+- Sections use the existing neutral horizontal rule with 16px space on each side, followed by a 14px semibold heading. A section directly after a rule does not add another top margin. Page and control Layout sections both follow this pattern.
+- Sidebar text is 14px; secondary hints are always centered, 12px with an 18px line height. Standard buttons are at least 36px tall, toolbox buttons 44px, and alignment/command buttons follow the same grouped spacing.
+- Checkboxes align inline with their label. Color cards share the available width and the same 8px gap instead of fixed widths that can overflow a resized sidebar.
+- Use the `--designer-*` spacing values instead of adding one-off sidebar margins. Preserve overflow, native keyboard behavior, drag targets, and user-configured control fonts/colors.
+
+
+### Designer field surfaces
+
+Wrap a field's label and editor, or an entire checkbox row, in a quiet surface using `--designer-field-background` (the theme's `--ui-subtle`), a 1px neutral divider border, a 6px corner radius, and 8px inner padding. Alignment groups use the same treatment. Keep the standard 12px field-group spacing and 8px checkbox-row spacing outside these surfaces. Focus within a field changes its outer border to the theme's link color while retaining native input focus indicators.
+
+Color pickers already provide a surrounding surface, so their inner labels do not receive additional boxes. At inspector content widths of 220px or less, paired geometry fields and color cards stack vertically to avoid squeezing the editors. These styles remain restricted to the designer sidebars.
+
+
+### Top-bar companion style
+
+Use the same theme-aware subtle field surface, 1px neutral border, 6px radius, and 8px gaps in the header. Top-bar fields keep labels inline and use compact 4px vertical / 8px horizontal padding with 30px-high selects. Header buttons are at least 40px high; the launcher is 40px square. Preserve the 64px single-row header, centered clock, scrolling command groups, primary Save & View emphasis, and kiosk/logged-out visibility rules. The compact field padding is a deliberate header-only exception to the designer sidebar's 8px padding.
+
+The inspector begins with the Page Name, Control Name, or Group Name field, above its tab strip. This field stays available on every tab. Do not add a redundant Name heading above it. Use a standard section divider between the name field and tabs, and between the tabs and their content.
+
+
+### Designer listboxes
+
+Explorer and the Actions/Events lists share the `editor-list-scroll` viewport and `editor-scroll-list` native select styles:
+
+- The visible viewport has a 6px corner radius, 1px theme-neutral border, and `--ui-panel` background. Its focused border uses `--ui-link`.
+- Rows use 14px text, a 20px line height, 6px vertical / 8px horizontal padding, and a minimum 32px row height. The list has 4px inner padding.
+- Selected rows use the dedicated `--designer-list-selection` / `--designer-list-selected-text` pair: white text on deep teal in light mode, and near-black text on light cyan in dark mode. Keep at least 4.5:1 text contrast, including when the list loses focus; do not use the subtle selection colors for these rows. Honor system selection colors in forced-color modes; do not remove keyboard focus behavior.
+- Adjacent command rows are 8px below the list field. Explorer's centered instructions keep their own standard 8px hint spacing before its Delete button.
+- Use native vertical scrolling and a horizontal overflow viewport for long row labels. Preserve horizontal and vertical scroll positions across inspector refreshes, keyed separately by page, selected control/group, and Actions/Events tab. Explorer remembers its viewport per page. A newly opened list may initially reveal its selected row.
+- Reorderable Explorer lists show a 2px drop line clipped to the visible list viewport. Dragging changes order only; group membership is managed by the group commands.
+
+These rules do not style the Listbox control placed on an HMI page, tag pickers, or management-page lists.
+
+
+### Designer popups and tag picker
+
+Use `designer-dialog` for designer dialogs, including Text Editor, parameter configuration/connections, group selection/creation, access-role selection, and unsaved-change confirmations. The shared tag picker uses it wherever opened. Generic app dialogs opt in when opened from the designer.
+
+Use 24px dialog padding, 8px outer corners, 20px/28px semibold titles with 16px separation, 14px/20px body text and section headings. Fields retain the sidebar's subtle surface, 6px corners, 8px inner padding, 12px spacing and 6px label gap. Checkboxes stay inline; color cards avoid nested surfaces. Secondary hints remain centered at 12px/18px. Buttons are at least 36px high with 8px gaps; right-aligned footers have 16px top spacing. Rules use neutral theme dividers with 16px margins.
+
+Filter/search inputs are an exception to field surfaces: retain the input's own border and focus indicator, but do not add a surrounding box, background, or padding to its label. Dialog bottom padding is the same 24px as the other edges. Footer content must not add trailing paragraph/row margins or a minimum height that creates extra bottom space. In the tag picker, bottom-align the command row with the selection summary and use an explicit 12px gap between its name and current value.
+
+Popup listboxes and tag-picker source rows follow the Designer listboxes row and high-contrast selection rules above, including forced-color support. Keep native keyboard behavior, existing selection persistence, and scrollbars. The tag picker's two columns use a 16px gap and keep their constrained height; sheet previews scroll inside that space. Parameter rows and text-editor columns retain their specialized responsive layouts. Dialogs scroll within 92dvh rather than clipping fields or focus rings. These popup rules do not affect authored HMI controls, the application launcher or live page popups.
+
+The top-bar account popup also uses `designer-dialog` on every page: 24px padding on all edges, standard headings/hints/buttons and footer spacing. Keep its top-right anchoring and viewport height limit. User/level details share a subtle 8px-padded surface; read-only role rows use the standard 32px row height inside a bounded scrolling list.
+
+
+### Pages management
+
+Scope management chrome under `.pages-library`; never style descendants of the rendered page preview as application UI. Use 24px card padding (16px on narrow screens), 20px/28px titles with 16px separation, unboxed search inputs, 16px column gaps and 8px command gaps. Buttons are at least 36px tall with 6px corners. Page list rows use 6px/8px padding, 14px/20px primary text, 12px/18px metadata, and the shared high-contrast selection pair for both text lines. Preview frames use 6px corners. Details use a neutral divider with 16px spacing; secondary metadata is centered. Parameter entries use the standard subtle field surface. Add/rename/remove dialogs opened here use the shared popup guidelines. Preserve list keyboard navigation, preview behavior, responsive stacking, references and import/export.
+
+
+### Flat tab strips
+
+Pages detail tabs and the designer inspector use flat, equal-width tabs with a shared 1px neutral bottom rule. Use zero gaps, transparent backgrounds, square corners, 14px/20px semibold labels, at least 40px height, and 8px vertical / 12px horizontal padding. Inactive labels use the theme muted color; the active label and its 3px bottom underline use the theme link color. Reserve the underline space on every tab so selection does not shift layout. Hover uses the subtle hover surface and link text; retain native keyboard focus indicators. Long strips scroll horizontally without wrapping. Leave 16px below the strip and omit a redundant section rule immediately after it. This replaces the earlier filled-button tab style; ordinary buttons and selected list rows retain their own styling.
+
+
+### Integrated Sheets workspace
+
+`static/sheets-manager.js` embeds the existing editable `mountSheetGrid` on the Sheets management page. Sheet/References/Settings use flat tabs. Cell changes, sheet changes, tab changes, management commands and route changes must pass the dirty-cell confirmation and server `sheets/save` validation (`validate:true`). Validation failure and Cancel retain the current sheet and draft; Revert clears selection and focus. Enter saves directly, Escape reverts. Browser unload retains native dirty protection. Close releases polling interest and timers. Do not add routine status text below the grid; display actionable errors only. Keep the standalone cell picker/dialog for other callers.
+
+The integrated sheet formula toolbar (cell address, formula input, Insert Tag, function picker) uses one shared subtle field surface: 1px neutral outline, 6px corners, 8px padding and gaps, with a link-colored border on focus within.
+
+The integrated sheet toolbar has no outer margin; the grid below supplies a single 16px top gap, matching the 16px list/editor column gap. Avoid adding toolbar bottom margin to that spacing.
+
+Reset the integrated `.sheet-grid` table margin-top to zero: the scroll wrapper owns the 16px gap, and the global management-table margin must not add another 20px inside it.
+
+
+### Data Sources & Tags management
+
+Use the same 24px card padding (16px narrow), title spacing, unboxed search, 16px column gap, 8px command gaps, 36px buttons, 6px viewport corners and 32px list rows as the other management pages. Source and tag selections use the shared high-contrast theme pair, retaining explicit source status-dot colors. Details use a neutral divider with 16px spacing and a subtle 8px-padded information surface. Preserve the bottom-aligned details layout, clickable indented references, native scrolling and keyboard behavior. All dialogs opened from this page opt into shared popup styling, including driver tag discovery lists. Selected discovery metadata inherits the selected text color; unavailable entries retain their disabled semantics. Forced colors use system selection colors.
+
+
+### Administration
+
+Administration uses shared management card spacing, flat underlined top tabs, 16px column gaps, 8px command gaps and 36px buttons. Users and Access lists use the common 6px viewport corners, 32px rows and high-contrast selected text/background pair. User details and session-setting fields use subtle surfaces with 8px padding and 12px field spacing; hidden duration fields must remain hidden. Secondary hints are centered at 12px/18px. Server Status uses subtle statistic/driver surfaces with neutral borders and 6px corners; error logs retain their bounded scrolling area and grouped updates. Preserve the existing refresh cadence, log update behavior, role permissions and save semantics. Access dialogs already use shared popup chrome. On narrow screens, reduce card padding to 16px and stack statistics and drivers.
+
+Server Status summary statistics are grouped into Server, CPU & Threads, System Memory, Requests & Errors, and Polling & Project. Use one subtle surface per group, with an ordinary section heading and related label/value rows inside.
+
+
+### Inline user settings and individual sessions
+
+Administration separates Users, Access, and Server Status. `static/user-access-manager.js` owns the inline selected-user draft with Account (username, level, password), Access (kiosk, starting page, roles), and System (theme, login sessions) tabs. Save User validates the complete draft; changing sub-tabs preserves it. Revert restores saved values. Warn before discarding drafts when changing users, top tabs, or routes. Access roles have a separate inline name editor. Existing password/last-administrator/role validation remains server-side.
+
+Users may store validated `session_settings` with mode fixed/inactivity/never and hours 0.01–8760. Authentication resolves the current user's policy on every request, so saved edits apply to existing sessions. Users without an explicit policy retain the former server setting as their default; public user records expose the effective policy. Theme remains per user. Restarting the server still clears sessions. Legacy global session-setting endpoints remain for compatibility but are no longer the Administration editor.
+
+Users and Access use equal-height editor/list columns with a 440px minimum workspace height on desktop. The left column is a flex column: its list grows to fill available height and its Add/Remove command row sits at the bottom. On stacked mobile layouts, use a bounded 238px list instead.
+
+The right-hand user/role editor is also a flex column. Its form fills the column and its footer uses automatic top margin with 16px top padding, keeping Save/Revert on the same bottom baseline as the list commands.
+
+Role membership is edited on Administration > Access with Assigned Users checkboxes. Save Role validates user IDs and commits role name and memberships in one Store.set_many transaction, preserving other roles. Users > Access shows read-only role links; clicking one opens Access with that role selected after the dirty-draft guard. User saves omit roles and the server preserves existing memberships when roles are omitted.
+
+Assigned Users uses a bounded scrolling checkbox group (280px maximum height) with an unboxed search input above it. Filtering hides rows without dropping selections; hidden checked users remain part of Save Role. Filtering alone does not dirty the role draft.
+
+First-run setup uses static/first-run.js: equipment safety/responsibility notice, explicit acknowledgement, then administrator fields with password confirmation. The /api/setup endpoint requires safety_acknowledged to be the literal boolean true before creating the account. Existing installations and normal login are unchanged. First-run content follows theme-aware popup spacing and allows page scrolling.
+
+Regular login follows shared 24px card padding, 20px title, subtle field surfaces with 8px padding, 6px corners, 12px spacing and a right-aligned 36px submit button. New/reset passwords require at least 8 characters, validated server-side; empty edit passwords keep the existing hash. Temporary live-timing diagnostics and their sampling loop have been removed entirely.
+
+
+### Shared messages and remaining chrome audit
+
+Use `static/message-dialog.js` for application confirmations and informational notices instead of browser alert/confirm/prompt. Confirmations return a Promise<boolean>; await the result before mutating data. Escape, Cancel and external closure cancel the operation; restore focus to the invoking element. Duplicate concurrent confirmations are rejected. Designer deletion checks the captured page after awaiting confirmation. User/role drafts and removals use the same custom dialogs. Keep browser-owned beforeunload warnings and file selection native.
+
+All generic app dialogs now use designer-dialog, as do standalone sheet editing, Value Input and session/disconnection notices. Sheet toolbar/grid spacing has one 16px gap with table margin reset. Launcher uses 24px padding, 8px gaps and 6px tile corners; standard-user Pages buttons and runtime-window caption chrome follow shared controls. Do not apply application styling inside authored live page contents. The first-run notice and regular login keep their dedicated shared-style surfaces.
+
+
+### Popup keyboard and navigation
+
+`installDialogKeyboard` handles unmodified Enter/Escape for custom dialog chrome. Enter activates an enabled default/submit/confirmation action, even when Cancel initially has focus; disabled actions do nothing. Escape invokes the dialog cancel path. Existing deliberate child handlers (sheet formula save/revert, tree navigation) retain precedence. Multiline text uses Enter to save and Shift+Enter for a line break. Ignore composition and key repeats. Native file pickers/unload prompts keep browser behavior.
+
+`navigation-history.js` stamps same-document history entries. Cancelled dirty navigation traverses back to the accepted entry instead of replacing the destination URL; accepted navigation keeps the original entries for Back/Forward. Page selection must not replace the Pages entry before navigating to its editor. Serialize unsaved-change decisions to prevent duplicate route prompts. Regression tests cover dialog keys and history restoration.
+
+
+### Page and application backgrounds
+
+Page Layout exposes Show Background immediately below Show Border. `showBackground` defaults to true and must be boolean; false renders the page canvas transparent without changing its stored backColor or control colors. Use the same behavior in the designer, runtime, previews and popup canvases. Popup frames with Show Background disabled use the current user’s app background (or theme default) as an opaque backing, so underlying controls do not show through. Regular pages remain transparent.
+
+Users > System stores optional `app_background` as an opaque #RRGGBB value, or an empty string for the theme default. Use Theme Background disables the color picker. `applyTheme` applies the user override through --app-background and preserves it across system-theme changes; login clears it. Body and page-preview backdrops consume it, while application panels retain theme surfaces. Saving other user fields preserves this preference. Validate server-side and test isolation between users.
+
+
+### Built-in System and persistent SQLite tags
+
+`hmi/local_drivers.py` implements SystemDriver and DatabaseDriver. Service ensures one protected System source and derives fixed read-only Time tags without persisting copies of them in config. User-created System tags are Memory tags, with immutable Memory/id addresses and folder-aware display paths. Built-in Time tags cannot be renamed, deleted, or written. The public source-creation API and catalog exclude standalone Memory and System creation; legacy Memory sources are folded into System at startup with tag IDs retained. The old Memory adapter remains an internal compatibility boundary for fixtures/legacy callers.
+
+Database sources validate a managed filename, bind to data/databases, and store JSON scalar values keyed by stable tag IDs in hmi_values. read_many uses one connection with bounded IN queries; writes are parameterized transactions. Context managers close every connection. Prevent two sources owning the same filename, and do not retarget an existing source to a different file. The filenames endpoint is administrator-only. System/Database writes publish actual read-back to the shared sample cache and recalculate dependent sheets. All other interest/batch/live-view plumbing remains shared.
+
+Tag paths include optional folder metadata consistently in Python and JavaScript. The tag picker renders System with Memory and Time children; source management shows folder-qualified local names, disables System Edit/Remove and protects builtin tags. API and UI protection are both required. Tests cover file validation, persistence, name/ID stability, builtin protections and native polling sample shape.
+
+
+Text Editor groups colors and Blink under Appearance. Its textarea uses selected foreground/background colors over a preview surface matching the page backdrop, so transparent colors are not incorrectly composited onto the dialog theme. Blink is saved in textFields and Set Content contentStyle, and applied only to label/button content in live view with a one-second CSS animation; the editor stays steady. System Time/DateTime formats server-local time as M/D/YYYY h:mm:ss AM/PM.
+
+
+### Alarms
+
+`hmi/alarms.py` evaluates read-only tag conditions on the server, under `Service.lock`, after shared cache/Sheet updates. Enabled dependencies keep source live polling rates without browser leases. No device reads, tag writes, or per-poll configuration writes belong in the alarm evaluator; persist only state transitions. Unknown/bad feedback retains an existing active occurrence and reports unavailable quality. Condition changes begin a fresh occurrence. Keep silence state scoped to an occurrence and reject stale occurrence tokens. Silence attribution must always come from the authenticated server actor, never request fields; durable state and audit inserts share one SQLite transaction. Active silence state survives restart; reactivation resets silence. Include alarm tag dependencies in references/deletion protection.
+
+`static/alarms-manager.js` follows shared 24px card padding, flat underlined tabs, 16px columns, 12px fields, 8px field surfaces, 6px corners, and high-contrast list selection. Operand mode and value/tag share one field surface. Active rows show activation date/time and Silenced by Username/time. Text filtering is immediate, date bounds apply with Apply Filter, and Silence All intentionally includes hidden active alarms. Refresh only changed active rows/list options; do not rebuild the editor while typing. Dirty configuration must use the shared Cancel/Discard/Save & Continue dialog before navigation. Standard users may view/silence; admin configuration and existing kiosk restrictions are enforced server-side.
+
+
+Alarm attention uses the small `/api/alarms/attention` active-only payload on all signed-in pages. Kiosk access is limited to this payload and `/api/alarms/silence` (a single occurrence token; reject Silence All for kiosk users), not the configuration page or Silence All API. Always derive silence identity from the authenticated actor. `static/alarm-attention.js` owns one stable header bell, queues modal focused notifications without stacking over other dialogs, and remembers dismissals per user/tab session. Keep polling single-flight, discard responses from a previous login, clear UI on sign-out, and hide the bell on the login screen. `focused` is an optional alarm definition boolean, default false, and does not change the condition or current occurrence.
+
+
+Alarm History uses the SQLite alarm_history table keyed by occurrence; activation, clear, and silence updates share a transaction with runtime state changes. Keep activation name/message snapshots on existing rows when definitions are renamed. Retain history when definitions are removed, and record why an active occurrence ended. Backfill only known information from older alarm_states/alarm_silences; never invent missing times. History queries are parameterized and limited to 50 rows, with indexed timestamps and server-side text/date filtering. The History tab polls every five seconds only while visible and skips unchanged rows. Focused attention and manual bell clicks share one popup/list renderer and the single Silence endpoint; there is no separate Ack action or endpoint.

@@ -1,7 +1,14 @@
+import {mountAlarmAttention} from './alarm-attention.js';
+import {mountAlarms} from './alarms-manager.js';
+import {mountControlPlacement} from './control-placement.js';
+import {installDialogKeyboard} from './dialog-keyboard.js';
+import {navigationHistory} from './navigation-history.js';
+import {confirmMessage,showMessage} from './message-dialog.js';
+import {mountFirstRun} from './first-run.js';
+import {mountSheets} from './sheets-manager.js';
 import {mountExplorerDrag} from './explorer-drag.js';
 import {layerBlocks,paintOrder,addToGroup,removeFromGroups,pruneEmptyGroups,layerDrop,moveLayerTo} from './layers.js';
 import {createGroup,groupBounds,groupMembers,groupDelta,ungroup,copyGroup,pasteGroup,memberVisible} from './groups.js';
-import {mountLiveTiming} from './live-timing.js';
 import {trimSymbolData} from './symbol-import.js';
 import {openAccountPopup,closeAccountPopup} from './account-popup.js';
 import {installInteractionPolicy} from './interaction-policy.js';
@@ -11,7 +18,7 @@ import {modbusTagDialog} from './modbus-tag-dialog.js';
 import {applyTheme} from './theme.js';
 import {pickAccessRoles,hasAccessRoles} from './access-ui.js';
 import {mountPolylineDrawing,polylinePagePoints,reshapePolyline,movePolyline} from './polyline-drawing.js';
-import {mountEditorPanels,scrollableEditorList} from './editor-panels.js';
+import {mountEditorPanels,scrollableEditorList,saveEditorListScroll} from './editor-panels.js';
 import {mqttTagBrowser} from './mqtt-tag-browser.js';
 import {mountAdministration} from './administration.js';
 import {mountLibrary} from './library-manager.js';
@@ -28,7 +35,7 @@ import {moveRule,duplicateRule} from './rule-edit.js';
 import {PageLifecycles} from './page-lifecycle.js';
 import {openValueInput} from './value-input.js';
 import {openTextEditor,textFields,seedContentEvent} from './text-editor.js';
-import {evaluateControlEvents,eventTagIds} from './visual-events.js';
+import {evaluateControlEvents,eventTagIds,blinkControlTypes} from './visual-events.js';
 import {refreshPolicy} from './refresh-policy.js';
 import {LiveSubscriptions,pageTagIds} from './live-subscriptions.js';
 import { controls, fonts } from './controls.js';
@@ -51,7 +58,6 @@ import {bacnetTagBrowser} from './bacnet-tag-browser.js';
 import { plcTagBrowser } from './plc-tag-browser.js';
 installInteractionPolicy(document);
 const pollingClient=randomId();
-const liveTiming=mountLiveTiming();
 const runtimeOwners=new WeakMap();
 let mainConnections={page:null,values:{}};
 function runtimeOwner(canvas){return runtimeOwners.get(canvas) || pages.find(p=>p.id===canvas?.dataset.pageId);}
@@ -97,6 +103,7 @@ function restoreEdit(delta) {
 document.addEventListener('keydown',event=> {
   if(!location.hash.startsWith('#editor') || document.querySelector('dialog[open]'))return;
   const key=event.key.toLowerCase();
+  if(key==='escape' && polylineDraft){event.preventDefault();polylineDraft=null;route();return;}
   if((event.ctrlKey || event.metaKey) && !event.altKey && key==='s') {
     event.preventDefault();if(!event.repeat)safe(saveEditorPage);return;
   }
@@ -119,12 +126,13 @@ installClipboardImagePaste(document,{
   },
   onError:error=>notify(error.message)
 });
-function deleteSelectedControl() {
+async function deleteSelectedControl() {
+  const targetPage=page;
   const group=page?.groups?.find(g=>g.id===selected);
-  if(group){if(!window.confirm('Delete group '+group.name+' and all its controls?'))return;page.controls=page.controls.filter(c=>c.groupId!==group.id);ungroup(page,group.id);selected=PAGE_SELECTION;markChanged();route();return;}
+  if(group){if(!await confirmMessage('Delete group '+group.name+' and all its controls?',{title:'Delete Group?',confirmText:'Delete'}) || page!==targetPage)return;page.controls=page.controls.filter(c=>c.groupId!==group.id);ungroup(page,group.id);selected=PAGE_SELECTION;markChanged();route();return;}
   const control=page?.controls.find(c=>c.id===selected);
   if(!control)return;
-  if(!window.confirm(`Delete control "${control.text || control.imageName || control.type}" (${control.id})?`))return;
+  if(!await confirmMessage(`Delete control "${control.name || control.text || control.type}"?`,{title:'Delete Control?',confirmText:'Delete'}) || page!==targetPage)return;
   page.controls=page.controls.filter(c=>c.id!==control.id);
   selected=PAGE_SELECTION;ruleId=null;markChanged();route();
 }
@@ -192,7 +200,7 @@ function sessionExpired(reason='expired') {
   button('Log in',account,()=>auth(false));
   auth(false);
   const disconnected=reason==='disconnected';
-  connectionNotice=node('dialog',null,document.body);
+  connectionNotice=node('dialog',null,document.body,{className:'designer-dialog'});
   connectionNotice.setAttribute('aria-labelledby','connection-notice-title');
   node('h2',disconnected?'Server Disconnected':'Session Expired',connectionNotice,{id:'connection-notice-title'});
   node('p',disconnected?'The server could not be reached. It may have stopped or the network connection was lost. Start the server or restore your connection, then sign in again.':'Your login session has expired. Please sign in again to continue.',connectionNotice);
@@ -229,7 +237,7 @@ async function safe(fn)  {
   }
 }
 function dialog(title,build)  {
-  const modal=node('dialog',null,document.body),form=node('form',null,modal);
+  const modal=node('dialog',null,document.body,{className:'designer-dialog'}),form=node('form',null,modal);
   node('h2',title,form);
   const body=node('div',null,form),footer=node('div',null,form, {
     className:'row dialog-footer'
@@ -280,9 +288,10 @@ function normalize(p) {
 }
 async function start(afterLogin=false)  {
   closeAccountPopup();
+  alarmAttention.setUser(null);
   document.querySelector('#exit-kiosk')?.remove();
   const status=await api('status');
-  csrf=status.csrf;currentUser=status.user;applyTheme(currentUser?.theme || 'system');document.body.classList.toggle('kiosk-mode',Boolean(status.authenticated && currentUser?.kiosk));
+  csrf=status.csrf;currentUser=status.user;applyTheme(currentUser?.theme || 'system',currentUser?.app_background || '');document.body.classList.toggle('kiosk-mode',Boolean(status.authenticated && currentUser?.kiosk));
   document.body.classList.toggle('logged-out',!status.authenticated);
   account.replaceChildren();
   if(!status.authenticated) {
@@ -317,14 +326,17 @@ async function start(afterLogin=false)  {
     if(page && (afterLogin || currentUser?.starting_page || currentUser?.kiosk))history.replaceState(null,'','#runtime/'+page.id);
   }
   route();
+  alarmAttention.setUser(currentUser);
 }
 function auth(setup)  {
-  liveTiming.setActive(false);
+  alarmAttention.setUser(null);
+  applyTheme('system');
   document.body.classList.add('logged-out');
   account.replaceChildren();
   closeAccountPopup();
   document.body.classList.remove('kiosk-mode');
   document.querySelector('#exit-kiosk')?.remove();
+  navigation.accept();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
   closeEditorPanels?.();closeEditorPanels=null;
@@ -332,6 +344,7 @@ function auth(setup)  {
   document.querySelector('#page-menu').replaceChildren();
   document.querySelector('#view-tools').replaceChildren();
   app.replaceChildren();
+  if(setup)return mountFirstRun(app,{node,button,field,onCreate:async data=>{await api('setup',data);await start(true);}});
   const card=node('form',null,app, {
     className:'card auth'
   });
@@ -339,7 +352,7 @@ function auth(setup)  {
   const username=field('Username',card);
   username.autocomplete='username';
   username.required=true;
-  const password=field(setup?'Password (12+ characters)':'Password',card,'password');
+  const password=field(setup?'Password (8+ characters)':'Password',card,'password');
   password.required=true;
   password.autocomplete=setup?'new-password':'current-password';
   node('button',setup?'Create account':'Log in',card, {
@@ -380,27 +393,30 @@ async function choosePage(id) {
   page=pages.find(p=>p.id===id);
   selected=null;
   dirty=false;
-  history.replaceState(null,'','#'+(editing?'editor':'runtime')+'/'+id);
-  route();
   return true;
 }
+let routeDecision=false;
 function route() {
+  if(routeDecision)return;
+  if(closeLibrary?.isDirty?.()){
+    routeDecision=true;
+    safe(async()=>{try{if(await closeLibrary.beforeLeave()){routeDecision=false;route();}else navigation.cancel();}finally{routeDecision=false;}});
+    return;
+  }
   closeContextMenu();
   const inspectorScroll=location.hash===routedHash ? app.querySelector('.inspector')?.scrollTop : undefined;
   if(!catalog)return;
   const [name,id,control]=location.hash.slice(1).split('/');
   if(currentUser?.kiosk && name!=='runtime'){location.hash='#runtime/'+(pages.find(p=>p.id===currentUser.starting_page)?.id || pages[0]?.id || '');return;}
-  if(currentUser && !currentUser.administrator && !['runtime','pages'].includes(name)){location.hash='#runtime/'+(pages[0]?.id || '');return;}
+  if(currentUser && !currentUser.administrator && !['runtime','pages','alarms'].includes(name)){location.hash='#runtime/'+(pages[0]?.id || '');return;}
   if(pointEditingFocus && (name!=='editor' || (id && id!==page?.id)))finishPointEditingFocus();
   if(polylineDraft && (name!=='editor' || (id && id!==polylineDraft.page)))polylineDraft=null;
   if (dirty && location.hash !== routedHash && (name !== 'editor' && name !== 'runtime' || id && id !== page?.id)) {
-    const destinationHash=location.hash;
-    history.replaceState(null,'',routedHash || '#editor');
-    safe(async()=>{
-      if(await allowLeave()){history.replaceState(null,'',destinationHash);route();}
-    });
+    routeDecision=true;
+    safe(async()=>{try{if(await allowLeave()){routeDecision=false;route();}else navigation.cancel();}finally{routeDecision=false;}});
     return;
   }
+  navigation.accept();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
   closeEditorPanels?.();closeEditorPanels=null;
@@ -414,7 +430,8 @@ function route() {
     
     routedHash=location.hash;
   }
-  if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api});
+  if(name==='alarms')closeLibrary=mountAlarms(app,{node,button,api,canManage:currentUser.administrator,tagSelect,getTags:()=>tags,initialId:id});
+  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api});
   else if(name==='pages')safe(showPages);
   else if(name==='tags')showSources();
   else if(name==='sheets')showSheets();
@@ -436,7 +453,7 @@ function usageList(parent,uses,objectsOnly=false) {
     const label=use.controlName || use.control;
     const path=use.page && use.control==='@page'?use.name:`${use.name}\\${label}`;
     node('a',objectsOnly?path:`${path} → ${use.tag}`,node('div',null,box),{
-      title:path,href:use.page?`#editor/${use.page}/${encodeURIComponent(use.control)}`:'#sheets'
+      title:path,href:use.alarm?`#alarms/${use.alarm}`:use.page?`#editor/${use.page}/${encodeURIComponent(use.control)}`:'#sheets'
     });
   }
 
@@ -445,11 +462,11 @@ function sourceDialog(existing,sheetOnly=false) {
   dialog(sheetOnly?(existing?'Edit sheet settings':'Add sheet'):(existing?'Edit data source':'Add data source'),(body,submit)=> {
     body.closest('dialog').classList.add('source-dialog');
     const name=field('Name',body,'text',existing?.name || existing?.id || '');name.required=true;
-    const kind=sheetOnly?{value:'sheet'}:select('Driver',body,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP (PyModbus)':x]));
+    const kind=sheetOnly?{value:'sheet'}:select('Driver',body,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP (PyModbus)':x]));
     if(existing){kind.value=existing.kind;kind.disabled=true;}
     const settings=node('div',null,body),footer=submit.parentElement;
     let inputs={},testToken='',version=0,status;
-    const collect=()=>Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.value]));
+    const collect=()=>Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.type==='checkbox'?input.checked:input.value]));
     const test=button('Test Connection',footer,async()=> {
       const revision=version;test.disabled=true;status.textContent='Testing connection…';
       try {
@@ -461,9 +478,17 @@ function sourceDialog(existing,sheetOnly=false) {
     footer.prepend(test);test.className='source-test-button';
     function changed() {testToken='';version++;if(status)status.textContent='Connection has not been tested with these settings.';}
     function render() {
-      settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus'].includes(kind.value);
-      if(kind.value==='memory'){node('p','Simulation runs locally; no connection settings required.',settings,{className:'hint'});return;}
       const saved=existing?.settings || {};
+      settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus'].includes(kind.value);
+      if(kind.value==='database'){
+        inputs.filename=field('Database filename',settings,'text',saved.filename || 'Tags.sqlite3');inputs.filename.required=true;inputs.filename.readOnly=Boolean(existing);
+        const files=node('datalist',null,settings,{id:'database-files'});inputs.filename.setAttribute('list','database-files');
+        api('database/files').then(names=>{for(const name of names)node('option',null,files,{value:name});}).catch(error=>notify(error.message));
+        node('p','Select an existing file or enter a new filename. Stored on the server in data/databases. Values persist across restarts.',settings,{className:'hint'});
+        inputs.live=field('Live polling (seconds)',settings,'number',saved.live ?? .5);inputs.live.min=.1;inputs.live.step='any';
+        inputs.background=field('Background polling (seconds)',settings,'number',saved.background ?? 20);inputs.background.min=.1;inputs.background.step='any';return;
+      }
+      if(kind.value==='memory'){node('p','Simulation runs locally; no connection settings required.',settings,{className:'hint'});return;}
       if(kind.value==='sheet') {
         inputs.filename=field('Filename',settings,'text',saved.filename || 'Sheet.sheet.json');inputs.filename.required=true;
         node('p','Stored in data/sheets. Fixed size: A1:D15. Formulas use =A1+B1 or =TAG("Source\\Tag").',settings,{className:'hint'});
@@ -519,6 +544,16 @@ function sourceDialog(existing,sheetOnly=false) {
         for(const [key,label,value] of [['timeout','Request timeout (seconds)',5],['background','Background polling (seconds)',20],['live','Live polling (seconds)',.5]]) {
           const input=inputs[key]=field(label,rates,'number',saved[key] ?? value);input.min=.1;input.max=60;input.step='any';input.required=true;
         }
+        const cov=inputs.use_cov=field('Use COV when available',settings,'checkbox');cov.checked=saved.use_cov===true;
+        cov.parentElement.classList.add('checkbox-row');
+        const covOptions=node('div',null,settings,{className:'source-rates source-cov-options'});
+        for(const [key,label,value,min,max] of [['cov_lifetime','COV subscription lifetime (seconds)',300,30,86400],['cov_verify','COV verification read (seconds)',30,1,3600]]){
+          const input=inputs[key]=field(label,covOptions,'number',saved[key] ?? value);input.min=min;input.max=max;input.step=1;input.required=true;
+        }
+        const confirmed=inputs.cov_confirmed=field('Confirmed COV notifications',covOptions,'checkbox');confirmed.checked=saved.cov_confirmed===true;confirmed.parentElement.classList.add('checkbox-row');
+        const covHint=node('p','Present Value uses COV where supported, with automatic renewal and periodic verification reads. Unsupported objects and other properties keep polling. Browser refresh intervals stay the same.',settings,{className:'hint'});
+        const showCov=()=>{covOptions.hidden=!cov.checked;covHint.hidden=!cov.checked;for(const input of covOptions.querySelectorAll('input'))input.disabled=!cov.checked;};
+        cov.onchange=showCov;showCov();
         const advanced=node('details',null,settings);node('summary','Discovery and write settings',advanced);
         const extra=node('div',null,advanced,{className:'source-rates'});
         for(const [key,label,value,min,max,step] of [['discovery_min','Device instance minimum',0,0,4194302,1],['discovery_max','Device instance maximum',4194302,0,4194302,1],['discovery_timeout','Discovery wait (seconds)',3,.1,30,'any'],['write_priority','Write priority',16,1,16,1],['batch_size','Properties per request',20,1,50,1],['bbmd_ttl','BBMD registration TTL',900,30,65535,1]]) {
@@ -536,13 +571,13 @@ function sourceDialog(existing,sheetOnly=false) {
       inputs.protocol.disabled=typeLocked;
       inputs.protocol.title=typeLocked?'Mode is fixed while this source has tags':'';
       const auto=button('Auto Select',typeRow,async()=> {
-        if(!inputs.path.value.trim()){window.alert('Enter the device network path first.');return;}
+        if(!inputs.path.value.trim()){await showMessage('Enter the device network path first.',{title:'Device Path Required'});return;}
         const revision=version;auto.disabled=true;submit.disabled=true;test.disabled=true;auto.textContent='Working...';
         try {
           const result=await api('sources/auto-select',{settings:collect()});
           if(revision!==version)return;
           inputs.protocol.value=result.protocol;updateTypeHint();changed();status.textContent=`Detected: ${result.message} · ${result.protocol.toUpperCase()}. Connection has not been tested.`;
-        } catch(error) {window.alert(error.message);}
+        } catch(error) {await showMessage(error.message,{title:'Auto Select Failed'});}
         finally {auto.disabled=false;submit.disabled=false;test.disabled=false;auto.textContent='Auto Select';}
       });
       auto.hidden=typeLocked;
@@ -614,9 +649,10 @@ async function tagDialog(chosenSource) {
   dialog('Add tag',body=> {
     const name=field('Name',body);
     name.required=true;
-    const source=select('Data source',body,sources.filter(s=>s.kind==='memory').map(s=>[s.id,s.name || s.id]),chosenSource?.id);
+    const source=select('Data source',body,sources.filter(s=>['memory','system','database'].includes(s.kind)).map(s=>[s.id,s.name || s.id]),chosenSource?.id);
     source.disabled=Boolean(chosenSource);
     source.required=true;
+    if(chosenSource?.kind==='system')node('p','New System tags are created in Memory.',body,{className:'hint'});
     return async()=> {
       await api('tags', {
         name:name.value,source:source.value
@@ -630,10 +666,10 @@ function editTagDialog(tag) {
   const source=sources.find(s=>s.id===tag.source);
   if(source?.kind==='modbus')return modbusTagDialog({source,tag,dialog,node,field,select,button,api,reload:reloadLists,onDone:route});
   dialog('Edit tag',body=> {
-    const name=field('Name',body,'text',tag.name || tag.id);name.required=true;name.readOnly=!(source.kind==='memory' || source.kind==='bacnet' || source.kind==='mqtt' || source.settings.protocol==='slc');
+    const name=field('Name',body,'text',tag.name || tag.id);name.required=true;name.readOnly=!(['memory','system','database'].includes(source.kind) || source.kind==='bacnet' || source.kind==='mqtt' || source.settings.protocol==='slc');
     if(source.kind==='bacnet')node('p','Saved inline tag references will continue to work with the old tag name. Use the new name for new references.',body,{className:'hint'});
     let address;
-    if(source.kind!=='memory' && source.kind!=='sheet') {
+    if(!['memory','system','database','sheet'].includes(source.kind)) {
       address=field(source.kind==='mqtt'?'Topic':'Object / address',body,'text',tag.address);
       address.readOnly=source.kind!=='mqtt';
     }
@@ -678,28 +714,18 @@ function libraryReferences(parent,uses,showEmpty=true){
   for(const use of uses)node('a',use.control==='@page'?use.name:use.name+'\\'+(use.controlName || use.control),box,{href:use.page?'#editor/'+use.page+'/'+encodeURIComponent(use.control):'#sheets'});
 }
 function showSheets() {
-  closeLibrary=mountLibrary(app,{kind:'sheets',items:sources.filter(s=>s.kind==='sheet'),node,button,
-    describe:s=>s.settings.filename,onAdd:()=>sourceDialog(null,true),onImport:()=>importFile('sheets'),onSettings:s=>sourceDialog(s,true),onOpen:editSheet,
+  closeLibrary=mountSheets(app,{items:sources.filter(s=>s.kind==='sheet'),node,button,
+    getSheet:getSheetData,saveSheet:(source,cells)=>api('sheets/save',{source,cells,validate:true}),onInterest:sheetInterest,
+    onTag:async()=>{const id=await openTagSelector(pickerProviders());const tag=tags.find(tag=>tag.id===id);return tag?tagPath(tag):null;},
+    onAdd:()=>sourceDialog(null,true),onImport:()=>importFile('sheets'),onSettings:s=>sourceDialog(s,true),
     onExport:async s=>downloadJson(await api('sheets/export',{source:s.id}),s.settings.filename),
-    canRemove:s=>!(s.usage || []).some(use=>use.source!==s.id),
     onRemove:s=>confirmDialog('Delete sheet?',`Delete ${s.name}? Its file will be moved to data/sheets/.trash.`,async()=>{await api('sheets/remove',{source:s.id});await reloadLists();route();}),
-    mountPreview:(parent,source,state,details)=>{
-      parent.classList.add('library-sheet-preview');let latest,lastSummary='';
-      const grid=mountSheetGrid(parent,{source,autoRefresh:false,initialCell:state.cell,getSheet:async id=>{latest=await getSheetData(id);const sample=latest.values[state.cell],summary=JSON.stringify([state.cell,latest.cells[state.cell],sample?.quality,sample?.value,sample?.error]);if(summary!==lastSummary){lastSummary=summary;details({data:latest,address:state.cell});}return latest;},onInterest:sheetInterest,onSelect:address=>{state.cell=address;details({data:latest,address});}});
-      return ()=>grid.close();
-    },
-    showDetails:(parent,s,state,refresh,extra)=>{
-      node('strong',s.name,parent);node('p',s.settings.filename+' · A1:D15',parent,{className:'library-meta'});
-      const address=extra?.address || state.cell,entry=extra?.data?.cells?.[address],sample=extra?.data?.values?.[address];
-      const formula=node('div',null,parent,{className:'library-formula'});node('strong',address,formula);node('code',entry?.raw || '',formula);
-      if(sample?.quality==='bad')node('p',sample.error || 'Cell unavailable',parent,{className:'error'});
-      node('hr',null,parent);node('p','References:',parent);libraryReferences(parent,s.usage || []);
-    }
+    references:libraryReferences
   });
 }
 async function showPages() {
   if(currentUser && !currentUser.administrator){
-    const card=node('section',null,app,{className:'card'});node('h2','Pages',card);
+    const card=node('section',null,app,{className:'card simple-pages'});node('h2','Pages',card);
     for(const saved of pages)button(saved.name,card,()=>{location.hash='#runtime/'+saved.id;});
     return;
   }
@@ -759,24 +785,22 @@ function refreshEditedPage() {
 }
 
 function showPageProperties(panel) {
-  node('hr', null, panel, {className:'sidebar-divider'});
   if (tab !== 'Properties') return void node('p', 'Select a control to edit its actions or events.', panel, {className:'hint'});
-  const name=field('Page Name',panel,'text',page.name);
-  name.oninput=()=> {
-    page.name=name.value;markChanged('page-name');
-    const option=app.querySelector('.control-selection option');
-    if(option)option.textContent=page.name+' (this page)';
-  };
   button('Configure Parameters',panel,async()=>{
     const previous=structuredClone(page.parameters || []),next=await configureParameters(previous);
     if(next!==null){page.parameters=next;renameParameterText(page,previous);markChanged();route();}
   });
+  node('hr',null,panel,{className:'sidebar-divider'});
   node('h3','Layout',panel);
   const border=field('Show Border',panel,'checkbox');border.checked=page.showBorder!==false;
   border.parentElement.classList.add('checkbox-row');
   border.onchange=()=>{page.showBorder=border.checked;markChanged();refreshEditedPage();};
+  const background=field('Show Background',panel,'checkbox');background.checked=page.showBackground!==false;
+  background.parentElement.classList.add('checkbox-row');
+  background.onchange=()=>{page.showBackground=background.checked;markChanged();refreshEditedPage();};
+  const sizeFields=node('div',null,panel,{className:'designer-field-grid'});
   for (const [key,title] of [['width','Width'],['height','Height']]) {
-    const input=field(title,panel,'number',page[key]); input.min=20; input.max=10000;
+    const input=field(title,sizeFields,'number',page[key]); input.min=20; input.max=10000;
     input.onchange=()=>{page[key]=Math.min(10000,Math.max(20,Number(input.value)||20));input.value=page[key];markChanged();refreshEditedPage();};
   }
   for (const [key,title,options] of [
@@ -794,7 +818,7 @@ function stylePage(canvas, owner) {
   canvas.dataset.pageId=owner.id;
   canvas.classList.toggle('page-border',owner.showBorder!==false);
   canvas.style.width=owner.width+'px'; canvas.style.height=owner.height+'px';
-  canvas.style.backgroundColor=owner.backColor;
+  canvas.style.backgroundColor=owner.showBackground===false?'transparent':owner.backColor;
 }
 function alignPageSurface(surface, owner) {
   const align={left:'start',top:'start',center:'safe center',right:'safe end',bottom:'safe end'};
@@ -891,14 +915,14 @@ function showEditor(isEditing) {
       node('h3',title,left);
       const tools=node('div',null,left,{className:'toolbox-icons'});
       for(const [type,def] of Object.entries(controls).filter(([,def])=>!def.hidden && (def.category || 'controls')===category)) {
-        const add=button(null,tools,()=>{if(type==='polyline'){if(!page)return;polylineDraft={page:page.id,points:[]};selected=PAGE_SELECTION;tab='Properties';ruleId=null;route();}else addControl(type);});add.draggable=true;add.title=def.label;add.setAttribute('aria-label',def.label);add.append(toolboxIcon(type));
+        const add=button(null,tools,()=>{beginControlPlacement(type);});add.draggable=true;add.title=def.label;add.setAttribute('aria-label',def.label);add.append(toolboxIcon(type));
         add.ondragstart=e=>e.dataTransfer.setData('text/plain',type);
       }
     }
     node('hr', null, left, {className: 'sidebar-divider'});
     node('h3', 'Explorer', left);
     const controlList = node('select', null, left, {size: 12, className: 'listbox control-selection'});
-    scrollableEditorList(controlList,true);
+    scrollableEditorList(controlList,true,JSON.stringify([page.id,'explorer']));
     controlList.setAttribute('aria-label', 'Select page or control');
     function refreshExplorerOptions(){
       const top=controlList.scrollTop,left=controlList.scrollLeft;
@@ -965,7 +989,7 @@ function showEditor(isEditing) {
     if(!editing)return;
     const rect=canvas.getBoundingClientRect(),type=e.dataTransfer.getData('text/plain');
     const point=pagePoint(e.clientX,e.clientY,rect,viewport?.state.zoom || 1);
-    if(controls[type] && !controls[type].hidden)addControl(type,point.x,point.y);
+    if(controls[type] && !controls[type].hidden)beginControlPlacement(type,[Math.max(0,Math.min(page.width,snap(point.x))),Math.max(0,Math.min(page.height,snap(point.y)))]);
   };
   for(const c of renderOwner?paintOrder(renderOwner):[])renderControl(canvas,c,renderOwner,editing);
   if(editing && page)renderGroupBounds(canvas,page,selected,event=>openControlMenu(event,page.groups.find(g=>g.id===selected),true));
@@ -1102,13 +1126,20 @@ function showEditor(isEditing) {
     className:'sidebar inspector'
   }));
   if(editing)closeEditorPanels=mountEditorPanels(layout);
-  if(editing && polylineDraft?.page===page?.id)mountPolylineDrawing({canvas,panel:layout.querySelector('.inspector'),page,zoom:()=>viewport.state.zoom,grid,draft:polylineDraft,node,button,
+  if(editing && polylineDraft?.page===page?.id && (!polylineDraft.type || polylineDraft.type==='polyline'))mountPolylineDrawing({canvas,panel:layout.querySelector('.inspector'),page,zoom:()=>viewport.state.zoom,grid,draft:polylineDraft,node,button,
     onComplete:geometry=>{
       const draft=polylineDraft;polylineDraft=null;
       if(draft.control){const control=page.controls.find(c=>c.id===draft.control);if(control){if(draft.reverse)geometry.points.reverse();Object.assign(control,geometry);polylineSelection.set(control.id,draft.reverse?0:control.points.length-1);selected=control.id;markChanged();route();}}
       else addControl('polyline',geometry.left,geometry.top,geometry);
     },onCancel:()=>{polylineDraft=null;route();}});
+  if(editing && polylineDraft?.page===page?.id && polylineDraft.type && polylineDraft.type!=='polyline')mountControlPlacement({canvas,panel:layout.querySelector('.inspector'),page,zoom:()=>viewport.state.zoom,grid,draft:polylineDraft,label:controls[polylineDraft.type].label,node,button,
+    onComplete:bounds=>{const type=polylineDraft.type;addControl(type,bounds.left,bounds.top,bounds);},onCancel:()=>{polylineDraft=null;route();}});
   if(polylineDraft?.control)for(const el of canvas.querySelectorAll('.control'))if(el.dataset.controlId===polylineDraft.control)el.style.visibility='hidden';
+}
+function beginControlPlacement(type,first=null){
+  if(!page)return;
+  polylineDraft={page:page.id,type,...(type==='polyline'?{points:first?[first]:[]}:{first})};
+  selected=PAGE_SELECTION;tab='Properties';ruleId=null;route();
 }
 const snap = n => grid ? Math.round(n / grid) * grid : n;
 function addControl(type,x=40,y=40,properties={}) {
@@ -1118,7 +1149,7 @@ function addControl(type,x=40,y=40,properties={}) {
     id:type+'_'+randomId().slice(0,8),type,left:snap(x),top:snap(y),fontSize:16,backColor:'#ffffff',foreColor:'#243247',...controls[type].defaults,...properties,actions:[],events:[]
   };
   c.name=typeof c.name==='string' && c.name.trim()?c.name:c.id;
-  if(!properties.points){c.width=Math.max(20,snap(c.width));c.height=Math.max(20,snap(c.height));}
+  if(!properties.points && properties.width===undefined && properties.height===undefined){c.width=Math.max(20,snap(c.width));c.height=Math.max(20,snap(c.height));}
   page.controls.push(c);
   
   selected=c.id;
@@ -1233,6 +1264,8 @@ function paint(el, c, owner=page, isEditing=editing) {
     if(appearance.contentOverride!==undefined)effective.contentOverride=renderInlineText(appearance.contentOverride,appearance.contentRefs,tags,values);
   }
   geometry(el, effective);
+  el.classList.toggle('control-blink',!isEditing && blinkControlTypes.has(c.type) && Boolean(appearance.controlBlink));
+  el.classList.toggle('content-blink',!isEditing && !appearance.controlBlink && ['label','button'].includes(c.type) && Boolean(effective.blink));
   el.style.pointerEvents=isEditing && c.pinned?'none':'';
   // The inner button paints its own background; avoid applying alpha twice.
   if (!isEditing && c.type==='button') el.style.background='transparent';
@@ -1376,28 +1409,34 @@ function showInspector(panel) {
   if(pointEditingFocus && pointEditingFocus!==focused)finishPointEditingFocus();
   pointEditingFocus=focused && editingPolyline(focused)?focused:null;
   if(focused?.type==='group' && tab==='Actions')tab='Properties';
+  saveEditorListScroll(panel);
   panel.replaceChildren();
+  const isPage=page && (!selected || selected===PAGE_SELECTION);
+  const c=isPage?page:focused;
+  const isGroup=c?.type==='group';
+  if(c){
+    const nameSection=node('div',null,panel,{className:'inspector-name'});
+    const name=field(isPage?'Page Name':isGroup?'Group Name':'Control Name',nameSection,'text',c.name || c.id);
+    name.required=true;
+    if(isPage)name.oninput=()=>{
+      page.name=name.value;markChanged('page-name');
+      const option=app.querySelector('.control-selection option');
+      if(option)option.textContent=page.name+' (this page)';
+    };
+    else name.onchange=()=>{c.name=name.value.trim() || c.id;name.value=c.name;markChanged();refreshEditedControl(c);};
+    node('hr',null,panel,{className:'sidebar-divider'});
+  }
   const tabs = node('div', null, panel, {className: 'tabs'});
   for (const name of (focused?.type==='group'?['Properties','Events']:['Properties','Actions','Events'])) {
     const b = button(name, tabs, () => {tab = name; ruleId = null; showInspector(panel);});
     b.classList.toggle('active', name === tab);
   }
-  const isPage=page && (!selected || selected===PAGE_SELECTION);
+  node('hr',null,panel,{className:'sidebar-divider'});
   if(isPage && tab==='Properties')return showPageProperties(panel);
-  const c=isPage?page:focused;
-  const isGroup=c?.type==='group';
   if(isGroup && tab==='Actions')tab='Properties';
   if (!c) return void node('p', 'Select a control.', panel);
-  node('hr', null, panel, {className: 'sidebar-divider'});
-  if(isPage || tab!=='Properties')node('p', isPage?c.name+' (this page)':c.name || c.id, panel, {className: 'hint'});
   if (tab === 'Properties') {
-    node('h3','Name',panel);
-    const controlName=field(isGroup?'Group Name':'Control Name',panel,'text',c.name || c.id);
-    controlName.required=true;
-    controlName.onchange=()=>{c.name=controlName.value.trim() || c.id;controlName.value=c.name;markChanged();refreshEditedControl(c);};
-    node('hr',null,panel,{className:'sidebar-divider'});
-    if(isGroup)node('p','Drag anywhere inside the group box to move all members. Select a member in Explorer to edit it individually.',panel,{className:'hint'});
-    let colorRow;
+    let colorRow,layoutFields;
     const props=isGroup?{visible:{label:'Visible',type:'checkbox'}}:controls[c.type]?.props || {};
     const entries=Object.entries(props).filter(([key])=>!['visible','roundedCorners'].includes(key));
     if(props.visible)entries.splice(Math.max(0,entries.findIndex(([key])=>key==='left')),0,['visible',props.visible],...(props.roundedCorners?[['roundedCorners',props.roundedCorners]]:[]));
@@ -1411,11 +1450,13 @@ function showInspector(panel) {
         node('h3', sections[key], panel);
       }
       if(key==='text'){
-        const edit=button('Edit',panel,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
+        const edit=button('Edit',panel,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
         edit.setAttribute('aria-label','Edit text');continue;
       }
       if (key === 'backColor') colorRow = node('div', null, panel, {className: 'color-picker-row'});
-      const propertyParent = (key === 'backColor' || key === 'foreColor') && colorRow ? colorRow : panel;
+      const propertyParent = ['left','top','width','height'].includes(key)
+        ? (layoutFields ||= node('div',null,panel,{className:'designer-field-grid'}))
+        : (key === 'backColor' || key === 'foreColor') && colorRow ? colorRow : panel;
       if(prop.type==='accessRoles'){
         const roles=c[key] || [];
         const choose=button(prop.label+': '+(roles.length?roles.map(id=>accessRoles.find(role=>role.id===id)?.name || 'Missing role').join(', '):'Any signed-in user'),propertyParent,async()=>{
@@ -1504,6 +1545,7 @@ function showInspector(panel) {
       };
       if (key === 'height') node('p', `Right: ${c.left + c.width} · Bottom: ${c.top + c.height}`, panel, {className: 'hint layout-edges'});
     }
+    if(isGroup)node('p','Drag anywhere inside the group box to move all members. Select a member in Explorer to edit it individually.',panel,{className:'hint'});
     return;
   }
   const isEvent = tab === 'Events';
@@ -1518,6 +1560,7 @@ function showInspector(panel) {
   node('p', isEvent ? 'Change this control appearance or content when a condition is true.' : (isPage?'Complete actions run when this page opens or closes. Incomplete actions are skipped.':'Complete actions run on their mouse event. Incomplete actions are skipped.'), panel, {className: 'hint'});
   const actionLabels = isGroup?{show:'Show',hide:'Hide'}:isPage?{close_popup:'Close (Popup Only)',set_colors:'Set Colors'}:{show: 'Show', hide: 'Hide', set_colors: 'Set Colors'};
   if(c.type==='symbol')actionLabels.spin='Spin';
+  if(blinkControlTypes.has(c.type))actionLabels.blink='Blink';
   if(['label','button'].includes(c.type))delete actionLabels.set_colors;
   if (controls[c.type]?.props.text) actionLabels.set_content = 'Set Content';
   const displayTag=id=>{const tag=pickerTags().find(tag=>tag.id===id);return tag?tagPath(tag):id;};
@@ -1526,7 +1569,8 @@ function showInspector(panel) {
     end_operand:item.end_operand?.kind==='tag'?{...item.end_operand,tag:displayTag(item.end_operand.tag)}:item.end_operand});
   const describe = item => isEvent ? eventLabel(displayRule(item)) : actionLabel(displayRule(item),pages);
   const list = select(tab, panel, items.map(item => [item.id, describe(item)]), ruleId, {size: 6, className: 'listbox'});
-  scrollableEditorList(list);
+  list.parentElement.classList.add('designer-rule-list');
+  scrollableEditorList(list,false,JSON.stringify([page.id,c.id,tab]));
   for(const option of list.options)option.title=option.textContent;
   list.onchange = () => {ruleId = list.value; showInspector(panel);};
   const row = node('div', null, panel, {className: 'row compact'});
@@ -1628,12 +1672,13 @@ function showInspector(panel) {
      ['within_range', 'Within Range'], ['out_of_range', 'Out Of Range']], item.operator);
   comparison.onchange = () => change('operator', comparison.value, true);
   function operandEditor(label, key) {
+    const group=node('div',null,panel,{className:'event-operand-group',role:'group','aria-label':label});
     const operand = item[key] ??= {kind: 'value', value: 0};
-    const mode = select(label + ' type', panel, [['value', 'Value'], ['tag', 'Tag']], operand.kind || 'value');
+    const mode = select(label + ' type', group, [['value', 'Value'], ['tag', 'Tag']], operand.kind || 'value');
     mode.onchange = () => change(key,{...operand,kind:mode.value},true);
-    if (operand.kind === 'tag') tagSelect(label, panel, operand.tag || '', value => change(key,{...operand,tag:value}));
+    if (operand.kind === 'tag') tagSelect(label, group, operand.tag || '', value => change(key,{...operand,tag:value}));
     else {
-      const value = field(label, panel, 'number', operand.value ?? 0); value.step = 'any';
+      const value = field(label, group, 'number', operand.value ?? 0); value.step = 'any';
       value.onchange = () => change(key,{...operand,value:Number(value.value)});
     }
   }
@@ -1663,7 +1708,7 @@ function showInspector(panel) {
   } else if (item.action === 'set_content') {
     button('Edit Content', panel, async () => {
       const draft = {...c, ...item.contentStyle, text: item.content ?? c.text ?? ''};
-      const changed = await openTextEditor(draft, {onInsertTag:pickInlineTag});
+      const changed = await openTextEditor(draft, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});
       if (changed) {
         const {text, ...style} = changed;
         item.contentStyle = style;
@@ -1736,7 +1781,6 @@ function evaluateViews(updated=null) {
 const subscriptions=new LiveSubscriptions({
   fetchBatch:job=>api('values/batch',{source:job.source,tags:job.tags,pages:job.pages}),
   onData:(data,job)=> {
-    liveTiming.reply(data,sources.find(source=>source.id===job.source)?.name || job.source);
     for(const [id,sample] of Object.entries(data.values))if(!values[id]?.timestamp || !sample.timestamp || sample.timestamp>=values[id].timestamp)values[id]=sample;
     const updated=new Set(Object.keys(data.values));
     evaluateViews(updated);paintRuntime(updated);
@@ -1745,7 +1789,7 @@ const subscriptions=new LiveSubscriptions({
 });
 async function syncLiveViews() {
   if(csrf)syncPageLifecycles();
-  if(!csrf){liveTiming.setActive(false);pageLifecycles.views.clear();subscriptions.close();return;}
+  if(!csrf){pageLifecycles.views.clear();subscriptions.close();return;}
   const interest=sendInterest();
   const visible=document.visibilityState!=='hidden';
   const ids=visible?[...new Set([...document.querySelectorAll('.runtime .canvas')].map(el=>el.dataset.pageId).filter(Boolean))].sort():[];
@@ -1754,7 +1798,6 @@ async function syncLiveViews() {
     for(const id of removed){delete controlStates[id];for(const key of viewEventStates.keys())if(key.startsWith(id+'/'))viewEventStates.delete(key);}
     activeViewIds=ids;evaluateViews();paintRuntime();
   }
-  liveTiming.setActive(visible && ids.length>0);
   const wanted=new Set((visible?liveOwners():[]).flatMap(owner=>pageTagIds(owner,tags)));
   const instances=new Set(liveOwners().map(owner=>owner.instanceId || owner.id));
   for(const id of Object.keys(controlStates))if(!instances.has(id)){delete controlStates[id];for(const key of viewEventStates.keys())if(key.startsWith(id+'/'))viewEventStates.delete(key);}
@@ -1778,7 +1821,9 @@ async function managementRefresh() {
   }
 
 }
-window.addEventListener('hashchange',route);
+const navigation=navigationHistory(window);
+installDialogKeyboard(document);
+window.addEventListener('hashchange',()=>{if(navigation.changed())route();});
 window.addEventListener('beforeunload',e=> {
   if(dirty) {
     e.preventDefault();
@@ -1799,6 +1844,7 @@ const viewObserver=new MutationObserver(records=> {
 viewObserver.observe(document.body,{childList:true,subtree:true});
 document.addEventListener('visibilitychange',()=>safe(syncLiveViews));
 window.addEventListener('pagehide',()=>subscriptions.close());
+const alarmAttention=mountAlarmAttention({before:account,api});
 safe(start);
 
 // Join the three editor panels directly to the menu, including when it wraps.

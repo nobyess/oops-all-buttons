@@ -555,14 +555,14 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:1
 
 .header-end:has(#view-tools:not(:empty)) #account::before{content:'';display:block;flex:0 0 1px;width:1px;height:28px;background:var(--ui-divider);margin-right:2px}
 #account button{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-dialog.account-popup{position:fixed;top:calc(var(--header-height,64px) + 8px);right:16px;left:auto;bottom:auto;margin:0;width:min(340px,calc(100vw - 32px));max-height:calc(100dvh - var(--header-height,64px) - 24px);overflow:auto;padding:20px}
+dialog.account-popup{position:fixed;top:calc(var(--header-height,64px) + 8px);right:16px;left:auto;bottom:auto;margin:0;width:min(340px,calc(100vw - 32px));max-height:calc(100dvh - var(--header-height,64px) - 24px);overflow:auto;padding:24px}
 .account-popup h2{margin:0 0 18px;font-size:20px}
 .account-popup h3{font-size:14px;margin:18px 0 8px}
-.account-popup dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 18px;margin:0}
+.account-popup dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 16px;margin:0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
 .account-popup dt{color:var(--ui-muted)}
 .account-popup dd{margin:0;overflow-wrap:anywhere}
-.account-popup ul{margin:0;padding-left:20px}
-.account-popup li{padding:4px 0;overflow-wrap:anywhere}
+.account-popup ul{margin:0;padding:4px;list-style:none;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel);max-height:200px;overflow:auto}
+.account-popup li{padding:6px 8px;min-height:32px;line-height:20px;overflow-wrap:anywhere}
 .account-popup .dialog-footer{margin-top:16px}
 
 /* Use one physical height on library, live, and designer headers. */
@@ -595,8 +595,6 @@ body.logged-out header .header-start,body.logged-out header .header-end{visibili
 .access-detail-link{padding:0;border:0;background:transparent;color:var(--ui-link);text-decoration:underline}
 @media(max-width:520px){.launcher-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.access-selection-details{min-height:0}}
 
-.live-timing{position:fixed;right:12px;bottom:12px;z-index:2000;min-width:260px;max-width:calc(100vw - 24px);padding:10px 12px;background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:5px;font-size:12px;box-shadow:0 2px 8px #0002;pointer-events:none;font-variant-numeric:tabular-nums}
-.live-timing[hidden]{display:none}.live-timing>div{display:flex;justify-content:space-between;gap:18px}.live-timing-title{font-weight:600;margin-bottom:6px;align-items:center}.live-timing-title button{pointer-events:auto;padding:0 5px;min-height:0;font-size:16px;border:0;background:transparent}.live-timing-source{color:var(--ui-muted);margin-top:6px;overflow-wrap:anywhere}
 
 .group-bounds{position:absolute;z-index:10000;pointer-events:auto;cursor:move;outline:2px solid var(--ui-link);outline-offset:2px;background:color-mix(in srgb,var(--ui-link) 7%,transparent);box-shadow:0 0 0 1px var(--ui-panel)}
 
@@ -611,3 +609,503 @@ body.logged-out header .header-start,body.logged-out header .header-end{visibili
 .explorer-drop-line {position:fixed;height:2px;background:var(--ui-link);pointer-events:none;z-index:80}
 .control-selection.explorer-dragging {cursor:grabbing}
 .control-selection {touch-action:pan-y}
+
+.source-dialog label.checkbox-row {flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.source-dialog label.checkbox-row input {margin:0;align-self:auto;flex-shrink:0}
+.source-cov-options {grid-template-columns:repeat(2,minmax(0,1fr))}
+.source-cov-options .checkbox-row {grid-column:1/-1}
+@media(max-width:600px){.source-cov-options{grid-template-columns:1fr}}
+
+/* Designer chrome: one spacing scale on both sidebars; page controls keep their own styles. */
+.editor {
+  --designer-padding:16px;
+  --designer-gap:8px;
+  --designer-field-space:12px;
+  --designer-section-space:16px;
+}
+.editor > .sidebar {padding:var(--designer-padding);font-size:14px}
+.editor > .sidebar h3 {font-size:14px;font-weight:600;line-height:20px;margin:0 0 var(--designer-gap)}
+.editor > .sidebar h3:not(:first-child) {margin-top:0}
+.editor > .sidebar .sidebar-divider {margin:var(--designer-section-space) 0;border-color:var(--ui-divider);flex-shrink:0}
+.editor > .sidebar label {gap:6px;margin:var(--designer-field-space) 0;line-height:20px}
+.editor > .sidebar button {min-height:36px;margin:var(--designer-gap) 0;padding:7px 8px;line-height:20px}
+.editor > .sidebar :is(.tabs,.row.compact,.alignment-buttons,.toolbox-icons) {gap:var(--designer-gap)}
+.editor > .sidebar :is(.tabs,.row.compact,.alignment-buttons,.toolbox-icons) > button {margin:0}
+.editor > .sidebar .tabs {margin:0;align-items:stretch;overflow-x:auto}
+.editor > .sidebar .tabs button {min-width:max-content;white-space:nowrap}
+.editor > .sidebar .toolbox-icons button {height:44px;padding:8px}
+.editor > .sidebar .hint {font-size:12px;line-height:18px;margin:var(--designer-gap) 0;color:var(--ui-muted);text-align:center}
+.editor > .sidebar label.checkbox-row {min-height:28px;margin:var(--designer-gap) 0}
+.editor > .sidebar .alignment-picker {margin:var(--designer-field-space) 0}
+.editor > .sidebar .alignment-buttons {margin-top:6px}
+.editor > .sidebar .event-commands {margin:var(--designer-gap) 0}
+.editor > .sidebar .event-commands button {padding:7px 6px}
+.designer-field-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--designer-gap);row-gap:var(--designer-field-space);margin:var(--designer-field-space) 0}
+.editor > .sidebar .designer-field-grid > label {margin:0;min-width:0}
+.editor > .sidebar .designer-field-grid input {width:100%}
+.editor > .sidebar .layout-edges {margin:var(--designer-gap) 0 0}
+.editor > .sidebar .color-picker-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--designer-gap);margin:var(--designer-field-space) 0}
+.editor > .sidebar .color-picker-row > .color-picker {width:auto;min-width:0;gap:var(--designer-gap);padding:var(--designer-gap)}
+.editor > .sidebar .color-picker-row label {margin:0;gap:6px}
+.editor > .sidebar .color-picker-row input {width:100%;min-width:0}
+.editor > .sidebar .color-picker-row input[type=color] {height:34px}
+
+/* Field surfaces keep labels and their editor together, including checkbox rows. */
+.editor {
+  --designer-field-radius:6px;
+  --designer-field-padding:8px;
+  --designer-field-background:var(--ui-subtle);
+}
+.editor > .sidebar label:has(> input, > select, > textarea, > .tag-picker-field, > .editor-list-scroll),
+.editor > .sidebar .alignment-picker {
+  min-width:0;
+  padding:var(--designer-field-padding);
+  border:1px solid var(--ui-divider);
+  border-radius:var(--designer-field-radius);
+  background:var(--designer-field-background);
+}
+.editor > .sidebar label:has(> input, > select, > textarea, > .tag-picker-field, > .editor-list-scroll):focus-within,
+.editor > .sidebar .alignment-picker:focus-within {border-color:var(--ui-link)}
+.editor > .sidebar label.checkbox-row {min-height:38px}
+.editor > .sidebar .tag-picker-field > button {margin:0}
+/* The color card is already a field surface; do not double-box its contents. */
+.editor > .sidebar .color-picker-row .color-picker {border-radius:var(--designer-field-radius);background:var(--designer-field-background)}
+.editor > .sidebar .color-picker-row label {padding:0;border:0;border-radius:0;background:transparent}
+.editor > .inspector {container-type:inline-size;container-name:designer-inspector}
+@container designer-inspector (max-width:220px) {
+  .designer-field-grid {grid-template-columns:1fr}
+  .color-picker-row {grid-template-columns:1fr!important}
+}
+
+/* Compact top-bar version of the designer's field surfaces. */
+header {
+  --header-control-radius:6px;
+  --header-control-background:var(--ui-subtle);
+  --header-control-gap:8px;
+}
+.header-start,.header-end {gap:var(--header-control-gap)}
+header button {min-height:40px;border-radius:var(--header-control-radius);background:var(--header-control-background)}
+header button:hover {background:var(--ui-hover)}
+#launcher-button {width:40px;height:40px;min-height:40px;border-radius:var(--header-control-radius)}
+#page-menu,#view-tools {gap:var(--header-control-gap)}
+#page-menu > label,#view-tools > label {
+  display:flex;flex-direction:row;align-items:center;gap:6px;
+  margin:0;padding:4px 8px;border:1px solid var(--ui-divider);
+  border-radius:var(--header-control-radius);background:var(--header-control-background);
+}
+#page-menu > label:focus-within,#view-tools > label:focus-within {border-color:var(--ui-link)}
+#page-menu > label select,#view-tools > label select {min-height:30px;padding:3px 6px;background:var(--ui-panel)}
+#page-menu button {padding:7px 10px}
+
+.editor > .sidebar .inspector-name > label {margin:0}
+
+/* Explorer and rule lists share one native-list style and overflow viewport. */
+:root {--designer-list-selection:#176985;--designer-list-selected-text:#ffffff}
+:root[data-theme="dark"] {--designer-list-selection:#79cee9;--designer-list-selected-text:#111923}
+.editor > .sidebar .editor-list-scroll {
+  border:1px solid var(--ui-border);
+  border-radius:var(--designer-field-radius);
+  background:var(--ui-panel);
+}
+.editor > .sidebar .editor-list-scroll:focus-within {border-color:var(--ui-link)}
+.editor > .sidebar .editor-scroll-list {
+  border:0;border-radius:0;padding:4px;margin:0;
+  font-size:14px;line-height:20px;color:var(--ui-text);background:var(--ui-panel);
+}
+.editor > .sidebar .editor-scroll-list option {min-height:32px;padding:6px 8px;line-height:20px}
+.editor > .sidebar .editor-scroll-list option:checked {
+  background:linear-gradient(var(--designer-list-selection),var(--designer-list-selection));
+  color:var(--designer-list-selected-text);
+}
+.editor > .sidebar .designer-rule-list {margin-bottom:var(--designer-gap)}
+.editor > .sidebar .designer-rule-list + .event-commands {margin-top:0}
+@media(forced-colors:active){
+  .editor > .sidebar .editor-scroll-list option:checked {background:Highlight;color:HighlightText}
+}
+
+/* Shared designer popup chrome; authored page controls keep their own appearance. */
+.designer-dialog {
+  --designer-gap:8px;--designer-field-space:12px;
+  padding:24px;border-radius:8px;font-size:14px;line-height:20px;
+  max-height:92dvh;overflow:auto;
+}
+.designer-dialog h2 {font-size:20px;line-height:28px;margin:0 0 16px;font-weight:600}
+.designer-dialog h3 {font-size:14px;line-height:20px;margin:16px 0 8px;font-weight:600}
+.designer-dialog label {gap:6px;margin:12px 0;min-width:0;line-height:20px}
+.designer-dialog label:has(> input,> select,> textarea,> .tag-picker-field),
+.designer-dialog .alignment-picker {
+  padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);
+}
+.designer-dialog label:focus-within,.designer-dialog .alignment-picker:focus-within {border-color:var(--ui-link)}
+.designer-dialog :is(input,select,textarea) {min-width:0;border-radius:6px}
+.designer-dialog button {min-height:36px;padding:7px 8px;line-height:20px;margin:0;border-radius:6px}
+.designer-dialog :is(.row,.alignment-buttons,.tag-picker-field) {gap:8px}
+.designer-dialog label.checkbox-row {display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;margin:8px 0}
+.designer-dialog label.checkbox-row input {width:auto;margin:0;align-self:auto;flex-shrink:0}
+.designer-dialog .hint {font-size:12px;line-height:18px;text-align:center;color:var(--ui-muted);margin:8px 0}
+.designer-dialog hr {border:0;border-top:1px solid var(--ui-divider);margin:16px 0}
+.designer-dialog .dialog-footer {gap:8px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap}
+.designer-dialog .error:empty {display:none}
+.designer-dialog .color-picker-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.designer-dialog .color-picker {width:auto;min-width:0;padding:8px;border-radius:6px;background:var(--ui-subtle)}
+.designer-dialog .color-picker label {padding:0;border:0;background:transparent;margin:0}
+.designer-dialog .color-picker input {width:100%}
+.designer-dialog .text-editor-columns {gap:16px;margin-top:12px}
+.designer-dialog .text-editor-header {gap:8px;margin-bottom:12px}
+.designer-dialog .text-editor-header h2 {margin:0}
+.designer-dialog .parameter-row {gap:12px;margin-bottom:12px;padding:0}
+.designer-dialog .parameter-connection {gap:16px;padding:12px 0}
+.designer-dialog .parameter-config-header {gap:8px;margin-bottom:16px}
+.designer-dialog .parameter-config-header h2 {margin:0}
+.designer-dialog :is(.listbox,.tag-source-list) {border:1px solid var(--ui-border);border-radius:6px;padding:4px;background:var(--ui-panel)}
+.designer-dialog :is(.listbox,.tag-source-list):focus-within {border-color:var(--ui-link)}
+.designer-dialog :is(.listbox option,.tag-source-button,.tag-source-list summary) {font-size:14px;line-height:20px;min-height:32px;padding:6px 8px}
+.designer-dialog .listbox option:checked,
+.designer-dialog .tag-source-list .tag-source-button[aria-pressed="true"] {
+  background:linear-gradient(var(--designer-list-selection),var(--designer-list-selection));color:var(--designer-list-selected-text);
+}
+.designer-dialog .tag-selector-columns {gap:16px}
+.designer-dialog .tag-selector-columns > label {padding:0;border:0;background:transparent;margin:0}
+.designer-dialog .tag-selector-footer {gap:16px}
+.designer-dialog .tag-selector-footer::before {left:calc((100% - 16px) / 3 + 16px)}
+.designer-dialog label:has(> input[type="search"]),
+.editor > .sidebar label:has(> input[type="search"]) {padding:0;border:0;background:transparent;border-radius:0}
+.designer-dialog .tag-selector-footer {min-height:0;align-items:flex-end}
+.designer-dialog .tag-selector-footer > :first-child {display:flex;flex-direction:column;gap:12px}
+.designer-dialog .tag-selector-footer p {margin:0}
+.designer-dialog .tag-selector-footer > .row {margin:0}
+@media(forced-colors:active){
+  .designer-dialog .listbox option:checked,
+  .designer-dialog .tag-source-list .tag-source-button[aria-pressed="true"] {background:Highlight;color:HighlightText}
+}
+@media(max-width:580px){.designer-dialog .text-editor-columns {grid-template-columns:minmax(0,1fr)}}
+
+/* Pages management chrome follows the designer standards; preview content is excluded. */
+.pages-library.card {padding:24px;font-size:14px;line-height:20px}
+.pages-library > h2 {font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+.pages-library > .library-search {margin:0 0 16px;min-height:36px;border-radius:6px}
+.pages-library > .library-columns {gap:16px}
+.pages-library .library-list {border-radius:6px;background:var(--ui-panel);padding:4px}
+.pages-library .library-list:focus-within {border-color:var(--ui-link)}
+.pages-library .library-entry {padding:6px 8px;min-height:32px;line-height:20px;border-radius:2px;margin:0}
+.pages-library .library-entry small {font-size:12px;line-height:18px;margin-top:4px}
+.pages-library .library-entry[aria-selected="true"] {background:var(--designer-list-selection);color:var(--designer-list-selected-text)}
+.pages-library .library-entry[aria-selected="true"] small {color:inherit}
+.pages-library .library-commands {gap:8px}
+.pages-library .library-commands button {min-height:36px;padding:7px 8px;line-height:20px;margin:0;border-radius:6px}
+.pages-library .library-preview {border-radius:6px}
+.pages-library .library-details {padding:16px 0 0}
+.pages-library .library-meta {font-size:12px;line-height:18px;color:var(--ui-muted);text-align:center;margin:8px 0}
+.pages-library .library-details hr {margin:16px 0}
+.pages-library .library-detail-tabs {gap:8px;margin:12px 0}
+.pages-library .library-detail-tabs button {min-height:36px;padding:7px 8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-subtle);color:var(--ui-text);line-height:20px}
+.pages-library .library-detail-tabs button[aria-selected="true"] {background:var(--designer-list-selection);color:var(--designer-list-selected-text);border-color:var(--designer-list-selection)}
+.pages-library .library-parameter {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);margin:8px 0;gap:8px}
+.pages-library .library-references {gap:8px}
+.pages-library .library-list > .hint {font-size:12px;line-height:18px;text-align:center;margin:8px 0}
+@media(forced-colors:active){
+ .pages-library .library-entry[aria-selected="true"],.pages-library .library-detail-tabs button[aria-selected="true"] {background:Highlight;color:HighlightText}
+}
+@media(max-width:700px){.pages-library.card {padding:16px}}
+
+/* Flat tabs share a baseline; only the active tab carries the accent underline. */
+.editor > .sidebar .tabs,.pages-library .library-detail-tabs {
+ display:flex;gap:0;align-items:stretch;border-bottom:1px solid var(--ui-border);
+ padding:0;margin:0 0 16px;overflow-x:auto;
+}
+.editor > .sidebar .tabs button,.pages-library .library-detail-tabs button {
+ flex:1;min-width:max-content;min-height:40px;padding:8px 12px;margin:0;
+ border:0;border-bottom:3px solid transparent;border-radius:0;
+ background:transparent;color:var(--ui-muted);font-size:14px;line-height:20px;font-weight:600;
+ white-space:nowrap;
+}
+.editor > .sidebar .tabs button:hover,.pages-library .library-detail-tabs button:hover {background:var(--ui-hover);color:var(--ui-link)}
+.editor > .sidebar .tabs button.active,.pages-library .library-detail-tabs button[aria-selected="true"] {
+ background:transparent;color:var(--ui-link);border-bottom-color:var(--ui-link);
+}
+.editor > .sidebar .tabs + .sidebar-divider {display:none}
+.pages-library .library-detail-tabs {margin-top:12px}
+@media(forced-colors:active){
+ .editor > .sidebar .tabs button.active,.pages-library .library-detail-tabs button[aria-selected="true"] {background:Canvas;color:LinkText;border-bottom-color:LinkText}
+}
+
+/* Integrated Sheets editor shares management-page chrome and flat tabs. */
+.sheets-workspace h2 {font-size:20px;line-height:28px;margin:0 0 16px}
+.sheets-workspace > input[type=search] {width:100%;margin-bottom:16px;min-height:36px;border-radius:6px}
+.sheets-columns {display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr);gap:16px}
+.sheets-columns > section {min-width:0}
+.sheets-columns > section:first-child {display:flex;flex-direction:column;gap:8px}
+.sheets-workspace .library-list {flex:1;min-height:180px;border-radius:6px}
+.sheets-workspace .library-entry {padding:6px 8px;line-height:20px}
+.sheets-workspace .library-entry[aria-selected=true] {background:var(--designer-list-selection);color:var(--designer-list-selected-text)}
+.sheets-workspace .library-entry[aria-selected=true] small {color:inherit}
+.sheets-workspace .row {gap:8px;margin-top:8px}
+.sheets-workspace button {min-height:36px;border-radius:6px}
+.sheets-workspace .library-detail-tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px}
+.sheets-workspace .library-detail-tabs button {flex:1;min-height:40px;padding:8px 12px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);font-weight:600}
+.sheets-workspace .library-detail-tabs button[aria-selected=true] {border-bottom-color:var(--ui-link);color:var(--ui-link)}
+.sheets-workspace .sheet-toolbar {width:100%;margin:0;gap:8px;flex-wrap:wrap;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.sheets-workspace .sheet-toolbar:focus-within {border-color:var(--ui-link)}
+.sheets-workspace .sheet-formula {min-width:120px;flex:1}
+.sheets-workspace .sheet-scroll {max-height:none;margin-top:16px}
+.sheets-workspace .sheet-grid {width:100%;margin-top:0}
+.sheets-workspace .hint:empty {display:none}
+.sheets-workspace .hint {text-align:center}
+@media(max-width:700px){.sheets-columns {grid-template-columns:1fr}.sheets-workspace .library-list {max-height:200px}}
+
+/* Data Sources & Tags uses the shared management chrome. */
+.source-manager.card {padding:24px;font-size:14px;line-height:20px}
+.source-manager > h2 {font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+.source-manager-search {min-height:36px;margin:0 0 16px;border-radius:6px}
+.source-manager-columns {gap:16px}
+.source-manager :is(.source-manager-list,.source-manager-tag-list) {border:1px solid var(--ui-border);border-radius:6px;padding:4px;background:var(--ui-panel)}
+.source-manager :is(.source-manager-list,.source-manager-tag-list):focus-within {border-color:var(--ui-link)}
+.source-manager-source,.source-manager-tag-list option {min-height:32px;padding:6px 8px;font-size:14px;line-height:20px;margin:0}
+.source-manager-source {border-radius:2px}
+.source-manager-source[aria-selected="true"],.source-manager-tag-list option:checked {background:linear-gradient(var(--designer-list-selection),var(--designer-list-selection));color:var(--designer-list-selected-text)}
+.source-manager-commands {gap:8px}
+.source-manager-commands button {min-height:36px;padding:7px 8px;margin:0;border-radius:6px;line-height:20px}
+.source-manager-details {padding:16px 0 0}
+.source-manager-details hr {margin:16px 0}
+.source-manager-details > p {margin:12px 0}
+.source-manager-details .hint {font-size:12px;line-height:18px;text-align:center;margin:8px 0}
+.source-manager-info {gap:12px 16px;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);margin:12px 0 0}
+.source-manager-info dt,.source-manager-info dd {min-width:0;overflow-wrap:anywhere}
+.source-manager-details .usage {padding-left:20px}
+.source-manager-details .usage a {line-height:20px;margin:8px 0}
+.designer-dialog :is(.plc-tag-list,.bacnet-property-list) {border-radius:6px;padding:4px;background:var(--ui-panel)}
+.designer-dialog :is(.plc-tag-row,.bacnet-property-row) {min-height:32px;padding:6px 8px;line-height:20px}
+.designer-dialog :is(.plc-tag-row,.bacnet-property-row)[aria-selected="true"] {background:var(--designer-list-selection);color:var(--designer-list-selected-text)}
+.designer-dialog :is(.plc-tag-row,.bacnet-property-row)[aria-selected="true"] :is(.plc-tag-type,.hint) {color:inherit}
+@media(forced-colors:active){
+ .source-manager-source[aria-selected="true"],.source-manager-tag-list option:checked,
+ .designer-dialog :is(.plc-tag-row,.bacnet-property-row)[aria-selected="true"] {background:Highlight;color:HighlightText}
+}
+@media(max-width:650px){.source-manager.card {padding:16px}}
+
+/* Administration shares management spacing, flat tabs and field/list surfaces. */
+.administration.card {padding:24px;font-size:14px;line-height:20px}
+.administration > h2 {font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+.administration h3 {font-size:14px;line-height:20px;font-weight:600;margin:16px 0 8px}
+.administration > .tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px;overflow-x:auto}
+.administration > .tabs button {flex:1;min-width:max-content;min-height:40px;margin:0;padding:8px 12px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);font-weight:600}
+.administration > .tabs button.active {background:transparent;color:var(--ui-link);border-bottom-color:var(--ui-link)}
+.administration > .tabs button:hover {background:var(--ui-hover);color:var(--ui-link)}
+.administration button {min-height:36px;padding:7px 8px;border-radius:6px;line-height:20px}
+.administration :is(.access-columns,.admin-drivers) {gap:16px}
+.administration .access-columns section > h3:first-child {margin-top:0}
+.administration .access-listbox {margin-top:0;border-radius:6px;background:var(--ui-panel);padding:4px;color:var(--ui-text)}
+.administration .access-listbox option {min-height:32px;padding:6px 8px;line-height:20px}
+.administration .access-listbox option:checked {background:linear-gradient(var(--designer-list-selection),var(--designer-list-selection));color:var(--designer-list-selected-text)}
+.administration .access-list-actions {gap:8px;margin-top:8px}
+.administration .access-selection-details {margin-top:16px;padding-top:16px}
+.administration .access-detail-grid {gap:12px 16px;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);margin:12px 0}
+.administration .access-detail-grid :is(dt,dd) {min-width:0;overflow-wrap:anywhere}
+.administration .access-detail-link {padding:0;min-height:32px;border-radius:0}
+.administration label {gap:6px;margin:12px 0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.administration label:focus-within {border-color:var(--ui-link)}
+.administration label[hidden] {display:none}
+.administration :is(input,select) {border-radius:6px}
+.administration .hint {font-size:12px;line-height:18px;text-align:center;margin:8px 0;color:var(--ui-muted)}
+.administration .error:empty,.administration .bad:empty {display:none}
+.administration .admin-stat-grid {gap:12px;margin:16px 0}
+.administration .admin-stat-grid > .admin-stat {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.administration .admin-stat {gap:16px;align-items:baseline}
+.administration .admin-stat > * {min-width:0;overflow-wrap:anywhere}
+.administration .admin-stat strong {text-align:right;font-variant-numeric:tabular-nums}
+.administration .admin-driver {border-color:var(--ui-divider);border-radius:6px;padding:16px;background:var(--ui-subtle)}
+.administration .admin-driver h3 {margin:0 0 8px}
+.administration .admin-error-heading {margin-top:16px;gap:8px}
+.administration .admin-error-heading h3 {margin:0}
+.administration .admin-error-log {border-radius:6px;padding:0 8px;background:var(--ui-panel)}
+.administration .admin-error-entry {padding:12px 0;border-color:var(--ui-divider)}
+@media(forced-colors:active){
+ .administration .access-listbox option:checked {background:Highlight;color:HighlightText}
+ .administration > .tabs button.active {background:Canvas;color:LinkText;border-bottom-color:LinkText}
+}
+@media(max-width:600px){.administration.card {padding:16px}.administration .admin-stat-grid,.administration .admin-drivers {grid-template-columns:minmax(0,1fr)}}
+
+.administration .admin-summary-group {min-width:0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.administration .admin-summary-group h3 {margin:0 0 8px}
+.administration .admin-summary-group .admin-stat {padding:6px 0}
+
+.administration .user-access-workspace .tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px;overflow-x:auto}
+.administration .user-settings-tabs button {flex:1;min-height:40px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);font-weight:600}
+.administration .user-settings-tabs button.active {background:transparent;color:var(--ui-link);border-bottom-color:var(--ui-link)}
+.administration .user-access-workspace [hidden] {display:none!important}
+.administration .user-access-workspace label.checkbox-row {flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.administration .user-access-workspace input[type=checkbox] {width:auto;margin:0;align-self:auto}
+.administration .user-access-workspace .dialog-footer {gap:8px;margin-top:16px}
+
+/* User/role lists fill their column and keep commands aligned to its bottom. */
+.administration .user-access-workspace .access-columns {align-items:stretch;min-height:440px}
+.administration .user-access-workspace .access-columns > section:first-child {display:flex;flex-direction:column;min-height:0}
+.administration .user-access-workspace .access-columns > section:first-child > h3 {flex:none}
+.administration .user-access-workspace .access-listbox {flex:1;min-height:238px;height:auto;width:100%}
+.administration .user-access-workspace .access-list-actions {flex:none;margin-top:8px}
+@media(max-width:700px){
+ .administration .user-access-workspace .access-columns {min-height:0}
+ .administration .user-access-workspace .access-listbox {flex:none;height:238px}
+}
+
+/* Keep editor commands on the same baseline as the list commands. */
+.administration .user-access-workspace .access-columns > section:last-child {display:flex;flex-direction:column;min-width:0}
+.administration .user-access-workspace .access-columns > section:last-child > form {display:flex;flex-direction:column;flex:1;min-height:0}
+.administration .user-access-workspace .access-columns > section:last-child > form > .dialog-footer {margin-top:auto;padding-top:16px;flex-shrink:0}
+
+.administration .assigned-users-filter {width:100%;min-height:36px;margin:0 0 8px}
+.administration .assigned-users-list {max-height:280px;min-height:120px;overflow:auto;padding:4px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel)}
+.administration .assigned-users-list:focus-within {border-color:var(--ui-link)}
+.administration .assigned-users-list label.checkbox-row {margin:0;padding:6px 8px;min-height:36px;border:0;border-radius:2px;background:transparent}
+.administration .assigned-users-list label.checkbox-row:hover {background:var(--ui-hover)}
+
+.first-run.card {max-width:712px;padding:24px;margin:12px auto}
+.first-run h2 {font-size:24px;line-height:32px;margin:0 0 8px}
+.first-run h3 {font-size:16px;line-height:24px;margin:0 0 12px}
+.first-run p {margin:0 0 12px}
+.first-run .first-run-eyebrow {font-size:12px;line-height:18px;color:var(--ui-muted);margin-bottom:8px}
+.first-run .first-run-intro {color:var(--ui-muted);margin-bottom:24px}
+.first-run-warning {padding:16px;border:1px solid #9a3412;border-radius:6px;background:#fff7ed;margin-bottom:16px}
+.first-run-warning h3 {color:#9a3412}
+:root[data-theme=dark] .first-run-warning {background:#352a22;border-color:#ffbd85}
+:root[data-theme=dark] .first-run-warning h3 {color:#ffbd85}
+.first-run-warning ul {padding-left:20px;margin:0}
+.first-run-warning li {margin:8px 0}
+.first-run-responsibility {padding:16px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);margin-bottom:16px}
+.first-run-responsibility p:last-child {margin:0}
+.first-run label.first-run-ack {display:flex;flex-direction:row;align-items:flex-start;gap:12px;padding:12px 8px;margin:0}
+.first-run-ack input {flex:none;width:18px;height:18px;margin:2px 0 0}
+.first-run .dialog-footer {gap:8px;margin-top:16px}
+.first-run button {min-height:36px;border-radius:6px}
+.first-run form > label {gap:6px;margin:12px 0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.first-run .error:empty {display:none}
+.first-run [hidden] {display:none!important}
+@media(max-width:500px){.first-run.card {padding:16px}.first-run h2 {font-size:20px;line-height:28px}}
+
+/* Regular sign-in uses the same field surfaces and spacing as first-run setup. */
+.auth.card {max-width:440px;padding:24px;margin:32px auto;font-size:14px;line-height:20px}
+.auth h2 {font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+.auth label {gap:6px;margin:12px 0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.auth label:focus-within {border-color:var(--ui-link)}
+.auth input {width:100%;min-height:36px;border-radius:6px}
+.auth > button[type=submit] {display:block;min-height:36px;margin:16px 0 0 auto;padding:7px 12px;border-radius:6px;line-height:20px}
+@media(max-width:500px){.auth.card {padding:16px;margin:16px auto}}
+
+/* Remaining application chrome follows the same spacing and surfaces. */
+.app-launcher {padding:24px;border-radius:8px}
+.launcher-grid {gap:8px}
+.launcher-grid a {gap:8px;border-radius:6px;min-height:80px}
+.context-menu {border-radius:6px;font-size:14px;line-height:20px}
+.page-window-caption {gap:8px}
+.page-window-caption button {border-radius:6px}
+.designer-dialog .sheet-toolbar {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);gap:8px;margin:0}
+.designer-dialog .sheet-scroll {margin-top:16px}
+.designer-dialog .sheet-grid {margin-top:0}
+.designer-dialog .sheet-footer {gap:8px;margin-top:16px}
+.designer-dialog .sheet-revert {margin-right:auto}
+.message-dialog > p {margin:0;overflow-wrap:anywhere}
+@media(max-width:520px){.app-launcher {padding:16px}}
+
+.simple-pages h2 {font-size:20px;line-height:28px;margin:0 0 16px}
+.simple-pages > button {min-height:36px;margin:0 8px 8px 0;border-radius:6px;padding:7px 12px}
+
+body {background:var(--app-background,var(--ui-background))}
+.page-window.page-window-transparent {background:var(--app-background,var(--ui-background))}
+.administration .user-access-workspace input[type=color] {width:100%;height:36px}
+
+.pages-library .library-preview {background:var(--app-background,var(--ui-background))}
+
+.page-window-caption > button {display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;min-height:32px;flex:0 0 32px;padding:0;line-height:1}
+
+.page-window-caption > button > svg {display:block;flex:none;pointer-events:none}
+
+.text-editor-preview {border-radius:6px;overflow:hidden}
+.text-editor-preview .text-editor-input {display:block;margin:0;caret-color:currentColor}
+@keyframes content-blink {0%,49.99%{opacity:1}50%,100%{opacity:0}}
+.control[data-control-type="label"].content-blink > .control-content,
+.control[data-control-type="button"].content-blink .button-text {animation:content-blink 1s steps(1,end) infinite}
+.control .button-text {min-width:0;max-width:100%;pointer-events:none}
+
+/* Event Blink includes the entire control; content Blink remains text-only. */
+.control.control-blink {animation:content-blink 1s steps(1,end) infinite}
+
+/* Operand mode and value/tag form one field surface. */
+.editor > .sidebar .event-operand-group {display:flex;flex-direction:column;gap:12px;min-width:0;margin:var(--designer-field-space) 0;padding:var(--designer-field-padding);border:1px solid var(--ui-divider);border-radius:var(--designer-field-radius);background:var(--designer-field-background)}
+.editor > .sidebar .event-operand-group:focus-within {border-color:var(--ui-link)}
+.editor > .sidebar .event-operand-group > label {margin:0;padding:0;border:0;border-radius:0;background:transparent}
+
+/* Alarms uses the same field surfaces, flat tabs, and paired columns. */
+.alarms-workspace.card {padding:24px;font-size:14px;line-height:20px}
+.alarms-workspace h2 {font-size:20px;line-height:28px;margin:0 0 16px}
+.alarms-workspace h3 {font-size:14px;margin:0 0 8px}
+.alarms-workspace .alarms-tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px}
+.alarms-workspace .alarms-tabs button {flex:1;min-height:40px;padding:8px 12px;margin:0;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);font-size:14px;font-weight:600}
+.alarms-workspace .alarms-tabs button[aria-selected=true] {border-bottom-color:var(--ui-link);color:var(--ui-link)}
+.alarms-workspace .alarm-search {margin:0 0 16px;width:100%}
+.alarm-date-filters {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.alarms-workspace label {display:flex;flex-direction:column;gap:6px;min-width:0}
+.alarm-live-toolbar,.alarm-commands {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.alarm-live-toolbar {margin-bottom:16px}
+.alarm-live-toolbar > span {margin-right:auto;color:var(--ui-muted)}
+.alarms-workspace button {min-height:36px;border-radius:6px}
+.alarm-active-table {margin:0;width:100%;border-collapse:collapse}
+.alarm-active-table th,.alarm-active-table td {padding:12px 8px;border-bottom:1px solid var(--ui-divider);text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.alarm-active-table th {color:var(--ui-muted);font-size:12px}
+.alarm-active-table small {display:block;font-size:12px;line-height:18px;color:var(--ui-muted);margin-top:4px}
+.alarm-active-table .bad {color:var(--ui-error3)}
+.alarm-dot {display:inline-block;width:9px;height:9px;border-radius:50%;background:#169b65;flex:none}
+.alarm-dot.active {background:#d84350}
+.alarm-columns {display:grid;grid-template-columns:minmax(200px,.8fr) minmax(0,1.3fr);gap:16px}
+.alarm-list-column,.alarm-editor-column {display:flex;flex-direction:column;min-width:0;min-height:460px}
+.alarm-list {width:100%;flex:1;min-height:280px;padding:4px;border-radius:6px}
+.alarm-list option {padding:6px 8px;min-height:32px;font-size:14px;line-height:20px}
+.alarm-list option:checked {background:var(--designer-list-selection);color:var(--designer-list-selected-text)}
+.alarm-list-column > .alarm-commands {margin-top:16px;justify-content:space-between}
+.alarm-editor-column > section > label,.alarm-operand {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);margin:0 0 12px}
+.alarm-operand {display:flex;flex-direction:column;gap:12px;min-width:0}
+.alarm-operand label {margin:0}
+.alarm-editor-column label:focus-within,.alarm-operand:focus-within {border-color:var(--ui-link)}
+.alarms-workspace label.checkbox-row {flex-direction:row;align-items:center;justify-content:space-between;min-height:38px}
+.alarms-workspace input[type=checkbox] {width:auto;margin:0}
+.alarms-workspace input:not([type=checkbox]),.alarms-workspace textarea,.alarms-workspace select:not(.alarm-list) {width:100%;min-width:0;min-height:36px}
+.alarms-workspace .tag-picker-field > button {margin:0}
+.alarm-current-state {display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--ui-divider);padding-top:12px}
+.alarm-rule {overflow-wrap:anywhere}
+.alarms-workspace .hint {text-align:center;font-size:12px;line-height:18px}
+.alarm-editor-footer {margin-top:auto;padding-top:16px;justify-content:flex-end}
+@media(max-width:700px){.alarms-workspace.card{padding:16px}.alarm-columns{grid-template-columns:minmax(0,1fr)}.alarm-list-column{min-height:0}.alarm-list{height:200px;min-height:200px;flex:none}.alarm-active-table th:first-child,.alarm-active-table td:first-child:not([colspan]){display:none}}
+@media(max-width:460px){.alarm-date-filters{grid-template-columns:minmax(0,1fr)}.alarm-active-table th,.alarm-active-table td{padding:8px 4px}.alarm-active-table button{padding:7px 8px}}
+@media(forced-colors:active){.alarm-list option:checked{background:Highlight;color:HighlightText}}
+
+.alarms-workspace .tag-picker-field {gap:8px}
+.alarms-workspace .tag-picker-field > button:first-child {flex:1;min-width:0;text-align:left;overflow-wrap:anywhere}
+.alarms-workspace .tag-picker-field > button:last-child {width:30px;flex:none;padding:0}
+
+#alarm-bell {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:36px;padding:7px 9px;flex:none}
+#alarm-bell[hidden] {display:none}
+#alarm-bell svg {display:block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#alarm-bell.has-unsilenced {background:#b42336;border-color:#b42336;color:#fff}
+:root[data-theme=dark] #alarm-bell.has-unsilenced {background:#9f2636;border-color:#d84350;color:#fff}
+.alarm-bell-count {font-size:12px;line-height:18px;font-weight:600}
+.alarm-attention-dialog {width:min(560px,calc(100vw - 32px))}
+.alarm-attention-dialog h2,.focused-alarm-message {overflow-wrap:anywhere}
+.alarm-attention-dialog .hint {text-align:center;font-size:12px;line-height:18px}
+.alarm-attention-list {max-height:45vh;overflow:auto}
+.alarm-attention-row {display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--ui-divider)}
+.alarm-attention-row > div {flex:1;min-width:0;overflow-wrap:anywhere}
+.alarm-attention-row p {margin:4px 0}
+.alarm-attention-row small {font-size:12px;line-height:18px;color:var(--ui-muted)}
+.alarm-attention-row button {flex:none}
+.alarm-history-pages {display:flex;justify-content:space-between;gap:8px;margin-top:16px}
+@media(max-width:700px){.alarm-history-table th:first-child,.alarm-history-table td:first-child:not([colspan]){display:table-cell}}
+@media(max-width:580px){
+ .alarm-history-table thead{display:none}
+ .alarm-history-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border-bottom:1px solid var(--ui-divider);padding:12px 0}
+ .alarm-history-table td,.alarm-history-table td:first-child:not([colspan]){display:block;border:0;padding:4px;min-width:0}
+ .alarm-history-table td:not([colspan])::before{display:block;color:var(--ui-muted);font-size:12px;line-height:18px;margin-bottom:4px}
+ .alarm-history-table td:nth-child(1)::before{content:'Activated'}
+ .alarm-history-table td:nth-child(2)::before{content:'Cleared'}
+ .alarm-history-table td:nth-child(3)::before{content:'Alarm'}
+ .alarm-history-table td:nth-child(4)::before{content:'Silenced'}
+ .alarm-history-table td[colspan]{grid-column:1/-1}
+}

@@ -243,13 +243,13 @@ class EditTests(IntegrationTests):
         page['controls'] = [{'id': 'button', 'type': 'button', 'actions': [{'id': 'a', 'tag': 'Counter', 'action': 'set', 'value': 1}],
                              'events': [{'id': 'e', 'tag': 'Counter', 'operator': '>', 'operand': {'kind': 'value', 'value': 0}, 'action': 'hide'}]}]
         self.service.save_page(page)
-        before_tags, before_pages = self.service.tags(), self.service.pages()
+        before_tags, before_pages = [t for t in self.service.tags() if not t.get('builtin')], self.service.pages()
         driver = self.service.drivers['PLC']
         self.service.polling.update('Counter', 7)
         self.service.edit_source({'id': 'PLC', 'name': 'New PLC Name'})
         self.assertEqual(self.service.sources()[0]['id'], 'PLC')
         self.assertEqual(self.service.sources()[0]['name'], 'New PLC Name')
-        self.assertEqual(self.service.tags(), before_tags)
+        self.assertEqual([t for t in self.service.tags() if not t.get('builtin')], before_tags)
         self.assertEqual(self.service.pages(), before_pages)
         self.assertIs(self.service.drivers['PLC'], driver)
         self.assertEqual(self.service.values()['Counter']['value'], 7)
@@ -265,12 +265,12 @@ class EditTests(IntegrationTests):
         self.service.store.set('sources', legacy)
         restored = Service(self.service.store)
         self.assertEqual(restored.sources()[0]['name'], 'PLC')
-        self.assertEqual(restored.tags(), before_tags)
+        self.assertEqual([t for t in restored.tags() if not t.get('builtin')], before_tags)
         self.assertEqual(restored.pages(), before_pages)
         restored.edit_source({'id': 'PLC', 'name': 'Renamed Again'})
         restarted = Service(self.service.store)
         self.assertEqual(restarted.sources()[0]['name'], 'Renamed Again')
-        self.assertEqual(restarted.tags(), before_tags)
+        self.assertEqual([t for t in restarted.tags() if not t.get('builtin')], before_tags)
         for service in (restored, restarted):
             for item in service.drivers.values():item.close()
 
@@ -311,7 +311,7 @@ class EditTests(IntegrationTests):
         self.service.add_source({'id': 'PLC', 'kind': 'pycomm3', 'settings': SETTINGS})
         self.service.add_tag({'id': 'Counter', 'source': 'PLC', 'address': 'Counter', 'writable': False})
         self.service.edit_tag({'id': 'Counter', 'writable': True})
-        self.assertTrue(self.service.tags()[0]['writable'])
+        self.assertTrue([t for t in self.service.tags() if not t.get('builtin')][0]['writable'])
         self.service.add_tag({'id': 'Readonly', 'source': 'PLC', 'address': 'Readonly'})
         self.service.edit_tag({'id': 'Readonly', 'writable': True})
         self.service.act({'tag':'Readonly','action':'set','value':3})
@@ -319,5 +319,5 @@ class EditTests(IntegrationTests):
         self.service.add_source({'id': 'Mem', 'kind': 'memory'})
         self.service.add_tag({'id': 'M', 'source': 'Mem', 'address': 'a'})
         self.service.edit_tag({'id': 'M', 'address': 'b', 'writable': False})
-        self.assertEqual(self.service.tags()[-1]['address'], 'M')
-        self.assertTrue(self.service.tags()[-1]['writable'])
+        self.assertEqual([t for t in self.service.tags() if not t.get('builtin')][-1]['address'], 'M')
+        self.assertTrue([t for t in self.service.tags() if not t.get('builtin')][-1]['writable'])

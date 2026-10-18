@@ -20,3 +20,10 @@ Possible work:
 - Test against real MS/TP equipment through a router or bridge: delayed replies, an offline device alongside healthy devices, lost connectivity, and automatic recovery. Verify that unrelated sources remain responsive.
 
 Start with measurements rather than simply shortening timeouts. Continue using the Wi-Fi ESP32 as a useful uneven-response test case.
+
+
+## Sitewide import / export
+
+Added: October 18, 2026. Status: deferred.
+
+Provide one portable project export/import covering pages, sheets, data sources, tags, images/symbol assets and their references, rather than exporting items individually. Define how user/access settings and persistent SQLite tag values are included. Preserve or consistently remap stable IDs, validate dependencies before import, and offer a review of conflicts and changes before applying the import. Support moving a complete project to another server with clear handling of machine-specific connection settings.

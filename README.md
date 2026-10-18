@@ -1,6 +1,6 @@
 # Oops! All Buttons
 
-A small, human-editable foundation, with a Python backend and local HTML/CSS/JavaScript interface. No frontend build tools, CDN, or Node.js are needed to run. Memory needs no Python packages; PyComm3 uses optional pycomm3; Sheet uses optional formulas. Python 3.11+.
+A small, human-editable foundation, with a Python backend and local HTML/CSS/JavaScript interface. No frontend build tools, CDN, or Node.js are needed to run. System and SQLite Database need no Python packages; PyComm3 uses optional pycomm3; Sheet uses optional formulas. Python 3.11+.
 
 ## Run
 
@@ -10,7 +10,7 @@ Open a terminal in this folder:
 python run.py
 ```
 
-The browser opens at http://127.0.0.1:8080. Create the initial account with a password of at least 12 characters. Configuration is stored in `data/hmi.sqlite3`. Sessions expire after eight hours or server restart.
+The browser opens at http://127.0.0.1:8080. Create the initial account with a password of at least 8 characters. Configuration is stored in `data/hmi.sqlite3`. Sessions expire after eight hours or server restart.
 
 Optional tray icon:
 
@@ -63,8 +63,8 @@ Tag values may be numbers, BOOLs or strings. Arithmetic actions support numeric/
 
 ## Try the Memory example
 
-1. Add a memory data source named `Simulation`.
-2. Add a tag named `Counter`, source `Simulation`, address `counter`.
+1. Open Data Sources & Tags and select the built-in `System` source.
+2. Add a tag named `Counter`; it appears as `System\Memory\Counter`. No address is needed.
 3. Open Page Editor and add a Button and Numeric Display by clicking or dragging the toolbox items.
 4. Select the Numeric Display, open Events, and choose `Counter` using Display Source Tag. Controls no longer have a Tag property.
 5. Select the Button, open Actions, press +, use the Tag Selector to choose `Counter`, choose Click, Increment By, and value 1.
@@ -439,7 +439,7 @@ Changing polyline Stroke Width now preserves page-space vertices and refits the 
 
 
 ### Users and Access
-The existing single account is automatically retained as the first administrator. Administration > Users and Access lets administrators add/edit/remove users, assign Administrator access, assign multiple roles, and create/rename/remove named access roles. Passwords use salted PBKDF2-SHA256 hashes, never plaintext. New/reset passwords require at least 12 characters. Leave the password blank when editing to retain it. Password changes invalidate that user's sessions; deleted users lose access on their next request. The signed-in user cannot delete their own account, and at least one administrator must remain. Roles assigned to users or referenced by saved actions cannot be removed until those references are cleared.
+The existing single account is automatically retained as the first administrator. Administration > Users and Access lets administrators add/edit/remove users, assign Administrator access, assign multiple roles, and create/rename/remove named access roles. Passwords use salted PBKDF2-SHA256 hashes, never plaintext. New/reset passwords require at least 8 characters. Leave the password blank when editing to retain it. Password changes invalidate that user's sessions; deleted users lose access on their next request. The signed-in user cannot delete their own account, and at least one administrator must remain. Roles assigned to users or referenced by saved actions cannot be removed until those references are cleared.
 
 Every action has an Access Roles picker. All selected roles are required; no selected roles means any signed-in user. Administrators bypass action role requirements. Navigation, popup, page lifecycle, and control actions are checked against their saved action IDs on the server. Writes reconstruct fixed action details from saved configuration; only a Value Input submission provides a new value (checked against its saved limits). Parameter tag connections remain per-instance. Role changes take effect server-side on the next request; reload the browser to refresh management/navigation UI after changing your own administrator status.
 
@@ -513,3 +513,68 @@ Ctrl-click controls on the canvas or in Explorer, then right-click and choose Gr
 The Group submenu also provides Add to Group, Remove from Group, and Ungroup. Ungroup keeps controls and their positions. Delete Group deletes its members after confirmation. Cut, Copy, Duplicate, and Paste on a selected group include members and group events with fresh IDs. Individual control copies leave their former group. Cross-page group pastes reuse matching named page parameters, adding referenced parameter definitions when missing.
 
 Groups support a name, base visibility, and standard Show/Hide conditions. Group Hide takes precedence over member visibility; Group Show preserves each member's own visibility rules. Group event tags participate in polling, parameters, usage references, and page import/export. Group edits and movement participate in Undo/Redo. Groups cannot contain other groups. Each group is one page layer with its own member draw order. Order commands on a member change its order only within that group; Order commands on a selected group change its page layer. New members go to the front of their group. Existing interleaved layouts consolidate a group at its previously frontmost member. Explorer follows the same back-to-front layer order.
+
+
+### Optional BACnet COV
+
+BACnet sources have **Use COV when available**, disabled by default. When enabled, imported Present Value tags attempt object-level subscriptions using BAC0's underlying BACpypes3 application. A subscription is shared for a device/object within the source. Other properties continue normal reads. Rejected subscriptions fall back to polling and retry after 60 seconds; subscription errors appear in the source's COV diagnostics without turning an otherwise readable source into a fault.
+
+Settings:
+
+- **COV subscription lifetime:** 300 seconds by default, range 30–86400. Subscriptions renew automatically. Finite lifetimes limit remote resource retention after an unexpected shutdown.
+- **COV verification read:** 30 seconds by default, range 1–3600. Present Values with working subscriptions are still read periodically to check connectivity. Verification runs at the first source polling opportunity after this period, so background tags may be checked later than actively viewed tags. An unchanged value does not itself indicate a failed subscription.
+- **Confirmed COV notifications:** off by default. Enable to request notifications acknowledged by the BACnet stack, if the device supports them.
+
+COV uses the device's own change threshold (for example covIncrement); the HMI does not change it. Notifications update a driver snapshot and reach the shared cache on the existing live/background schedule. Browser batch requests and refresh rates are unchanged. The batch-data-age diagnostic uses the actual notification/verification timestamp rather than pretending each cached read is new feedback. Read/modify/write actions still read the actual device; successful writes request verification on the next poll and never publish command values as feedback.
+
+Editing the COV settings reconnects the source. Removing tags cancels their unused subscriptions; closing a source cancels its subscriptions and releases its shared BAC0 session. Source status and Server Status include active subscription, polling fallback and notification counts, plus the latest subscription error. Confirmed and unconfirmed notifications were verified with localhost BAC0 devices; validate support and network reachability with your actual controllers, especially through BACnet routers/BBMDs.
+
+
+## System and SQLite Database
+
+System is a single built-in source. Add Memory tags there; their paths are `System\Memory\Tag Name`. Values reset when the server restarts. System cannot be renamed or removed, and new standalone Memory sources cannot be created. Existing Memory tags are folded into System on startup while preserving their permanent IDs.
+
+The picker also provides read-only `System\Time` tags: DateTime, Date, Time, Year, Month, Day, Hour, Minute, Second, DayOfWeek, DayOfYear and UnixTimestamp. These use the server's local timezone, with Monday=1 through Sunday=7. DateTime uses a readable month/day/year and 12-hour clock with AM/PM; UnixTimestamp is seconds since the Unix epoch. Time refreshes through the existing source polling system at a one-second interval.
+
+Choose Database (SQLite) when adding a data source. Select an existing managed filename from the filename suggestions or enter a new filename. Files live on the server under `data/databases`; this is a persistent tag store, not a browser for arbitrary database tables. Add and rename tags just like Memory. Values are keyed by stable tag IDs in `hmi_values` and survive server restarts. Keep the HMI configuration database together with these files when moving/backing up a project. Each file can have one source, and a source's filename is fixed after creation. Removing a source leaves its database file on disk. Reads are batched and writes use SQLite transactions; no extra Python dependency is needed.
+
+
+### Built-in diagnostics tags
+
+System also provides read-only tags under these folders:
+
+- `Runtime\UptimeSeconds` and `Runtime\Uptime` (formatted as `1d 02:03:04`). Uptime uses a monotonic clock and resets on server restart.
+- `Constants\AlwaysTrue` and `Constants\AlwaysFalse`.
+- `Heartbeat\Counter` (seconds since startup) and `Heartbeat\Toggle` (alternates every second). Like other System tags, values refresh once per second.
+- `Connections\DisconnectedSources` counts configured device/database sources whose reported status is not good, including drivers that could not start.
+
+Each device/database source has an automatic read-only `Source Name\Connected` boolean tag. It mirrors that driver's cached status; it does not ping devices, subscribe to an MQTT topic, or read a PLC address. Status is checked locally every half second and after read batches, and the tag's value/timestamp is published only on a transition. Detection still depends on the driver's normal communication timeout and polling activity. A disconnected state is a good-quality `false` sample so it can be used in event conditions. System and Sheets do not get Connected tags. Built-in tags cannot be renamed, deleted, or written, and are derived rather than stored in configuration.
+
+
+### Two-corner designer placement
+
+Choose a control or shape tool, click the first corner on the page, then click the opposite corner. The preview follows the pointer; both corners use the current grid and zoom. Draw in any direction (minimum 20 × 20). The right bar has Cancel; right-click resets the first corner. Escape cancels either two-corner placement or polyline drawing, including a continuation, without changing the page. Dropping a tool onto the page supplies its first corner. Placed controls still require Save Page to persist.
+
+
+## Alarms
+
+Open Alarms from the application launcher. Administrators can add, remove, and edit alarms in Configuration. Each alarm has a name, message, Enabled checkbox, and one Event condition using the same numeric tag comparisons as control events: Equals, Not Equal, Less Than, Greater Than, Within Range, or Out Of Range. Each comparison operand can be a value or another tag. Save Alarm validates tag references and ranges. Alarm conditions are read-only and never issue device writes.
+
+Evaluation runs on the server from the shared tag cache, even with no browser open. Enabled alarm dependencies (including Sheet dependencies) use each source's live polling interval. Actual detection latency still depends on source communication and polling. If feedback is unavailable, an active alarm stays visible with a Tag unavailable notice until valid feedback proves it cleared. Disabling an alarm clears it; changing its condition starts a fresh occurrence if the new condition is true.
+
+Active Alarms supports immediate text filtering by name, message, or tag path. Activated From/To use the viewing browser's local date/time; click Apply Filter to apply a range, or leave either bound blank. Each active occurrence can be silenced individually. Silence All silences all currently active alarms, including ones hidden by filters. Silencing does not clear or disable the alarm. A new occurrence begins unsilenced after the condition clears and becomes true again.
+
+The server records the authenticated user ID, username, and time for every silence operation. The active list displays Silenced by Username and the timestamp. Records are durable in the configuration database's alarm_silences table; active state and silence attribution survive restart. No audio playback or notification delivery is configured by this initial page; Silence records the occurrence's silence state for those future outputs. Standard non-kiosk users can view and silence alarms; only administrators can configure them. Kiosk Mode remains live-view-only. Alarm conditions appear in tag references and protect referenced tags/sources from deletion. Unsaved configuration uses Cancel / Discard / Save & Continue when leaving.
+
+
+### Header bell and Focused Alarm
+
+The header bell sits immediately left of the user button. It turns red and shows a count while active alarm occurrences have not been silenced. Clicking it opens the Active Alarms popup with individual Silence buttons and, for non-kiosk users, Open Alarms. Silencing records the signed-in user and time through the same operation as the main Alarms page.
+
+Enable Focused Alarm in an alarm's Alarm settings tab to automatically open that same Active Alarms popup when a new unsilenced occurrence needs attention. Close or Escape dismisses only the popup and leaves the bell red. Focused occurrences shown in the popup are remembered per user/browser-tab session, including reloads; a new occurrence can open it again. The popup waits until other application dialogs close and updates its rows when active or silence state changes. Header attention refreshes once per second while visible and is absent from the login screen. Kiosk users may silence individual occurrences but cannot use Silence All or open alarm configuration. No alarm sound is added.
+
+### Alarm History
+
+The Alarm History tab keeps one durable record per occurrence: alarm name/message at activation, activated date/time, cleared date/time, and who silenced it plus their silence time. Disabling, removing, or changing the condition of an active alarm ends that occurrence with a corresponding reason. History survives configuration edits, deletion, and restart. Unavailable feedback does not falsely clear an active occurrence.
+
+Search by alarm name, message, or silencing username. Date/time bounds apply to activation time, in the viewing browser's local time. Results are newest first, in pages of 50 using Newer/Older. History refreshes every five seconds only while its tab is visible, and unchanged rows remain intact. Historical records from older releases preserve known activation/silence data; timestamps that were not recorded are shown as Not recorded rather than reconstructed. Standard non-kiosk users may view history.

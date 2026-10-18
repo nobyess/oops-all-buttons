@@ -19,7 +19,7 @@ class TagIdentityTests(unittest.TestCase):
         self.temp.cleanup()
     def test_same_names_across_sources_and_memory_rename_preserve_references(self):
         for source in ('A','B'):self.service.add_tag({'name':'Counter','source':source,'address':'1'})
-        a,b=self.service.tags()
+        a,b=[t for t in self.service.tags() if not t.get('builtin')]
         self.assertNotEqual(a['id'],b['id'])
         self.assertNotEqual(a['id'],'Counter')
         with self.assertRaises(ValueError):self.service.add_tag({'name':'counter','source':'A','address':'2'})
@@ -31,7 +31,7 @@ class TagIdentityTests(unittest.TestCase):
         saved=self.service.pages()
         self.service.act({'tag':a['id'],'action':'set','value':8})
         self.service.edit_tag({'id':a['id'],'name':'Renamed Counter'})
-        self.assertEqual(self.service.tags()[0]['id'],a['id'])
+        self.assertEqual([t for t in self.service.tags() if not t.get('builtin')][0]['id'],a['id'])
         self.assertEqual(self.service.pages(),saved)
         self.assertEqual(self.service.values()[a['id']]['value'],8)
         self.assertEqual(self.service.usage(a['id'])[0]['tag'],r'A\Renamed Counter')
@@ -44,7 +44,7 @@ class TagIdentityTests(unittest.TestCase):
         for driver in restarted.drivers.values():driver.close()
     def test_batch_only_returns_requested_source_tags_and_view_states(self):
         for source in ('A','B'):self.service.add_tag({'name':'Counter','source':source,'address':'1'})
-        a,b=self.service.tags()
+        a,b=[t for t in self.service.tags() if not t.get('builtin')]
         self.service.act({'tag':a['id'],'action':'set','value':4})
         with patch.object(self.service.drivers['B'],'read',side_effect=AssertionError('Unsubscribed tag read')):
             result=self.service.batch_values({'source':'A','tags':[a['id'],b['id']],'pages':['main','missing']})
@@ -90,8 +90,8 @@ class TagIdentityTests(unittest.TestCase):
             for source,protocol in [('Logix','logix'),('SLC','slc')]:
                 self.service.add_source({'id':source,'kind':'pycomm3','settings':{**SETTINGS,'protocol':protocol}})
                 self.service.add_tag({'name':'Alias','source':source,'address':'Counter'})
-            logix,slc=self.service.tags()
+            logix,slc=[t for t in self.service.tags() if not t.get('builtin')]
             self.assertEqual(logix['name'],'Counter')
             with self.assertRaises(ValueError):self.service.edit_tag({'id':logix['id'],'name':'Wrong'})
             self.service.edit_tag({'id':slc['id'],'name':'New SLC Alias'})
-            self.assertEqual(self.service.tags()[1]['name'],'New SLC Alias')
+            self.assertEqual([t for t in self.service.tags() if not t.get('builtin')][1]['name'],'New SLC Alias')

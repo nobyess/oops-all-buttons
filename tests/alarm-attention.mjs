@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {unsilencedAlarms,nextFocusedAlarm} from '../static/alarm-attention.js';
+const first={id:'a',focused:true,state:{active:true,activated_at:10,occurrence:'a1'}};
+const second={id:'b',focused:true,state:{active:true,activated_at:20,occurrence:'b1'}};
+const ordinary={id:'c',focused:false,state:{active:true,activated_at:1,occurrence:'c1'}};
+assert.equal(unsilencedAlarms([first,second,ordinary]).length,3);
+assert.equal(nextFocusedAlarm([second,ordinary,first],new Set()),first);
+assert.equal(nextFocusedAlarm([second,first],new Set(['a1'])),second);
+assert.equal(nextFocusedAlarm([ordinary],new Set()),undefined);
+assert.equal(nextFocusedAlarm([{...first,state:{...first.state,silenced_at:50}}],new Set()),undefined);
+assert.equal(nextFocusedAlarm([{...first,state:{...first.state,active:false}}],new Set()),undefined);
+const reactivated={...first,state:{...first.state,occurrence:'a2'}};
+assert.equal(nextFocusedAlarm([reactivated],new Set(['a1'])),reactivated);
+console.log('Alarm attention counts, ordered focused queue, dismissal, silencing, and reactivation passed.');

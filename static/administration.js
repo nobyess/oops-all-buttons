@@ -1,14 +1,14 @@
 import {updateErrorLog} from './error-log-view.js';
-import {mountAccessManager} from './access-ui.js';
+import {mountUserAccess} from './user-access-manager.js';
 export function mountAdministration(parent,{node,button,api}) {
  const card=node('section',null,parent,{className:'card administration'});
  node('h2','Administration',card);
  const tabs=node('div',null,card,{className:'tabs'}),body=node('div',null,card);
  let closeAccess,statusView,errorVersion=0;
- let active='Users and Access',closed=false,timer,previous,pending=false;
+ let active='Users',closed=false,timer,previous,pending=false;
  const buttons=[];
 
- for(const title of ['Users and Access','Server Status'])buttons.push(button(title,tabs,()=>{active=title;render();}));
+ for(const title of ['Users','Access','Server Status'])buttons.push(button(title,tabs,async()=>{if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
  const format=n=>Number(n || 0).toLocaleString();
  function row(parent,label,value){const item=node('div',null,parent,{className:'admin-stat'});node('span',label,item);node('strong',String(value),item);}
  async function update(){
@@ -40,17 +40,23 @@ export function mountAdministration(parent,{node,button,api}) {
    }
    const {summary,errors,drivers:scroll}=statusView;
    summary.replaceChildren();
-   row(summary,'Uptime',`${Math.floor(data.uptime/3600)}h ${Math.floor(data.uptime/60)%60}m ${Math.floor(data.uptime)%60}s`);
+   const groups={};
+   for(const title of ['Server','CPU & Threads','System Memory','Requests & Errors','Polling & Project']){
+    const group=node('section',null,summary,{className:'admin-summary-group'});node('h3',title,group);groups[title]=group;
+   }
+   const destinations={'Uptime':'Server','Database':'Server','Runtime':'Server','Process CPU (one core)':'CPU & Threads','Threads':'CPU & Threads','System RAM used':'System Memory','System RAM available':'System Memory','Requests in last second':'Requests & Errors','Errors in last second':'Requests & Errors','Total requests / errors':'Requests & Errors','Active polling clients':'Polling & Project','Tags / pages':'Polling & Project'};
+   const stat=(label,value)=>row(groups[destinations[label]],label,value);
+   stat('Uptime',`${Math.floor(data.uptime/3600)}h ${Math.floor(data.uptime/60)%60}m ${Math.floor(data.uptime)%60}s`);
    const cpu=previous?Math.max(0,(data.cpu_seconds-previous.cpu_seconds)/(data.uptime-previous.uptime)*100):null;
-   row(summary,'Process CPU (one core)',cpu===null?'Measuring...':cpu.toFixed(1)+'%');previous=data;
+   stat('Process CPU (one core)',cpu===null?'Measuring...':cpu.toFixed(1)+'%');previous=data;
    const memory=data.memory;
-   row(summary,'System RAM used',memory?`${(memory.used_bytes/1073741824).toFixed(2)} / ${(memory.total_bytes/1073741824).toFixed(2)} GiB (${memory.used_percent.toFixed(1)}%)`:'Unavailable');
-   row(summary,'System RAM available',memory?`${(memory.available_bytes/1073741824).toFixed(2)} GiB`:'Unavailable');
-   row(summary,'Threads',data.threads);row(summary,'Database', (data.database_bytes/1048576).toFixed(2)+' MB');
-   row(summary,'Requests in last second',format(data.requests.last_second));row(summary,'Errors in last second',format(data.requests.errors_last_second));
-   row(summary,'Total requests / errors',`${format(data.requests.total)} / ${format(data.requests.errors)}`);
-   row(summary,'Active polling clients',data.polling.clients);row(summary,'Tags / pages',`${data.tags} / ${data.pages}`);
-   row(summary,'Runtime',`Python ${data.python} on ${data.platform}`);
+   stat('System RAM used',memory?`${(memory.used_bytes/1073741824).toFixed(2)} / ${(memory.total_bytes/1073741824).toFixed(2)} GiB (${memory.used_percent.toFixed(1)}%)`:'Unavailable');
+   stat('System RAM available',memory?`${(memory.available_bytes/1073741824).toFixed(2)} GiB`:'Unavailable');
+   stat('Threads',data.threads);stat('Database', (data.database_bytes/1048576).toFixed(2)+' MB');
+   stat('Requests in last second',format(data.requests.last_second));stat('Errors in last second',format(data.requests.errors_last_second));
+   stat('Total requests / errors',`${format(data.requests.total)} / ${format(data.requests.errors)}`);
+   stat('Active polling clients',data.polling.clients);stat('Tags / pages',`${data.tags} / ${data.pages}`);
+   stat('Runtime',`Python ${data.python} on ${data.platform}`);
    if(version===errorVersion)updateErrorLog(errors,data.error_log || [],node);
    scroll.replaceChildren();
    for(const source of data.sources){
@@ -60,6 +66,7 @@ export function mountAdministration(parent,{node,button,api}) {
     row(box,'Configured tags',source.tags.length);
     if(source.kind==='modbus'){row(box,'Modbus read / write requests',`${source.status.read_requests || 0} / ${source.status.write_requests || 0}`);}
     if(source.kind==='mqtt'){row(box,'Messages received / published',`${source.status.received || 0} / ${source.status.published || 0}`);row(box,'Topic subscriptions',source.status.subscriptions || 0);}
+    if(source.status?.cov){const cov=source.status.cov;row(box,'COV active / polling fallback',`${cov.active} / ${cov.polling}`);row(box,'COV notifications',format(cov.notifications));if(cov.last_error)row(box,'Last COV subscription error',cov.last_error);}
     const stats=data.polling.sources[source.id];
     if(stats){
      row(box,'Live / background interval',`${source.settings.live ?? 0.5}s / ${source.settings.background ?? 20}s`);
@@ -72,19 +79,8 @@ export function mountAdministration(parent,{node,button,api}) {
   }catch(error){if(!closed && active==='Server Status'){statusView=null;body.replaceChildren();node('p',error.message,body,{className:'bad'});}}finally{pending=false;}
  }
  function render(){closeAccess?.();closeAccess=null;clearInterval(timer);previous=null;statusView=null;body.replaceChildren();buttons.forEach(b=>b.classList.toggle('active',b.textContent===active));
-  if(active==='Users and Access'){
-   closeAccess=mountAccessManager(body,{node,button,api});
-   node('h3','Login Sessions',body);
-   const form=node('form',null,body),label=node('label','Expiry mode',form),mode=node('select',null,label);
-   for(const [value,text] of [['fixed','Fixed duration after login'],['inactivity','Expire after inactivity'],['never','No automatic expiry']])node('option',text,mode,{value});
-   const durationLabel=node('label','Duration (hours)',form),hours=node('input',null,durationLabel,{type:'number',min:.01,max:8760,step:'any',required:true,value:8});
-   const save=node('button','Save Session Settings',form,{type:'submit',disabled:true});
-   const result=node('p','Loading settings...',form,{className:'hint'});
-   mode.onchange=()=>{durationLabel.hidden=mode.value==='never';};
-   api('admin/session-settings').then(settings=>{if(closed || !form.isConnected)return;mode.value=settings.mode;hours.value=settings.hours;mode.onchange();save.disabled=false;result.textContent='Settings apply to existing sessions. Restarting the server still requires signing in again.';}).catch(error=>{result.textContent=error.message;});
-   form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{await api('admin/session-settings',{mode:mode.value,hours:Number(hours.value)});result.textContent='Session settings saved.';}catch(error){result.textContent=error.message;}finally{save.disabled=false;}};
-  }
+  if(active==='Users' || active==='Access'){closeAccess=mountUserAccess(body,{node,button,api,mode:active,onOpenRole:()=>{active='Access';render();}});}
   else {node('p','Loading server status...',body);update();timer=setInterval(update,1000);}
  }
- render();return ()=>{closed=true;closeAccess?.();clearInterval(timer);};
+ render();const close=()=>{closed=true;closeAccess?.();clearInterval(timer);};close.isDirty=()=>Boolean(closeAccess?.isDirty?.());close.beforeLeave=()=>closeAccess?.beforeLeave?.() ?? Promise.resolve(true);return close;
 }

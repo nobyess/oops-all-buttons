@@ -41,7 +41,10 @@ class HttpTests(unittest.TestCase):
                 self.assertEqual(request('/api/tags')[0], 401)
                 self.assertEqual(request('/api/admin/status')[0], 401)
                 credentials = {'username':'admin','password':'test-password-123'}
-                status, _, cookie_header = request('/api/setup', credentials)
+                self.assertEqual(request('/api/setup', credentials)[0],400)
+                self.assertTrue(request('/api/status')[1]['setup'])
+                self.assertEqual(request('/api/setup', {**credentials,'safety_acknowledged':'true'})[0],400)
+                status, _, cookie_header = request('/api/setup', {**credentials,'safety_acknowledged':True})
                 self.assertEqual(status, 200)
                 cookie = cookie_header.split(';')[0]
                 csrf = request('/api/status')[1]['csrf']
@@ -66,7 +69,8 @@ class HttpTests(unittest.TestCase):
                 self.assertEqual(request('/api/setup', credentials)[0],409)
                 self.assertEqual(request('/api/login', {'username':'admin','password':'wrong'})[0],401)
                 self.assertEqual(request('/api/sources', {'id':'sim','kind':'memory'}, False)[0],401)
-                self.assertEqual(request('/api/sources', {'id':'sim','kind':'memory'})[0],200)
+                self.assertEqual(request('/api/sources', {'id':'sim','kind':'memory'})[0],400)
+                self.assertEqual(request('/api/sources', {'id':'sim','kind':'database','settings':{'filename':'Test.sqlite3'}})[0],200)
                 self.assertEqual(request('/api/tags', {'id':'counter','source':'sim','address':'c'})[0],200)
                 status, source_status, _ = request('/api/sources/status')
                 self.assertEqual(status, 200)

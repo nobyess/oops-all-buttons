@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {filterActiveAlarms,silenceLabel} from '../static/alarms-manager.js';
+const stamp=new Date('2026-10-18T05:20:00').getTime()/1000;
+const items=[{name:'High Level',message:'Wet well',tagPath:'PLC\\Level',state:{active:true,activated_at:stamp}},{name:'Fault',message:'Motor stopped',tagPath:'PLC\\Fault',state:{active:true,activated_at:stamp-3600}},{name:'Normal',state:{active:false}}];
+assert.equal(filterActiveAlarms(items).length,2);
+assert.equal(filterActiveAlarms(items,' WET ').length,1);
+assert.equal(filterActiveAlarms(items,'plc\\fault')[0].name,'Fault');
+assert.equal(filterActiveAlarms(items,'','2026-10-18T05:00','2026-10-18T06:00').length,1);
+assert.equal(filterActiveAlarms(items,'motor','2026-10-18T05:00').length,0);
+assert.equal(silenceLabel({}),'Not silenced');
+assert.equal(silenceLabel({silenced_at:stamp,silenced_by:'Lonnie'}),'Silenced by Lonnie');
+console.log('Alarm name/message/tag filters, date ranges, and silence attribution passed.');

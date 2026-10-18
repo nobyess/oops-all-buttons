@@ -43,4 +43,6 @@ from .mqtt import MQTTDriver
 
 from .modbus import ModbusTCPDriver
 
-DRIVERS = {'memory': MemoryDriver, 'pycomm3': create_driver, 'bacnet': BACnetDriver, 'sheet': SheetDriver, 'mqtt': MQTTDriver, 'modbus': ModbusTCPDriver}
+from .local_drivers import SystemDriver, DatabaseDriver
+
+DRIVERS = {'system':SystemDriver,'database':DatabaseDriver,'memory': MemoryDriver, 'pycomm3': create_driver, 'bacnet': BACnetDriver, 'sheet': SheetDriver, 'mqtt': MQTTDriver, 'modbus': ModbusTCPDriver}

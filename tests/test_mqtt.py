@@ -79,10 +79,10 @@ class MQTTTests(unittest.TestCase):
             service.add_source({'name':'Broker','kind':'mqtt','settings':{'host':'localhost'}})
             source=service.sources()[0]
             service.add_tag({'name':'Speed','source':source['id'],'address':'pump/value'})
-            tag=service.tags()[0]
+            tag=[t for t in service.tags() if not t.get('builtin')][0]
             self.assertEqual(service.drivers[source['id']].topics,{'pump/value'})
             service.edit_tag({'id':tag['id'],'name':'Speed2','address':'pump/new'})
-            self.assertEqual(service.tags()[0]['id'],tag['id'])
+            self.assertEqual([t for t in service.tags() if not t.get('builtin')][0]['id'],tag['id'])
             self.assertEqual(service.drivers[source['id']].topics,{'pump/new'})
             service.remove_tag({'id':tag['id']})
             self.assertEqual(service.drivers[source['id']].topics,set())

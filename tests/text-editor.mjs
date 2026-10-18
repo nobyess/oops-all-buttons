@@ -23,8 +23,11 @@ const horizontal=nodes.find(node=>node['aria-label']==='Horizontal Alignment');a
 const vertical=nodes.find(node=>node['aria-label']==='Vertical Alignment');all(vertical).find(node=>node['aria-label']==='Bottom').onclick();
 const back=nodes.find(node=>node.tagName==='label' && node.textContent==='Back').children[0];
 back.value='#ff0000';const opacity=back.parent.parent.children[1].children[0];opacity.value=50;opacity.onchange();
+const blink=nodes.find(node=>node.tagName==='label' && node.textContent==='Blink').children[0];blink.checked=true;blink.onchange();
+assert.equal(nodes.find(node=>node.className==='text-editor-preview').style.backgroundColor,'#ffffff');
+assert.equal(nodes.find(node=>node.tagName==='textarea').style.backgroundColor,'#ff000080');
 nodes.find(node=>node.tagName==='form').onsubmit({preventDefault(){}});
-const changes=await save;assert.equal(changes.text,'Line one\nLine two');assert.equal(changes.fontSize,24);assert.equal(changes.bold,true);
+const changes=await save;assert.equal(changes.blink,true);assert.equal(changes.text,'Line one\nLine two');assert.equal(changes.fontSize,24);assert.equal(changes.bold,true);
 assert.equal(changes.backColor,'#ff000080');assert.equal(changes.textHorizontalAlignment,'left');assert.equal(changes.textVerticalAlignment,'bottom');assert.equal(original.text,'Original');
 assert(controls.label.props.roundedCorners);assert.equal(controls.label.defaults.roundedCorners,false);assert.equal(controls.indicator.hidden,true);
 console.log('Text Editor cancel/save, multiline text, formatting, alignment, and control options passed.');

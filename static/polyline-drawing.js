@@ -23,7 +23,7 @@ export function movePolyline(start,dx,dy,page,grid){
  return {left:axis(start.left,start.width,page.width,dx),top:axis(start.top,start.height,page.height,dy)};
 }
 export function mountPolylineDrawing({canvas,panel,page,zoom,grid,draft,node,button,onComplete,onCancel}){
- panel.replaceChildren();node('h3','Draw Polyline',panel);node('p','Click on the page to add points. Right-click to remove the last point. Click the first point after adding three points to close and complete the line. Complete adds the line to the page; Save Page stores it.',panel,{className:'hint'});
+ panel.replaceChildren();node('h3','Draw Polyline',panel);node('p','Click on the page to add points. Right-click to remove the last point. Click the first point after adding three points to close and complete the line. Complete adds the line to the page; Save Page stores it. Press Escape or Cancel to stop.',panel,{className:'hint'});
  const count=node('p','',panel),complete=button('Complete',panel,()=>onComplete(completePolyline(draft.points,draft.strokeWidth ?? 2)));
  button('Cancel',panel,onCancel);
  const ns='http://www.w3.org/2000/svg',overlay=document.createElementNS(ns,'svg');overlay.classList.add('polyline-drawing');overlay.setAttribute('viewBox',`0 0 ${page.width} ${page.height}`);canvas.append(overlay);

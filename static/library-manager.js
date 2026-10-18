@@ -1,7 +1,7 @@
 // Shared selection/preview frame for Pages and Sheets.
 export const libraryStates={pages:{selected:'',search:'',tab:'references'},sheets:{selected:'',search:'',cell:'A1'}};
 export function mountLibrary(parent,{kind,items,node,button,describe,onAdd,onImport,onSettings,onRemove,onOpen,onView,onExport,mountPreview,showDetails,canRemove}) {
- const state=libraryStates[kind],card=node('section',null,parent,{className:'card library-manager'});
+ const state=libraryStates[kind],card=node('section',null,parent,{className:'card library-manager '+kind+'-library'});
  node('h2',kind==='pages'?'Pages':'Sheets',card);
  const search=node('input',null,card,{type:'search',placeholder:kind==='pages'?'Search pages…':'Search sheets or filenames…',value:state.search,className:'library-search'});search.setAttribute('aria-label',search.placeholder);
  const columns=node('div',null,card,{className:'library-columns'}),left=node('section',null,columns,{className:'library-left'}),right=node('section',null,columns,{className:'library-right'});

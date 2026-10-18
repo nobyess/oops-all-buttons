@@ -167,12 +167,12 @@ export function mountSheetGrid(parent,{source,getSheet,onInterest,onSelect,autoR
     close(){closed=true;closeContextMenu();clearTimeout(timer);if(autoRefresh)onInterest?.(source.id,false);}
   };
 }
-function confirmSheetSave(address) {
+export function confirmSheetSave(address) {
   return new Promise(resolve=>{
-    const modal=el('dialog',null,document.body,{className:'sheet-save-confirm'});
+    const modal=el('dialog',null,document.body,{className:'sheet-save-confirm designer-dialog'});
     el('h2','Save changes?',modal);
     el('p',`Save and validate changes to ${address} before continuing? Cancel keeps editing; Revert restores the last saved contents.`,modal);
-    const footer=el('div',null,modal,{className:'row sheet-footer'});
+    const footer=el('div',null,modal,{className:'row sheet-footer dialog-footer'});
     function finish(answer){modal.close();modal.remove();resolve(answer);}
     el('button','Revert',footer,{type:'button',className:'sheet-revert'}).onclick=()=>finish('revert');
     el('button','Cancel',footer,{type:'button'}).onclick=()=>finish(false);
@@ -182,12 +182,12 @@ function confirmSheetSave(address) {
 }
 export function openSheetDialog({source,getSheet,saveSheet,onInterest,onTag,readOnly=false,confirmSave=confirmSheetSave}) {
   return new Promise(resolve=>{
-    const modal=el('dialog',null,document.body,{className:'sheet-dialog'});
+    const modal=el('dialog',null,document.body,{className:'sheet-dialog designer-dialog'});
     el('h2',(readOnly?'Select cell — ':'Edit sheet — ')+(source.name || source.id),modal);
     let selected=null,finished=false,saving=null;
     const grid=mountSheetGrid(modal,{source,getSheet,onInterest,editable:!readOnly,onTag,
       beforeLeave:()=>saveChanges(true),onSave:()=>saveChanges(),onSelect:address=>{selected=address;confirm.disabled=false;}});
-    const footer=el('div',null,modal,{className:'row sheet-footer'}),cancel=el('button',readOnly?'Cancel':'Close',footer,{type:'button'});
+    const footer=el('div',null,modal,{className:'row sheet-footer dialog-footer'}),cancel=el('button',readOnly?'Cancel':'Close',footer,{type:'button'});
     const confirm=readOnly?el('button','Confirm',footer,{type:'button',disabled:true}):null;
     function warnUnload(event){if(!readOnly && grid.isDirty()){event.preventDefault();event.returnValue='';}}
     window.addEventListener('beforeunload',warnUnload);

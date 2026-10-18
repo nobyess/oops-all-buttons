@@ -32,6 +32,9 @@ class PollingManager:
         self.statistics = {}
         self.busy = set()
         self.on_samples = None
+        self.last_status_check = -math.inf
+        self.status_busy = False
+        self.permanent_interest = set()
         self.error_log = None
         self.changed = threading.Event()
         self.changed.set()
@@ -51,7 +54,35 @@ class PollingManager:
             self.attempts = {k: v for k, v in self.attempts.items() if k in self.tags}
             self.versions = {k: v for k, v in self.versions.items() if k in self.tags}
 
+        for source, driver in drivers.items():
+            configure = getattr(driver, 'configure_tags', None)
+            if callable(configure):
+                configure([tag['address'] for tag in tags if tag['source'] == source and not tag.get('connection_status')])
+        self.refresh_connections(force=True)
         self.changed.set()
+
+    def refresh_connections(self, force=False, source=None):
+        # Driver status is cached health, never a probe or device read.
+        with self.lock:
+            now=self.clock()
+            if source is None:
+                if not force and now-self.last_status_check < .5:return
+                self.last_status_check=now
+            tags=[tag for tag in self.tags.values() if tag.get("connection_status") and (source is None or tag["source"]==source)]
+            drivers=dict(self.drivers)
+        changed=False
+        for tag in tags:
+            driver=drivers.get(tag["source"])
+            try:connected=bool(driver and driver.status().get("quality")=="good")
+            except Exception:connected=False
+            with self.lock:
+                if self.tags.get(tag["id"])!=tag or self.drivers.get(tag["source"]) is not driver:continue
+                previous=self.cache.get(tag["id"])
+                if previous is None or previous.get("value") != connected:
+                    self.cache[tag["id"]]={"value":connected,"quality":"good","timestamp":time.time(),"error":""}
+                    changed=True
+        if changed:self.changed.set()
+        return changed
 
     def interest(self, client, tags):
         with self.lock:
@@ -88,13 +119,28 @@ class PollingManager:
             return all(PollingManager.valid_value(v) for v in value)
         return value is None or isinstance(value, (str, int, bool))
 
+    def _refresh_status(self):
+        try:
+            if self.refresh_connections() and self.on_samples:self.on_samples()
+        finally:
+            with self.lock:self.status_busy=False
+
     def poll_due(self, asynchronous=True):
+        # Some drivers guard health with their I/O lock. Do not stall other
+        # sources' scheduling while waiting for that driver's cached status.
+        if asynchronous:
+            with self.lock:
+                refresh=not self.status_busy and self.clock()-self.last_status_check >= .5
+                if refresh:self.status_busy=True
+            if refresh:threading.Thread(target=self._refresh_status,daemon=True).start()
+        elif self.refresh_connections() and self.on_samples:self.on_samples()
         with self.lock:
             now = self.clock()
             self.leases = {k: v for k, v in self.leases.items() if v[0] > now}
-            live = set().union(*(v[1] for v in self.leases.values())) if self.leases else set()
+            live = set(self.permanent_interest).union(*(v[1] for v in self.leases.values()))
             jobs = {}
             for name, tag in self.tags.items():
+                if tag.get("connection_status"):continue
                 source = self.sources[tag['source']]
                 settings = source['settings']
                 interval = settings.get('live', 0.5) if name in live else settings.get('background', 20)
@@ -131,7 +177,7 @@ class PollingManager:
                 sample = dict(samples.get(tag['address'], {'value': None, 'quality': 'bad', 'error': 'No PLC response'}))
                 if not self.valid_value(sample.get('value')):
                     sample = {'value': None, 'quality': 'bad', 'error': 'Invalid PLC value'}
-                sample['timestamp'] = time.time()
+                sample.setdefault('timestamp', time.time())
                 self.cache[tag['id']] = sample
             stats = self.statistics.setdefault(source, {'batches': 0, 'failed_batches': 0, 'tag_reads': 0})
             stats['batches'] += 1
@@ -145,6 +191,7 @@ class PollingManager:
             failures = {str(samples.get(t['address'], {}).get('error') or 'Read failed') for t in tags if samples.get(t['address'], {}).get('quality') != 'good'}
             for message in failures:
                 self.error_log.record('Polling: '+self.sources.get(source, {}).get('name',source), message)
+        self.refresh_connections(force=True,source=source)
         self.changed.set()
         if self.on_samples:
             self.on_samples()
@@ -153,7 +200,7 @@ class PollingManager:
         with self.lock:
             now = self.clock()
             leases = [v for v in self.leases.values() if v[0] > now]
-            live = set().union(*(v[1] for v in leases)) if leases else set()
+            live = set(self.permanent_interest).union(*(v[1] for v in leases))
             return {'clients': len(leases), 'sources': {
                 source: {**self.statistics.get(source, {}), 'busy': source in self.busy,
                          'live_tags': sum(t['source'] == source and name in live for name, t in self.tags.items()),

@@ -29,3 +29,8 @@ class Store:
     def set(self, key, value):
         with self.connect() as db:
             db.execute('INSERT OR REPLACE INTO config VALUES (?, ?)', (key, json.dumps(value)))
+
+    def set_many(self, values):
+        with self.connect() as db:
+            db.executemany('INSERT OR REPLACE INTO config VALUES (?, ?)',
+                           [(key, json.dumps(value)) for key, value in values.items()])

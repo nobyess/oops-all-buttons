@@ -1,5 +1,6 @@
 // Presentation rules run only in open browser views, using received tag feedback.
-export const visualActions=new Set(['show','hide','set_colors','set_content','close_popup','spin']);
+export const visualActions=new Set(['show','hide','set_colors','set_content','close_popup','spin','blink']);
+export const blinkControlTypes=new Set(['label','button','numeric','square','circle','triangle','polyline','symbol','image','level']);
 export function eventTagIds(event) {
   return [event.tag,event.target,...[event.operand,event.end_operand].filter(value=>value?.kind==='tag').map(value=>value.tag)].filter(Boolean);
 }
@@ -43,11 +44,12 @@ export function evaluateControlEvents(control,values,previous=new Map(),onAction
       if(visualActions.has(event.action)) {
         if(event.action==='spin' && control.type==='symbol')appearance.spinRpm=current?Math.min(60,Math.max(0,Number(event.rpm ?? 10)||0)):0;
         if(!current)continue;
+        if(event.action==='blink' && blinkControlTypes.has(control.type))appearance.controlBlink=true;
         if(event.action==='set_content' && ['label','button'].includes(control.type) && typeof event.content==='string') {
           appearance.contentOverride=event.content;
           if(event.contentRefs)appearance.contentRefs=event.contentRefs;else delete appearance.contentRefs;
           // Only presentation fields may be overridden; geometry and behavior stay on the control.
-          for(const key of ['fontFamily','fontSize','bold','italic','textHorizontalAlignment','textVerticalAlignment','backColor','foreColor']) {
+          for(const key of ['fontFamily','fontSize','bold','italic','textHorizontalAlignment','textVerticalAlignment','backColor','foreColor','blink']) {
             if(Object.hasOwn(event.contentStyle || {},key))appearance[key]=event.contentStyle[key];
           }
         }

@@ -11,7 +11,7 @@ export function openValueInput(settings,{name='',value}={}) {
   return new Promise(resolve=>{
     function el(tag,text,parent,props={}){const e=document.createElement(tag);if(text!==null)e.textContent=text;Object.assign(e,props);parent?.append(e);return e;}
     const heading=String(settings.prompt || '').trim() || 'Value Input';
-    const modal=el('dialog',null,document.body,{className:'value-input-dialog'});modal.setAttribute('aria-label',heading);
+    const modal=el('dialog',null,document.body,{className:'value-input-dialog designer-dialog'});modal.setAttribute('aria-label',heading);
     const form=el('form',null,modal);el('h2',heading,form);
     const min=Number(settings.minimum ?? 0),max=Number(settings.maximum ?? 100);
     el('p',`Minimum: ${min} · Maximum: ${max}`,form,{className:'hint'});

@@ -5,7 +5,7 @@ const source=fs.readFileSync('static/app.js','utf8');
 const finish=source.slice(source.indexOf('function finishPointEditingFocus()'),source.indexOf('function showInspector(panel)'));
 const focus=source.slice(source.indexOf('  const focused=',source.indexOf('function showInspector(panel)')),source.indexOf('  panel.replaceChildren();',source.indexOf('function showInspector(panel)')));
 const line={id:'line',type:'polyline',editing:true,left:10},other={id:'other',type:'label'};let finished=0,changed=0,painted=0;
-const context=vm.createContext({page:{controls:[line,other]},selected:'line',editingPolyline:c=>c?.type==='polyline' && c.editing,controls:{polyline:{props:{pointEditing:{onClick:c=>{c.editing=false;c.left=20;finished++;}}}}},app:{querySelectorAll:()=>[{dataset:{controlId:'line'}}]},paint:()=>painted++,markChanged:()=>changed++});
+const context=vm.createContext({panel:{},saveEditorListScroll:()=>{},page:{controls:[line,other]},selected:'line',editingPolyline:c=>c?.type==='polyline' && c.editing,controls:{polyline:{props:{pointEditing:{onClick:c=>{c.editing=false;c.left=20;finished++;}}}}},app:{querySelectorAll:()=>[{dataset:{controlId:'line'}}]},paint:()=>painted++,markChanged:()=>changed++});
 vm.runInContext('let pointEditingFocus=null;'+finish+'function updateFocus(){'+focus+'}',context);
 vm.runInContext('updateFocus();updateFocus();',context);assert.equal(finished,0);
 vm.runInContext("selected='other';updateFocus();",context);assert.equal(finished,1);assert.equal(changed,1);assert.equal(painted,1);assert.equal(line.editing,false);

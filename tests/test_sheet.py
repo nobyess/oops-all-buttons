@@ -34,14 +34,14 @@ class SheetTests(unittest.TestCase):
         self.assertEqual(values['D1']['value'],'Status: Hot')
         self.assertEqual(values['C2']['value'],5)
         self.service.add_tag({'name':'B1','source':'sheet','address':'B1'})
-        tag = self.service.tags()[-1]
+        tag = [t for t in self.service.tags() if not t.get('builtin')][-1]
         self.service.act({'tag':'input','action':'set','value':20})
         self.assertEqual(self.service.values()[tag['id']]['value'],25)
 
     def test_file_persistence_and_input_writes(self):
         self.save({'A1':'hello','B1':'4','C1':'=B1*2'})
         self.service.add_tag({'name':'B1','source':'sheet','address':'B1'})
-        tag = self.service.tags()[-1]
+        tag = [t for t in self.service.tags() if not t.get('builtin')][-1]
         self.service.act({'tag':tag['id'],'action':'set','value':7})
         restored = Service(Store(self.path))
         data = restored.get_sheet({'source':'sheet'})
@@ -59,7 +59,7 @@ class SheetTests(unittest.TestCase):
             self.assertEqual(result['values'][cell]['quality'],'bad')
         self.service.add_tag({'name':'A1','source':'sheet','address':'A1'})
         with self.assertRaisesRegex(ValueError,'Formula cells'):
-            self.service.act({'tag':self.service.tags()[-1]['id'],'action':'set','value':2})
+            self.service.act({'tag':[t for t in self.service.tags() if not t.get('builtin')][-1]['id'],'action':'set','value':2})
 
     def test_stable_external_ids_usage_and_live_interest(self):
         self.save({'A1':'=TAG("Memory1\\Input")'})
@@ -84,7 +84,7 @@ class SheetTests(unittest.TestCase):
         self.save({'A1':'=TAG("Sheet1\\A1")*2'},'sheet2')
         self.assertEqual(self.service.get_sheet({'source':'sheet2'})['values']['A1']['value'],20)
         self.service.add_tag({'name':'A1','source':'sheet2','address':'A1'})
-        self.service.live_interest('viewer',{'tags':[self.service.tags()[-1]['id']]})
+        self.service.live_interest('viewer',{'tags':[[t for t in self.service.tags() if not t.get('builtin')][-1]['id']]})
         self.assertIn('input', self.service.polling.leases['viewer'][1])
         self.save({'A1':'=TAG("Sheet2\\A1")'})
         self.assertEqual(self.service.get_sheet({'source':'sheet2'})['values']['A1']['quality'],'bad')
@@ -111,15 +111,15 @@ class SheetTests(unittest.TestCase):
                 self.reads += 1
                 return {address:{'value':3,'quality':'good'} for address in addresses}
         self.service.store.set('sources',self.service.sources()+[{'id':'device','name':'Device','kind':'pycomm3','settings':{'live':.5,'background':20}}])
-        self.service.store.set('tags',self.service.tags()+[{'id':'remote','name':'Remote','source':'device','address':'Remote'}])
+        self.service.store.set('tags',[t for t in self.service.tags() if not t.get('builtin')]+[{'id':'remote','name':'Remote','source':'device','address':'Remote'}])
         device = Device()
         self.service.drivers['device'] = device
         self.service.configure_polling()
         self.assertEqual(self.save({'A1':'=TAG("Device\\Remote")*4'})['values']['A1']['quality'], 'bad')
         self.service.add_tag({'name':'A1','source':'sheet','address':'A1'})
-        self.service.polling._poll('device',[self.service.tags()[-2]])
+        self.service.polling._poll('device',[[t for t in self.service.tags() if not t.get('builtin')][-2]])
         self.assertEqual(device.reads,1)
-        self.assertEqual(self.service.values()[self.service.tags()[-1]['id']]['value'],12)
+        self.assertEqual(self.service.values()[[t for t in self.service.tags() if not t.get('builtin')][-1]['id']]['value'],12)
         self.service.get_sheet({'source':'sheet'})
         self.assertEqual(device.reads,1)
 
@@ -133,7 +133,7 @@ class SheetTests(unittest.TestCase):
         for worker in workers:
             worker.join(timeout=5)
             self.assertFalse(worker.is_alive())
-        self.assertEqual(self.service.values()[self.service.tags()[-1]['id']]['value'],40)
+        self.assertEqual(self.service.values()[[t for t in self.service.tags() if not t.get('builtin')][-1]['id']]['value'],40)
 
     def test_smaller_grid_preserves_legacy_cells_and_references(self):
         driver = self.service.drivers['sheet']
@@ -156,7 +156,7 @@ class SheetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'A1:'):
             self.service.save_sheet({'source':'sheet','validate':True,'cells':{'A1':{'raw':'=1/0'}}})
         self.assertEqual((self.path.parent/'sheets'/'Production.sheet.json').read_text(),before)
-        self.assertEqual(self.service.values()[self.service.tags()[-1]['id']]['value'],7)
+        self.assertEqual(self.service.values()[[t for t in self.service.tags() if not t.get('builtin')][-1]['id']]['value'],7)
         result = self.service.save_sheet({'source':'sheet','validate':True,'cells':{'A1':{'raw':'=2+3'}}})
         self.assertEqual(result['values']['A1']['value'],5)
 
@@ -191,7 +191,7 @@ class SheetTests(unittest.TestCase):
         self.assertEqual(len(self.service.sources()),count)
         self.assertFalse((self.path.parent/'sheets'/'Bad.sheet.json').exists())
         self.service.add_tag({'source':'sheet','name':'A1','address':'A1'})
-        tag = self.service.tags()[-1]
+        tag = [t for t in self.service.tags() if not t.get('builtin')][-1]
         page = self.service.pages()[0]
         page['controls']=[{'id':'display','type':'numeric','binding':{'tag':tag['id']}}]
         self.service.save_page(page)
@@ -201,7 +201,7 @@ class SheetTests(unittest.TestCase):
         page['controls']=[];self.service.save_page(page)
         self.service.delete_sheet({'source':'sheet'})
         self.assertFalse(any(source['id']=='sheet' for source in self.service.sources()))
-        self.assertFalse(any(tag['source']=='sheet' for tag in self.service.tags()))
+        self.assertFalse(any(tag['source']=='sheet' for tag in [t for t in self.service.tags() if not t.get('builtin')]))
         self.assertEqual(len(list((self.path.parent/'sheets'/'.trash').glob('*-Production.sheet.json'))),1)
 
     def test_export_import_preserves_hidden_legacy_cells(self):

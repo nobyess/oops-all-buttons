@@ -189,7 +189,7 @@ class BACnetTests(unittest.TestCase):
                 try:
                     for prop in ('presentValue', 'eventState', 'units'):
                         service.add_tag({'source': 'bacnet', 'address': '1443213/2:200/' + prop, 'name': 'Room ' + prop})
-                    tags = service.tag_catalog()
+                    tags = [t for t in service.tag_catalog() if not t.get('builtin')]
                     self.assertEqual({tag['name'] for tag in tags}, {'Room presentValue', 'Room eventState', 'Room units'})
                     with self.assertRaisesRegex(ValueError, 'Tag name is required'):
                         service.add_tag({'source':'bacnet','address':'1443213/2:200/objectName','name':'  '})
