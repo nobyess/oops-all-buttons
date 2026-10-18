@@ -96,3 +96,19 @@ Use **Administration → Backup/Restore** to download a backup or stage a restor
 ## Development
 
 See [DEVELOPING.md](DEVELOPING.md) for architecture, styling guidelines, and development notes.
+
+## Built-in symbol library manager
+
+The standalone desktop manager imports SVG and basic 2D DXF symbols, previews them in a searchable category grid, and lets you rename, categorize, or remove them. It does not need the HMI server running.
+
+```powershell
+python -m venv .venv-symbol-manager
+.venv-symbol-manager\Scripts\python.exe -m pip install -r requirements-symbol-manager.txt
+.venv-symbol-manager\Scripts\python.exe symbol_library_manager.py
+```
+
+On Linux, use `.venv-symbol-manager/bin/python` instead. The manager also accepts `--library PATH` for a different library folder.
+
+Artwork is copied into `static/symbols/assets` as sanitized SVG, with names and categories in `static/symbols/index.json`. Original input files are left alone. Commit and push the entire `static/symbols` folder together with the manager code. Pulling the repository then brings down the latest built-in symbols. Future portable builds include these assets automatically; existing portable downloads need a new release to receive changes.
+
+The library starts empty. This authoring tool prepares the catalog for the proposed web Symbol library picker; that picker is not connected yet. Removing a library symbol does not alter artwork already embedded in saved controls.
