@@ -37,7 +37,7 @@ def main():
         if '--check-installation' in sys.argv:
             import importlib
             import json
-            modules = ['BAC0', 'bacpypes3', 'pycomm3', 'paho.mqtt.client', 'pymodbus',
+            modules = ['BAC0', 'bacpypes3', 'pycomm3', 'paho.mqtt.client', 'pymodbus', 'serial',
                        'formulas', 'ezdxf', 'pystray', 'PIL.Image', 'sqlite3']
             for name in modules:
                 importlib.import_module(name)

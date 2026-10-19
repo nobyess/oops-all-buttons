@@ -77,11 +77,11 @@ export function mountAlarms(parent,{node,button,api,canManage,tagSelect,getTags,
    const action=node('td',null,row),silence=button(a.state.silenced_at?'Silenced':'Silence',action,async()=>{silence.disabled=true;try{await api('alarms/silence',{id:a.id,occurrence:a.state.occurrence});await refresh();}catch(e){showError(e.message);liveSignature='';await refresh();}});silence.disabled=Boolean(a.state.silenced_at) || a.canSilence===false;if(a.canSilence===false)silence.title='Additional access roles are required to silence this alarm.';
   }
  }
- let stateBox,ruleBox;
- function showState(){if(!stateBox || !draft)return;const saved=items.find(a=>a.id===selected),state=saved?.state;stateBox.replaceChildren();node('span','',stateBox,{className:'alarm-dot'+(state?.active?' active':'')});node('strong',!draft.enabled?'Disabled':state?.quality==='bad'?'Tag unavailable':state?.active?'Active':selected?'Normal':'Not saved',stateBox);node('span','Current value: '+(saved?.current_value ?? '—'),stateBox);
-  const event={...draft.event,tag:tagName(draft.event.tag),action:'alarm'};for(const key of ['operand','end_operand'])if(event[key]?.kind==='tag')event[key]={...event[key],tag:tagName(event[key].tag)};ruleBox.textContent=eventLabel(event).replace(/ → Alarm$/,'');}
+ let stateBox,ruleBox,stateSignature=null;
+ function showState(){if(!stateBox || !draft)return;const saved=items.find(a=>a.id===selected),state=saved?.state;const signature=JSON.stringify([draft.enabled,state?.quality,state?.active,Boolean(selected),saved?.current_value]);if(signature!==stateSignature){stateSignature=signature;stateBox.replaceChildren();node('span','',stateBox,{className:'alarm-dot'+(state?.active?' active':'')});node('strong',!draft.enabled?'Disabled':state?.quality==='bad'?'Tag unavailable':state?.active?'Active':selected?'Normal':'Not saved',stateBox);node('span','Current value: '+(saved?.current_value ?? '—'),stateBox);}
+  const event={...draft.event,tag:tagName(draft.event.tag),action:'alarm'};for(const key of ['operand','end_operand'])if(event[key]?.kind==='tag')event[key]={...event[key],tag:tagName(event[key].tag)};const label=eventLabel(event).replace(/ → Alarm$/,'');if(ruleBox.textContent!==label)ruleBox.textContent=label;}
  function renderEditor(){
-  editorId=selected;right.replaceChildren();remove.disabled=!selected;stateBox=ruleBox=null;
+  editorId=selected;right.replaceChildren();remove.disabled=!selected;stateBox=ruleBox=null;stateSignature=null;
   if(!draft){node('p','Add an alarm to configure its condition.',right,{className:'hint'});return;}
   const detailTabs=node('div',null,right,{className:'tabs alarms-tabs'}),alarmPanel=node('section',null,right),eventPanel=node('section',null,right),detailButtons=[];
   for(const [key,title]of [['alarm','Alarm'],['event','Event']])detailButtons.push([key,button(title,detailTabs,()=>{detail=key;showDetail();})]);

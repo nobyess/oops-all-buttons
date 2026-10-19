@@ -21,13 +21,13 @@ class PortableBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             bundle = base / 'bundle'
-            assets = bundle / '_internal' / 'static'
+            assets = bundle / 'files' / 'static'
             assets.mkdir(parents=True)
             (assets / 'index.html').write_text('test', encoding='utf-8')
             (bundle / 'OopsAllButtons.exe').write_bytes(b'test-only')
             archive, checksum = package_bundle(bundle, 'v0.1.0', base / 'release')
             with ZipFile(archive) as zipped:
-                self.assertIn('OopsAllButtons/_internal/static/index.html', zipped.namelist())
+                self.assertIn('OopsAllButtons/files/static/index.html', zipped.namelist())
                 self.assertIn('OopsAllButtons/OopsAllButtons.exe', zipped.namelist())
             self.assertEqual(checksum.read_text(encoding='ascii').split()[0], hashlib.sha256(archive.read_bytes()).hexdigest())
             (bundle / 'data').mkdir()

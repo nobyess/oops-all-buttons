@@ -1,24 +1,28 @@
+import {mountSimulation} from './simulation-settings.js';
 import {updateErrorLog} from './error-log-view.js';
 import {mountUserAccess} from './user-access-manager.js';
 import {mountBackupRestore} from './backup-restore.js';
 import {mountSite} from './site-settings.js';
-export function mountAdministration(parent,{node,button,api}) {
+export function mountAdministration(parent,{node,button,api,onSimulationChanged}) {
  const card=node('section',null,parent,{className:'card administration'});
  node('h2','Administration',card);
  const tabs=node('div',null,card,{className:'tabs'}),body=node('div',null,card);
  let closeAccess,statusView,errorVersion=0;
- let active='Users',closed=false,timer,previous,pending=false;
+ let active='Users',closed=false,timer,previous,pending=false,revision=0;
+ const metrics=new WeakMap();
  const buttons=[];
 
- for(const title of ['Users','Access','Server Status','Backup/Restore','Site'])buttons.push(button(title,tabs,async()=>{if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
+ for(const title of ['Users','Access','Server Status','Backup/Restore','Site','Simulation'])buttons.push(button(title,tabs,async()=>{if(active===title)return;if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
  const format=n=>Number(n || 0).toLocaleString();
- function row(parent,label,value){const item=node('div',null,parent,{className:'admin-stat'});node('span',label,item);node('strong',String(value),item);}
+ function row(parent,label,value){let entries=metrics.get(parent);if(!entries){entries=new Map();metrics.set(parent,entries);}let entry=entries.get(label);if(!entry){const item=node('div',null,parent,{className:'admin-stat'});node('span',label,item);entry={item,value:node('strong','',item)};entries.set(label,entry);}const text=String(value);if(entry.value.textContent!==text)entry.value.textContent=text;entry.seen=true;}
+ function beginRows(parent){for(const entry of metrics.get(parent)?.values() || [])entry.seen=false;}
+ function endRows(parent){for(const [label,entry] of metrics.get(parent) || [])if(!entry.seen){entry.item.remove();metrics.get(parent).delete(label);}}
  async function update(){
   if(pending || closed || active!=='Server Status' || document.visibilityState==='hidden')return;
-  pending=true;
+  pending=true;const epoch=revision;
   try {
    const version=errorVersion;
-   const data=await api('admin/status');if(closed || active!=='Server Status')return;
+   const data=await api('admin/status');if(closed || active!=='Server Status' || epoch!==revision)return;
    if(!statusView){
     body.replaceChildren();
     const summary=node('div',null,body,{className:'admin-stat-grid'});
@@ -38,18 +42,18 @@ export function mountAdministration(parent,{node,button,api}) {
     node('h3','Driver Status',body);
     const drivers=node('div',null,body,{className:'admin-drivers'});
     node('p','Refreshes once per second while visible. Request counts include this page. Poll counters count scheduled read batches, not writes or discovery. CPU is server process usage relative to one core.',body,{className:'hint'});
-    statusView={summary,errors,drivers};
+    statusView={summary,errors,drivers,groups:null,driverViews:new Map()};
    }
    const {summary,errors,drivers:scroll}=statusView;
-   summary.replaceChildren();
-   const groups={};
-   for(const title of ['Server','CPU & Threads','System Memory','Requests & Errors','Polling & Project']){
+   const groups=statusView.groups || {};
+   if(!statusView.groups)for(const title of ['Server','CPU & Threads','System Memory','Requests & Errors','Polling & Project']){
     const group=node('section',null,summary,{className:'admin-summary-group'});node('h3',title,group);groups[title]=group;
    }
+   statusView.groups=groups;
    const destinations={'Uptime':'Server','Database':'Server','Runtime':'Server','Process CPU (one core)':'CPU & Threads','Threads':'CPU & Threads','System RAM used':'System Memory','System RAM available':'System Memory','Requests in last second':'Requests & Errors','Errors in last second':'Requests & Errors','Total requests / errors':'Requests & Errors','Active polling clients':'Polling & Project','Tags / pages':'Polling & Project'};
    const stat=(label,value)=>row(groups[destinations[label]],label,value);
    stat('Uptime',`${Math.floor(data.uptime/3600)}h ${Math.floor(data.uptime/60)%60}m ${Math.floor(data.uptime)%60}s`);
-   const cpu=previous?Math.max(0,(data.cpu_seconds-previous.cpu_seconds)/(data.uptime-previous.uptime)*100):null;
+   const cpu=previous && data.uptime>previous.uptime?Math.max(0,(data.cpu_seconds-previous.cpu_seconds)/(data.uptime-previous.uptime)*100):null;
    stat('Process CPU (one core)',cpu===null?'Measuring...':cpu.toFixed(1)+'%');previous=data;
    const memory=data.memory;
    stat('System RAM used',memory?`${(memory.used_bytes/1073741824).toFixed(2)} / ${(memory.total_bytes/1073741824).toFixed(2)} GiB (${memory.used_percent.toFixed(1)}%)`:'Unavailable');
@@ -60,11 +64,12 @@ export function mountAdministration(parent,{node,button,api}) {
    stat('Active polling clients',data.polling.clients);stat('Tags / pages',`${data.tags} / ${data.pages}`);
    stat('Runtime',`Python ${data.python} on ${data.platform}`);
    if(version===errorVersion)updateErrorLog(errors,data.error_log || [],node);
-   scroll.replaceChildren();
+   const driverViews=statusView.driverViews;
+   for(const [id,entry] of driverViews)if(!data.sources.some(source=>source.id===id)){entry.box.remove();driverViews.delete(id);}
    for(const source of data.sources){
-    const box=node('section',null,scroll,{className:'admin-driver'});
-    node('h3',source.name,box);row(box,'Driver',source.kind==='pycomm3'?'PyComm3 '+(source.settings.protocol || 'logix').toUpperCase():source.kind);
-    const status=node('p',source.status?.message || 'Unknown',box);status.className=source.status?.quality==='good'?'good':'bad';
+    let entry=driverViews.get(source.id);if(!entry){const box=node('section',null,scroll,{className:'admin-driver'});entry={box,title:node('h3','',box),status:node('p','',box)};driverViews.set(source.id,entry);}
+    const {box,status}=entry;beginRows(box);if(entry.title.textContent!==source.name)entry.title.textContent=source.name;row(box,'Driver',source.kind==='pycomm3'?'PyComm3 '+(source.settings.protocol || 'logix').toUpperCase():source.kind);
+    const message=source.status?.message || 'Unknown';if(status.textContent!==message)status.textContent=message;status.className=source.status?.quality==='good'?'good':'bad';
     row(box,'Configured tags',source.tags.length);
     if(source.kind==='modbus'){row(box,'Modbus read / write requests',`${source.status.read_requests || 0} / ${source.status.write_requests || 0}`);}
     if(source.kind==='mqtt'){row(box,'Messages received / published',`${source.status.received || 0} / ${source.status.published || 0}`);row(box,'Topic subscriptions',source.status.subscriptions || 0);}
@@ -76,13 +81,17 @@ export function mountAdministration(parent,{node,button,api}) {
      row(box,'Read batches / failed batches',`${format(stats.batches)} / ${format(stats.failed_batches)}`);
      row(box,'Tag reads',format(stats.tag_reads));row(box,'Last batch duration',stats.last_duration_ms===undefined?'No polls yet':stats.last_duration_ms+' ms');
      row(box,'Last poll',stats.last_poll?new Date(stats.last_poll*1000).toLocaleTimeString():'No polls yet');row(box,'Polling now',stats.busy?'Yes':'No');
-    } else node('p','Values are local; no device polling.',box,{className:'hint'});
+    }
+    if(!stats && !entry.local)entry.local=node('p','Values are local; no device polling.',box,{className:'hint'});
+    if(stats && entry.local){entry.local.remove();entry.local=null;}
+    endRows(box);
    }
-  }catch(error){if(!closed && active==='Server Status'){statusView=null;body.replaceChildren();node('p',error.message,body,{className:'bad'});}}finally{pending=false;}
+  }catch(error){if(!closed && active==='Server Status' && epoch===revision){statusView=null;body.replaceChildren();node('p',error.message,body,{className:'bad'});}}finally{pending=false;}
  }
- function render(){closeAccess?.();closeAccess=null;clearInterval(timer);previous=null;statusView=null;body.replaceChildren();buttons.forEach(b=>b.classList.toggle('active',b.textContent===active));
+ function render(){revision++;closeAccess?.();closeAccess=null;clearInterval(timer);previous=null;statusView=null;body.replaceChildren();buttons.forEach(b=>b.classList.toggle('active',b.textContent===active));
   if(active==='Users' || active==='Access'){closeAccess=mountUserAccess(body,{node,button,api,mode:active,onOpenRole:()=>{active='Access';render();}});}
   else if(active==='Backup/Restore'){closeAccess=mountBackupRestore(body,{node,button,api});}
+  else if(active==='Simulation'){closeAccess=mountSimulation(body,{node,button,api,onSimulationChanged});}
   else if(active==='Site'){closeAccess=mountSite(body,{node,button,api});}
   else {node('p','Loading server status...',body);update();timer=setInterval(update,1000);}
  }

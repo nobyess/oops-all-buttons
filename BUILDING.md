@@ -22,7 +22,7 @@ release/
 
 The ZIP contains a complete `OopsAllButtons` folder. Extract the whole folder and double-click `OopsAllButtons.exe`. It opens the browser and runs in the tray. Choose **Stop Server** in the tray to quit. Python is not required on the destination PC.
 
-Project data stays in a writable `data` folder beside the executable; bundled application resources stay in `_internal`. Do not install this portable folder under a location that blocks writes. Startup output and errors are saved in `data/server.log`; startup failures also show a message box.
+Project data stays in a writable `data` folder beside the executable; bundled application resources stay in `files`. Do not install this portable folder under a location that blocks writes. Startup output and errors are saved in `data/server.log`; startup failures also show a message box.
 
 The executable is unsigned. No signing certificate or signing service is configured in this build.
 
@@ -54,7 +54,7 @@ The workflow uses GitHub's built-in token. No personal access token is needed. M
 ## Updating a portable installation
 
 1. Make a backup in **Administration → Backup/Restore**.
-2. Exit the server from its tray menu (start with `--tray` to enable it).
+2. Exit the server from its tray menu (enabled by default).
 3. Extract the new release into a new writable folder.
 4. Copy your old `data` folder beside the new executable. If a restore is pending, copy `data.restore.zip` beside it too. Start the new executable. Alternatively, restore your backup through first run.
 

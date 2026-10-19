@@ -38,3 +38,22 @@ Added: October 18, 2026. Status: Windows portable build implemented in v283.
 The portable build includes Python, web assets, the app icon, all supported drivers, sheet calculations, DXF import, and tray support. It separates bundled resources from writable data beside the executable. The build command produces a versioned ZIP and checksum; a GitHub Actions workflow can create draft releases from version tags. See BUILDING.md.
 
 Remaining ideas: a signed distribution, an installer or single-file variant if useful, and separate Linux packages. Additional testing on Windows machines without Python and with physical devices remains useful; the executable smoke test covers frozen imports, formulas, setup, resources, interfaces, data location, restart and login.
+
+
+## Server performance optimizations
+
+Added: October 19, 2026. Status: deferred; current performance is satisfactory.
+
+The server review found opportunities to revisit if larger projects, more clients, or a Raspberry Pi show measurable bottlenecks. No urgent rewrite or database-format replacement is proposed.
+
+Suggested priorities:
+
+1. **Cache configuration and index tags by ID.** An authenticated value-batch request currently performs six SQLite configuration reads: users once, session settings twice, sources once, and the full tag collection twice. Avoid eager fallback reads for per-user session settings, and reuse configuration snapshots/indexes. Invalidate caches on configuration changes; user revisions, roles, account removal, and session settings must take effect promptly without weakening authorization.
+2. **Recalculate only affected sheets and eliminate duplicate calculation passes.** Completed source batches currently trigger all-sheet recalculation, even for unrelated source updates. A sheet polling read can calculate all sheets and then trigger another calculation in the completion callback. Track dependencies and update affected cells, while preserving consistent snapshots, cross-sheet dependencies, circular-reference detection, and immediate write feedback. Review time spent holding the shared service lock.
+3. **Evaluate only affected alarms.** Map updated tags to dependent alarms instead of evaluating every alarm after every batch. Preserve live/background polling behavior, quality handling, activation/clear timing, silence permissions, and audit history. State persistence already occurs only on changes.
+4. **Reduce scheduler overhead at scale.** The polling scheduler scans all tags every 50 ms and starts fresh threads for due source batches. Consider persistent source workers and scheduling by next due time. Retain device batching, per-source isolation, live-interest leases, background intervals, and protection against stale reads after writes. Lower priority for small installations.
+5. **Conditionally cache static assets.** JavaScript, CSS, images, and symbols currently use no-store. Consider validators such as ETags or Last-Modified so unchanged assets can be reused. Ensure updates and symbol replacements invalidate correctly, and retain authentication checks for protected assets. Expected benefit is faster loading/reconnection and less traffic, rather than faster ongoing device polling.
+
+Review measurements on the development PC, using a temporary database and synthetic tags: returning 20 values through the authenticated request handler had median times of 2.32 ms with 100 configured tags, 3.46 ms with 1,000, and 9.19 ms with 5,000. These exclude real devices, browser rendering, and network latency; they are not Pi benchmarks and do not explain a two-second stall on their own.
+
+Start with profiling on the target hardware and prioritize configuration caching and sheet recalculation. Keep the existing shared polling cache, capable-driver batch reads, compiled-formula cache, and deduplicated error log. Do not reduce password hashing or security checks as a performance shortcut.

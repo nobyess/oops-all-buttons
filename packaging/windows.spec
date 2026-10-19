@@ -8,7 +8,7 @@ binaries = []
 hiddenimports = ['pystray._win32', 'PIL.IcoImagePlugin', 'PIL.PngImagePlugin']
 for package, distribution in [
     ('BAC0', 'BAC0'), ('bacpypes3', 'bacpypes3'), ('pycomm3', 'pycomm3'),
-    ('paho.mqtt', 'paho-mqtt'), ('pymodbus', 'pymodbus'),
+    ('paho.mqtt', 'paho-mqtt'), ('pymodbus', 'pymodbus'), ('serial', 'pyserial'),
     ('formulas', 'formulas'), ('ezdxf', 'ezdxf'), ('pystray', 'pystray'),
 ]:
     data, binary, hidden = collect_all(package, filter_submodules=lambda name: '.tests' not in name)
@@ -22,6 +22,6 @@ a = Analysis([str(root / 'portable.py')], pathex=[str(root)], binaries=binaries,
              noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='OopsAllButtons',
-          console=False, icon=str(root / 'static' / 'images' / 'app-icon.ico'),
+          console=False, contents_directory='files', icon=str(root / 'static' / 'images' / 'app-icon.ico'),
           debug=False, strip=False, upx=False)
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='OopsAllButtons')

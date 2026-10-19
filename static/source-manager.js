@@ -1,7 +1,7 @@
 import {tagPath} from './tag-selector.js';
 import {displayValue} from './value-format.js';
 export const sourceManagerState={source:'',tag:'',search:''};
-export function driverName(source){return source.kind==='pycomm3'?'PyComm3 '+({logix:'Logix',slc:'SLC',cip:'CIP'}[source.settings?.protocol || 'logix']):source.kind==='bacnet'?'BAC0':source.kind==='system'?'System':source.kind==='database'?'Database (SQLite)':source.kind==='memory'?'Memory':source.kind==='mqtt'?'MQTT (Paho)':source.kind==='modbus'?'Modbus TCP':source.kind;}
+export function driverName(source){return source.kind==='pycomm3'?'PyComm3 '+({logix:'Logix',slc:'SLC',cip:'CIP'}[source.settings?.protocol || 'logix']):source.kind==='bacnet'?'BAC0':source.kind==='simulation'?'Simulation':source.kind==='system'?'System':source.kind==='database'?'Database (SQLite)':source.kind==='memory'?'Memory':source.kind==='mqtt'?'MQTT (Paho)':source.kind==='modbus'?(source.settings?.transport==='rtu'?'Modbus RTU':'Modbus TCP'):source.kind;}
 export function mountSourceManager(parent,{node,button,getSources,getTags,getValues,onAddSource,onEditSource,onRemoveSource,onAddTag,onEditTag,onRemoveTag,usageList,onSelectTag,state=sourceManagerState}) {
  const card=node('section',null,parent,{className:'card wide source-manager'});
  node('h2','Data Sources & Tags',card);
@@ -20,24 +20,26 @@ export function mountSourceManager(parent,{node,button,getSources,getTags,getVal
  const selectedSource=()=>available().find(source=>source.id===state.source);
  const selectedTag=()=>getTags().find(tag=>tag.id===state.tag && tag.source===state.source);
  const matches=(source,tag)=>`${source.name || source.id} ${driverName(source)} ${tag?.name || ''} ${tag?.address || ''} ${tag?tagPath(tag):''}`.toLowerCase().includes(state.search.trim().toLowerCase());
- let lastDetails='';
+ let lastDetails='',valueNode=null;
  function renderDetails(){
   const source=selectedSource(),tag=selectedTag(),sample=tag?getValues()[tag.id]:null;
-  const signature=JSON.stringify([source,tag,sample?.quality,sample?.value,sample?.error,getTags().filter(tag=>tag.source===source?.id).length]);
-  if(signature===lastDetails)return;
-  lastDetails=signature;details.replaceChildren();
-  sourceEdit.disabled=!source || source.kind==='system';sourceRemove.disabled=!source || source.kind==='system' || Boolean(source.usage?.length);sourceRemove.title=sourceRemove.disabled && source?'Used by saved pages or sheets':'';
-  tagAdd.disabled=!source;tagEdit.disabled=!tag || tag.builtin;tagRemove.disabled=!tag || tag.builtin || Boolean(tag.usage?.length);tagRemove.title=tag?.usage?.length?'Used by saved pages or sheets':'';
+  const signature=JSON.stringify([tag?[source?.id,source?.name]:source,tag,getTags().filter(tag=>tag.source===source?.id).length]);
+  const valueText=sample?.quality==='good'?'Current value: '+displayValue(sample.value):'Current value: unavailable';
+  if(signature===lastDetails){if(valueNode && valueNode.textContent!==valueText)valueNode.textContent=valueText;return;}
+  lastDetails=signature;details.replaceChildren();valueNode=null;
+  sourceEdit.disabled=!source || ['system','simulation'].includes(source.kind);sourceRemove.disabled=!source || ['system','simulation'].includes(source.kind) || Boolean(source.usage?.length);sourceRemove.title=sourceRemove.disabled && source?'Used by saved pages or sheets':'';
+  tagAdd.disabled=!source || source.kind==='simulation';tagEdit.disabled=!tag || tag.builtin;tagRemove.disabled=!tag || tag.builtin || Boolean(tag.usage?.length);tagRemove.title=tag?.usage?.length?'Used by saved pages or sheets':'';
   if(tag){
    node('strong',tagPath(tag),details);
-   node('p',sample?.quality==='good'?'Current value: '+displayValue(sample.value):'Current value: unavailable',details,{className:'source-manager-value'});
+   valueNode=node('p',valueText,details,{className:'source-manager-value'});
    node('hr',null,details);node('p','References:',details);usageList(details,tag.usage || [],true);
   }else if(source){
-   node('strong',source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,details);
+   node('strong',source.kind==='simulation'?'Simulation':source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,details);
    const status=source.status || {};node('p',(status.quality==='good'?'Good':status.quality==='idle'?'Idle':'Fault')+' — '+(status.message || ''),details,{className:status.quality==='good'?'good':status.quality==='idle'?'hint':'error'});
    const info=node('dl',null,details,{className:'source-manager-info'});
    const settings=source.settings || {};
    const pairs=[['Tags',getTags().filter(tag=>tag.source===source.id).length],['Device path',settings.path],['Local interface',settings.local_ip],[['mqtt','modbus'].includes(source.kind)?'TCP port':'UDP port',settings.port],[source.kind==='modbus'?'Device host':'Broker',settings.host],['Unit ID',settings.unit_id],['Device instance',settings.device_id],['Discovery target',settings.target],['Background polling',settings.background===undefined?undefined:settings.background+' s'],['Live polling',settings.live===undefined?undefined:settings.live+' s']];
+   if(settings.transport==='rtu')pairs.push(['Serial port',settings.serial_port],['Baud rate',settings.baudrate],['Parity',settings.parity],['Stop bits',settings.stopbits],['Shared port sources',status.serial_sources],['Queued requests',status.bus_queued],['Bus requests',status.bus_requests],['Bus failures',status.bus_failures],['Last bus request',status.bus_last_duration_ms===undefined?undefined:status.bus_last_duration_ms+' ms'],['Retry after',status.retry_after_seconds===undefined?undefined:status.retry_after_seconds+' s']);
    if(status.cov)pairs.push(['COV subscriptions',status.cov.active],['COV polling fallback',status.cov.polling],['COV notifications',status.cov.notifications],['Last COV subscription error',status.cov.last_error]);
    for(const [label,value] of pairs)if(value!==undefined && value!==''){node('dt',label,info);node('dd',String(value),info);}
   }else node('p','Select a data source.',details,{className:'hint'});
@@ -56,7 +58,7 @@ export function mountSourceManager(parent,{node,button,getSources,getTags,getVal
   for(const source of shown){
    const row=node('button',null,sourceList,{type:'button',role:'option',className:'source-manager-source'});row.dataset.source=source.id;row.setAttribute('aria-selected',String(source.id===state.source));
    const dot=node('span','●',row,{className:source.status?.quality==='good'?'good':'error'});dot.dataset.sourceDot=source.id;dot.setAttribute('aria-label',source.status?.quality==='good'?'Connected':'Not connected');dot.title=source.status?.message || '';
-   node('span',source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,row);row.onclick=()=>selectSource(source.id);
+   node('span',source.kind==='simulation'?'Simulation':source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,row);row.onclick=()=>selectSource(source.id);
    row.onkeydown=event=>{
     if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
     event.preventDefault();const index=shown.indexOf(source);

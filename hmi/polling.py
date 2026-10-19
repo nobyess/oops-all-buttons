@@ -143,6 +143,7 @@ class PollingManager:
                 if tag.get("connection_status"):continue
                 source = self.sources[tag['source']]
                 settings = source['settings']
+                if source['kind']=='simulation' and not (settings.get('enabled') and settings.get('air_handler',True)):continue
                 interval = settings.get('live', 0.5) if name in live else settings.get('background', 20)
                 if tag['source'] not in self.busy and now - self.attempts.get(name, -math.inf) >= interval:
                     jobs.setdefault(tag['source'], []).append(tag)

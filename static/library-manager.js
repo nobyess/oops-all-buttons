@@ -15,15 +15,19 @@ export function mountLibrary(parent,{kind,items,node,button,describe,onAdd,onImp
  const open=button(kind==='pages'?'Edit Page':'Open Sheet',actions,()=>onOpen(current()));
  const view=onView?button('View',actions,()=>onView(current())):null;
  const exp=button('Export',actions,()=>onExport(current()));
- const details=node('div',null,right,{className:'library-details'});let dispose,closed=false;
+ const details=node('div',null,right,{className:'library-details'});let dispose,closed=false,listSignature=null;
  const current=()=>items.find(item=>item.id===state.selected);
  if(kind==='pages'){preview.tabIndex=0;preview.setAttribute('role','button');preview.setAttribute('aria-label','Edit previewed page');preview.title='Edit page';preview.onclick=()=>{if(current())onOpen(current());};preview.onkeydown=event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();if(current())onOpen(current());}};} 
  function renderDetails(extra){details.replaceChildren();if(current())showDetails(details,current(),state,()=>renderDetails(extra),extra);}
- function select(id){dispose?.();dispose=null;state.selected=id;preview.replaceChildren();render();const item=current();if(item){dispose=mountPreview(preview,item,state,extra=>{if(!closed && current()?.id===item.id)renderDetails(extra);});}renderDetails();}
+ function select(id){if(id===state.selected && current() && preview.children.length)return;dispose?.();dispose=null;state.selected=id;preview.replaceChildren();render();const item=current();if(item){dispose=mountPreview(preview,item,state,extra=>{if(!closed && current()?.id===item.id)renderDetails(extra);});}renderDetails();}
  function render(){
-  list.replaceChildren();const shown=items.filter(item=>(item.name+' '+describe(item)).toLowerCase().includes(state.search.toLowerCase()));
-  for(const item of shown){const row=button(null,list,()=>select(item.id));row.className='library-entry';row.setAttribute('role','option');row.setAttribute('aria-selected',String(item.id===state.selected));node('span',item.name,row);node('small',describe(item),row);row.ondblclick=()=>onOpen(item);row.onkeydown=e=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;e.preventDefault();const index=shown.indexOf(item),next=e.key==='Home'?0:e.key==='End'?shown.length-1:Math.max(0,Math.min(shown.length-1,index+(e.key==='ArrowDown'?1:-1)));select(shown[next].id);list.children[next]?.focus();};}
+  const shown=items.filter(item=>(item.name+' '+describe(item)).toLowerCase().includes(state.search.toLowerCase()));
+  const signature=JSON.stringify(shown.map(item=>[item.id,item.name,describe(item)]));
+  if(signature!==listSignature){listSignature=signature;const top=list.scrollTop;list.replaceChildren();
+  for(const item of shown){const row=button(null,list,()=>select(item.id));row.libraryId=item.id;row.className='library-entry';row.setAttribute('role','option');row.setAttribute('aria-selected',String(item.id===state.selected));node('span',item.name,row);node('small',describe(item),row);row.ondblclick=()=>onOpen(item);row.onkeydown=e=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;e.preventDefault();const index=shown.indexOf(item),next=e.key==='Home'?0:e.key==='End'?shown.length-1:Math.max(0,Math.min(shown.length-1,index+(e.key==='ArrowDown'?1:-1)));select(shown[next].id);list.children[next]?.focus();};}
   if(!shown.length)node('p','No matching '+kind+'.',list,{className:'hint'});
+  list.scrollTop=top;}
+  for(const row of list.children)if(row.libraryId)row.setAttribute('aria-selected',String(row.libraryId===state.selected));
   for(const b of [settings,remove,open,view,exp].filter(Boolean))b.disabled=!current();
   if(current()){remove.disabled=!canRemove(current());remove.title=remove.disabled?'Used by saved pages or sheets':'';}
  }

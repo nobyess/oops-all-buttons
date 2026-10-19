@@ -452,7 +452,7 @@ function route() {
     routedHash=location.hash;
   }
   if(name==='alarms')closeLibrary=mountAlarms(app,{node,button,api,canManage:currentUser.administrator,tagSelect,getTags:()=>tags,getRoles:()=>accessRoles,initialId:id});
-  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api});
+  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api,onSimulationChanged:reloadLists});
   else if(name==='pages')safe(showPages);
   else if(name==='tags')showSources();
   else if(name==='sheets')showSheets();
@@ -485,10 +485,10 @@ function sourceDialog(existing,sheetOnly=false) {
     function group(parent,title){const box=node('section',null,parent,{className:'settings-group'});node('h3',title,box);return node('div',null,box,{className:'settings-group-fields'});}
     const identity=group(body,'Data source');
     const name=field('Name',identity,'text',existing?.name || existing?.id || '');name.required=true;
-    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP (PyModbus)':x]));
+    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP / RTU (PyModbus)':x]));
     if(existing){kind.value=existing.kind;kind.disabled=true;}
     const settings=node('div',null,body),footer=submit.parentElement;
-    let inputs={},testToken='',version=0,status;
+    let inputs={},testToken='',version=0,status,modbusValues={...existing?.settings};
     const collect=()=>Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.type==='checkbox'?input.checked:input.value]));
     const test=button('Test Connection',footer,async()=> {
       const revision=version;test.disabled=true;status.textContent='Testing connection…';
@@ -501,7 +501,7 @@ function sourceDialog(existing,sheetOnly=false) {
     footer.prepend(test);test.className='source-test-button';
     function changed() {testToken='';version++;if(status)status.textContent='Connection has not been tested with these settings.';}
     function renderFields() {
-      const saved=existing?.settings || {};
+      const saved=kind.value==='modbus'?modbusValues:existing?.settings || {};
       settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus'].includes(kind.value);
       if(kind.value==='database'){
         const storage=group(settings,'Storage'),polling=group(settings,'Polling');
@@ -524,13 +524,28 @@ function sourceDialog(existing,sheetOnly=false) {
       }
       if(kind.value==='modbus') {
         const rows=group(settings,'Connection'),polling=group(settings,'Polling & timing');
-        inputs.host=field('Device host / IP address',rows,'text',saved.host || '');inputs.host.required=true;inputs.host.placeholder='192.168.1.10';
-        for(const [key,label,value,min,max,step] of [['port','TCP port',502,1,65535,1],['unit_id','Unit ID',1,0,255,1],['timeout','Connection timeout (seconds)',3,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any'],['live','Live polling (seconds)',.5,.1,60,'any']]){
-          const input=inputs[key]=field(label,['port','unit_id'].includes(key)?rows:polling,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
+        inputs.transport=select('Transport',rows,[['tcp','TCP (Ethernet)'],['rtu','RTU (Serial / RS-485)']],saved.transport || 'tcp');
+        const rtu=inputs.transport.value==='rtu';
+        if(rtu){
+          inputs.serial_port=field('Serial port',rows,'text',saved.serial_port || '');inputs.serial_port.required=true;
+          const ports=node('datalist',null,rows,{id:'modbus-serial-ports'});inputs.serial_port.setAttribute('list',ports.id);
+          const portInput=inputs.serial_port;
+          api('admin/serial-ports').then(items=>{if(!portInput.isConnected)return;for(const item of items)node('option',item.description,ports,{value:item.port});}).catch(()=>{});
+          inputs.baudrate=field('Baud rate',rows,'number',saved.baudrate ?? 19200);Object.assign(inputs.baudrate,{min:300,max:1000000,step:1,required:true});
+          inputs.parity=select('Parity',rows,[['N','None'],['E','Even'],['O','Odd']],saved.parity || 'N');
+          inputs.stopbits=select('Stop bits',rows,[['1','1'],['2','2']],String(saved.stopbits ?? 1));
+          inputs.handle_local_echo=select('Adapter echoes transmitted data',rows,[['false','No'],['true','Yes']],String(saved.handle_local_echo ?? false));
+        }else{
+          inputs.host=field('Device host / IP address',rows,'text',saved.host || '');inputs.host.required=true;inputs.host.placeholder='192.168.1.10';
+          inputs.port=field('TCP port',rows,'number',saved.port ?? 502);Object.assign(inputs.port,{min:1,max:65535,step:1,required:true});
         }
-        node('p','Standard Modbus TCP. Tags use the register map supplied by the device manufacturer. Each source connects to one host and Unit ID.',settings,{className:'hint'});
+        for(const [key,label,value,min,max,step] of [['unit_id','Unit ID',1,rtu?1:0,rtu?247:255,1],['timeout','Response timeout (seconds)',rtu?.5:3,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any'],['live','Live polling (seconds)',.5,.1,60,'any'],...(rtu?[['offline_retry','Offline retry delay (seconds)',5,1,300,'any']]:[])]){
+          const input=inputs[key]=field(label,key==='unit_id'?rows:polling,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
+        }
+        node('p',rtu?'One source per device Unit ID. Sources on the same serial port share one connection and take turns. Use identical baud rate, parity, stop bits, timeout and echo settings. Offline retry delays increase up to 60 seconds (or your initial delay if higher). Use an auto-direction RS-485 adapter; data bits are fixed at 8.':'Standard Modbus TCP. Tags use the register map supplied by the device manufacturer. Each source connects to one host and Unit ID.',settings,{className:'hint'});
         status=node('p','Connection has not been tested.',settings,{className:'hint'});
         for(const input of Object.values(inputs))input.addEventListener('input',changed);
+        inputs.transport.onchange=()=>{const next=collect();if(Number(next.timeout)===(rtu?.5:3))next.timeout=next.transport==='rtu'?.5:3;modbusValues={...modbusValues,...next};render();};
         return;
       }
       if(kind.value==='mqtt') {
@@ -643,7 +658,14 @@ function sourceDialog(existing,sheetOnly=false) {
         target:['Leave blank for local broadcast, or enter a device IP and optional port.','Example: 192.168.1.10:47808'],
         prefix:['Subnet prefix length; 24 corresponds to 255.255.255.0.'],
         device_id:['Unique BACnet device instance for this server on the network.'],
-        unit_id:['Use the Unit ID configured on the device or gateway; commonly 1.'],
+        unit_id:['Use the device address; RTU supports 1–247 (broadcast writes are not supported).'],
+        transport:['Use TCP for Ethernet devices or RTU for a serial / RS-485 adapter.'],
+        serial_port:['Port on the server, not the browser computer. Choose a detected port or type its name.','COM3 or /dev/ttyUSB0'],
+        baudrate:['Match every device on this serial bus; commonly 9600 or 19200 baud.'],
+        parity:['Match every device on this serial bus.'],
+        stopbits:['Match every device on this serial bus.'],
+        handle_local_echo:['Enable only if the adapter sends your own transmitted bytes back to the receiver.'],
+        offline_retry:['Initial pause after a communication failure; repeated failures increase the delay.'],
         timeout:['Maximum time to wait for a device response, in seconds.'],
         live:[kind.value==='mqtt'?'Refresh interval while tags are in use; messages arrive by subscription.':'Polling interval while tags are actively used, in seconds.'],
         background:[kind.value==='mqtt'?'Background refresh interval; messages arrive by subscription.':'Polling interval when tags are not actively used, in seconds.'],

@@ -1,3 +1,4 @@
+from .simulation import SimulationDriver, simulation_settings, simulation_tags, simulation_writable
 from .alarms import Alarms
 from .local_drivers import SYSTEM_SOURCE, system_tags, connection_tags, DatabaseDriver, database_settings
 """Application operations shared by HTTP handlers and future automation workers."""
@@ -29,6 +30,7 @@ class Service:
         self.drivers = {}
         self.source_errors = {}
         self.connection_tags = []
+        self.simulation_tags = []
         self.error_log = ErrorLog()
         self.alarms = Alarms(store)
         self.polling = PollingManager()
@@ -82,6 +84,7 @@ class Service:
 
     def configure_polling(self):
         self.connection_tags=connection_tags(self.sources())
+        self.simulation_tags=simulation_tags() if any(s['kind']=='simulation' for s in self.sources()) else []
         for source in self.sources():
             driver = self.drivers.get(source['id'])
             if isinstance(driver, SheetDriver):
@@ -480,7 +483,7 @@ class Service:
         def reference(name, writable=False):
             if name not in tags:
                 raise ValueError(f'Unknown target tag: {name}')
-            if writable and tags[name].get('builtin'):raise ValueError('Built-in tags are read only')
+            if writable and tags[name].get('builtin') and not simulation_writable(tags[name]):raise ValueError('Built-in tags are read only')
             if writable and tags[name].get('data_type', '') in ('STRING', 'STRINGN') and not any(s['id']==tags[name]['source'] and s['kind']=='bacnet' for s in self.sources()):
                 raise ValueError('Numeric actions cannot write string tags')
         for control in controls:
@@ -750,6 +753,7 @@ class Service:
             self.configure_polling()
 
     def remove_source(self, data):
+        if data['id']=='simulation':raise ValueError('Manage Simulation in Administration')
         if data['id']=='system':raise ValueError('System is built in and cannot be removed')
         with self.lock:
             related = [t for t in self.tags() if t['source'] == data['id']]
@@ -763,12 +767,36 @@ class Service:
         if driver:
             driver.close()
 
+    def simulation_config(self):
+        source=next((s for s in self.sources() if s['kind']=='simulation'),None)
+        return simulation_settings(source['settings'] if source else {})
+
+    def configure_simulation(self, data):
+        settings=simulation_settings(data)
+        with self.lock:
+            sources=self.sources()
+            if any(s['id']!='simulation' and s.get('name',s['id']).casefold()=='simulation' for s in sources):
+                raise ValueError('Rename the existing Simulation source first')
+            if any(s['id']=='simulation' and s['kind']!='simulation' for s in sources):
+                raise ValueError('The Simulation source identity is already in use')
+            # A new model invalidates cached samples and gives settings changes a clean start.
+            driver=SimulationDriver(settings)
+            source={'id':'simulation','name':'Simulation','kind':'simulation','settings':settings}
+            self.store.set('sources',[s for s in sources if s['id']!='simulation']+[source])
+            self.drivers['simulation']=driver
+            self.configure_polling()
+            for tag in self.simulation_tags:
+                sample=driver.read_many([tag['address']])[tag['address']]
+                with self.polling.lock:self.polling.cache[tag['id']]={**sample,'timestamp':time.time()}
+            self.evaluate_alarms()
+        return settings
+
     def sources(self):
         sources=self.store.get('sources',[])
         return [s for s in sources if s['kind']!='system']+[s for s in sources if s['kind']=='system']
 
     def tags(self):
-        return self.store.get('tags', [])+system_tags()+self.connection_tags
+        return self.store.get('tags', [])+system_tags()+self.connection_tags+getattr(self,'simulation_tags',[])
 
     def add_source(self, data):
         with self.lock:
@@ -776,6 +804,7 @@ class Service:
             name = str(data.get('name', data.get('id', ''))).strip()
             identity = str(data.get('id') or uuid.uuid4().hex)
             kind = data['kind']
+            if kind=='simulation':raise ValueError('Manage Simulation in Administration')
             if kind=='system':raise ValueError('System is built in; add Memory tags to it instead')
             if not name or any(s.get('name', s['id']).casefold() == name.casefold() for s in sources):
                 raise ValueError('Source name is empty or already exists')
@@ -807,6 +836,7 @@ class Service:
             self.configure_polling()
 
     def edit_source(self, data):
+        if data['id']=='simulation':raise ValueError('Manage Simulation in Administration')
         if data['id']=='system':raise ValueError('System settings are built in')
         old_driver = None
         with self.lock:
@@ -838,7 +868,10 @@ class Service:
             connection_changed = (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] == 'modbus' and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max', 'use_cov', 'cov_lifetime', 'cov_verify', 'cov_confirmed'))
             current_driver = self.drivers.get(source['id'])
             if connection_changed or current_driver is None:
-                driver = DRIVERS[source['kind']](settings)
+                if source['kind']=='modbus' and getattr(current_driver,'bus',None) is not None:
+                    driver = current_driver.replacement(settings)
+                else:
+                    driver = DRIVERS[source['kind']](settings)
                 old_driver = current_driver
                 self.drivers[source['id']] = driver
             elif source['kind'] == 'sheet':
@@ -906,6 +939,7 @@ class Service:
         source = next((s for s in self.sources() if s['id'] == data['source']), None)
         if source is None:
             raise ValueError('Unknown source')
+        if source['kind']=='simulation':raise ValueError('Simulation tags are built in')
         metadata = None
         if source and source['kind'] in ('pycomm3', 'bacnet', 'modbus'):
             driver = self.drivers.get(data['source'])
@@ -993,7 +1027,7 @@ class Service:
             tag = next((t for t in self.tags() if t['id'] == data['tag']), None)
             if not tag:
                 raise ValueError('Unknown tag')
-            if tag.get('builtin'):raise ValueError('Built-in tags are read only')
+            if tag.get('builtin') and not simulation_writable(tag):raise ValueError('Built-in tags are read only')
             kind = data['action']
             operand = float(data.get('value', 1))
             if kind == 'value_input':
@@ -1011,8 +1045,8 @@ class Service:
                 raise ValueError('Value must be finite')
             driver.write(tag['address'], value)
             self.polling.acknowledge_write(tag['id'])
-            if isinstance(driver,(DRIVERS['system'],DatabaseDriver)):
+            if isinstance(driver,(DRIVERS['system'],DatabaseDriver,SimulationDriver)):
                 self.polling.update(tag['id'],driver.read(tag['address']))
-            if isinstance(driver, (SheetDriver,DRIVERS['memory'],DRIVERS['system'],DatabaseDriver)):
+            if isinstance(driver, (SheetDriver,DRIVERS['memory'],DRIVERS['system'],DatabaseDriver,SimulationDriver)):
                 self.recalculate_sheets()
             return value

@@ -37,7 +37,7 @@ def smoke(bundle):
                 return json.loads(payload) if response.headers.get_content_type() == 'application/json' else payload
 
         def start():
-            process = subprocess.Popen([str(exe), '--port', str(port)], cwd=directory)
+            process = subprocess.Popen([str(exe), '--no-browser', '--no-tray', '--port', str(port)], cwd=directory)
             deadline = time.monotonic() + 45
             while time.monotonic() < deadline:
                 if process.poll() is not None:
@@ -64,7 +64,7 @@ def smoke(bundle):
             interfaces = request('/api/network/interfaces')
             assert isinstance(interfaces, list)
             assert (root / 'data' / 'hmi.sqlite3').is_file()
-            assert not (root / '_internal' / 'data').exists()
+            assert not (root / 'files' / 'data').exists()
             # Back up, change the account, then stage a restore through the real API.
             backup = request('/api/admin/backup', {})
             request('/api/admin/users/save', {'username': 'AfterBackup', 'password': 'portable-test-456'})

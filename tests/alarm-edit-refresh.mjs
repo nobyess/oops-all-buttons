@@ -26,7 +26,7 @@ try{
  const message=field('Alarm Message');assert.equal(message.tagName,'input');assert.equal(message.type,'text');
  const value=field('Compare To');assert.equal(value.value,80);
  // The poll replaces the draft while retaining the existing input DOM node.
- timers.find(t=>t.ms===1000).fn();await settle();assert.equal(field('Compare To'),value);
+ const stateBox=all().find(el=>el.className==='alarm-current-state'),stateChild=stateBox.children[0];timers.find(t=>t.ms===1000).fn();await settle();assert.equal(field('Compare To'),value);assert.equal(stateBox.children[0],stateChild,'Unchanged alarm state must retain DOM');items[0].current_value=42;timers.find(t=>t.ms===1000).fn();await settle();assert(all().some(el=>el.textContent==='Current value: 42'));
  value.value='91.5';value.oninput();
  await all().find(el=>el.tagName==='button' && el.textContent==='Save Alarm').onclick();
  assert.equal(saved.event.operand.value,91.5);

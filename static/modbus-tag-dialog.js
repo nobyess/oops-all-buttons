@@ -8,7 +8,7 @@ export function modbusAddress(area,offset,type,byte,word){
  return `${area}:${n}:${bits?'bool':type}:${bits?'big':byte}:${bits?'big':word}`;
 }
 export function modbusTagDialog({source,tag,dialog,node,field,select,button,api,reload,onDone}){
- dialog(tag?'Edit Modbus TCP tag':'Add Modbus TCP tag - '+(source.name || source.id),(body)=>{
+ dialog(tag?'Edit Modbus tag':'Add Modbus tag - '+(source.name || source.id),(body)=>{
   body.closest('dialog').classList.add('source-dialog');
   const name=field('Tag name',body,'text',tag?.name || '');name.required=true;
   const parts=(tag?.address || 'holding:0:uint16:big:big').split(':');

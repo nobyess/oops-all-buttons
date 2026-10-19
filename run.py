@@ -1,4 +1,4 @@
-"""Run: python run.py [--tray] [--kiosk] [--browser] [--host 127.0.0.1] [--port 8080]."""
+"""Run: python run.py [--no-tray] [--kiosk] [--no-browser] [--host 127.0.0.1] [--port 8080]."""
 import argparse
 import platform
 import hashlib
@@ -17,6 +17,7 @@ from hmi.system_stats import system_memory
 from hmi.access import Access
 from hmi.session_settings import session_settings, session_valid
 from hmi.network import local_interfaces
+from hmi.modbus_serial import serial_ports
 from hmi.actions import ACTIONS
 from hmi.drivers import DRIVERS
 from hmi.service import Service
@@ -172,6 +173,8 @@ def make_handler(service, request_log=None):
                         'tags': len(service.tags()), 'pages': len(service.pages())},
                     '/api/sources': lambda: service.source_catalog() if user['administrator'] and not user['kiosk'] else [{**source,'settings':{k:v for k,v in source['settings'].items() if k in ('live','background')},'status':{'quality':source['status'].get('quality'),'message':'Source status'},'usage':[]} for source in service.source_diagnostics()],
                     '/api/sources/status': service.source_status,
+                    '/api/admin/serial-ports': serial_ports,
+                    '/api/admin/simulation': service.simulation_config,
                     '/api/network/interfaces': local_interfaces,
                     '/api/tags': service.tag_catalog,
                     '/api/pages': service.page_catalog,
@@ -180,7 +183,7 @@ def make_handler(service, request_log=None):
                     '/api/values': service.values,
                     '/api/page': lambda: service.store.get('page', {'controls': []}),
                     '/api/database/files': lambda: sorted(p.name for p in (Path(service.store.path).parent/'databases').glob('*') if p.is_file() and p.suffix.lower() in ('.db','.sqlite','.sqlite3')),
-                    '/api/catalog': lambda: {'drivers': [kind for kind in DRIVERS if kind not in ('memory','system')], 'actions': {
+                    '/api/catalog': lambda: {'drivers': [kind for kind in DRIVERS if kind not in ('memory','system','simulation')], 'actions': {
                         key: {'label': action.label, 'needs_value': action.needs_value}
                         for key, action in ACTIONS.items()}},
                 }
@@ -247,6 +250,8 @@ def make_handler(service, request_log=None):
                 allowed.add('/api/alarms/history')
                 if (not user['administrator'] or user['kiosk']) and (path not in allowed or (user['kiosk'] and path=='/api/sheets/get')):
                     return self.reply(403, {'error':'Administrator access required'})
+                if path == '/api/admin/simulation':
+                    return self.reply(200,service.configure_simulation(data))
                 if path == '/api/admin/backup':
                     return self.reply(200,export_backup(service))
                 if path == '/api/admin/site':
@@ -420,10 +425,9 @@ def parse_options(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8080)
-    browser_options = parser.add_mutually_exclusive_group()
-    browser_options.add_argument('--browser', action='store_true', help='Open the app in the default browser at startup')
-    browser_options.add_argument('--kiosk', action='store_true', help='Launch a fullscreen browser without browser chrome (Edge/Chrome/Chromium)')
-    parser.add_argument('--tray', action='store_true', help='Show the desktop tray icon')
+    parser.add_argument('--no-browser', dest='browser', action='store_false', help='Do not open a browser at startup')
+    parser.add_argument('--kiosk', action='store_true', help='Use a fullscreen browser without browser chrome (Edge/Chrome/Chromium)')
+    parser.add_argument('--no-tray', dest='tray', action='store_false', help='Do not show the desktop tray icon')
     return parser.parse_args(argv)
 
 
@@ -451,7 +455,7 @@ def main():
             if getattr(sys, 'frozen', False):
                 from portable import show_error
                 show_error(str(error))
-    if args.browser or args.kiosk:
+    if args.browser:
         threading.Timer(0.5, launch).start()
     def request_restart():
         restart_requested.set()

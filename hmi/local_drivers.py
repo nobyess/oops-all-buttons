@@ -16,7 +16,7 @@ def system_tags():
     return [{'id':('system-time-'+name if folder=='Time' else 'system-'+folder.lower()+'-'+name),'name':name,'source':'system','folder':folder,'address':folder+'/'+name,'writable':False,'builtin':True} for folder,names in SYSTEM_FIELDS.items() for name in names]
 
 def connection_tags(sources):
-    return [{'id':'source-connected-'+source['id'],'name':'Connected','source':source['id'],'address':'$status/connected','writable':False,'builtin':True,'connection_status':True,'data_type':'BOOL'} for source in sources if source['kind'] not in ('system','memory','sheet')]
+    return [{'id':'source-connected-'+source['id'],'name':'Connected','source':source['id'],'address':'$status/connected','writable':False,'builtin':True,'connection_status':True,'data_type':'BOOL'} for source in sources if source['kind'] not in ('system','memory','sheet','simulation')]
 
 
 class SystemDriver:

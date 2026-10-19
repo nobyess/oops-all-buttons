@@ -365,3 +365,12 @@ Stored `mouse_down` and `mouse_up` action triggers use Pointer Events through `c
 See BUILDING.md for the isolated build environment, PyInstaller spec, release assets, executable smoke tests, and GitHub draft-release workflow. Never add real project databases or credentials to the portable bundle. Generated `build/`, `dist/`, `release/`, and `.venv-build/` directories are ignored by Git.
 
 Apply any pending restore before opening `data/server.log` in the portable entry point. An open file inside `data` prevents Windows from renaming that folder. Keep restore failures logged, close the log on exit, and exercise backup/restore through the frozen executable smoke test.
+
+
+## Modbus TCP and RTU
+
+The existing `modbus` kind uses `settings.transport` (`tcp` when omitted, or `rtu`). `hmi/modbus.py` shares address parsing, contiguous batching, data conversion and write validation. `hmi/modbus_serial.py` owns a process-wide registry keyed by canonical serial port, a single client per bus, FIFO per-request admission, reference-counted close and per-unit exponential backoff. Serial framing, timeout and echo settings must match across shared sources. A driver lock serializes operations for one source; the bus queue serializes different sources and yields between read groups. Never close a shared client or perform client I/O outside an admitted bus operation. Keep status snapshots nonblocking. Treat protocol exception replies separately from transport failures, and never retry writes automatically. Port enumeration at `/api/admin/serial-ports` is administrator-only. RTU unit 0 is deliberately rejected. Test settings/edit lifecycles, aliases, contention, offline isolation, recovery and framing in `tests/test_modbus_rtu.py`; retain the real TCP peer test.
+
+### Browser refresh behavior
+
+Keep existing DOM nodes during periodic refreshes. Update changed values in place; add or remove rows only when their identities or visible structure change. Keep tag references separate from live sample values so polling cannot recreate their links. Selection changes should update list selection attributes without replacing list rows, preserving focus and scroll. Clicking the current tab or selected item should retain its mounted editor/preview and unsaved input. When asynchronous responses arrive, confirm that their original view is still active before rendering.

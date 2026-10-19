@@ -10,6 +10,6 @@ const close=mountLibrary(root,{kind:'pages',items,node,button,describe:()=> '100
 const find=text=>all(root).find(el=>el.textContent===text);
 const preview=all(root).find(el=>el.className==='library-preview');preview.onclick();assert(calls.includes('open:a'));let prevented=false;preview.onkeydown({key:'Enter',preventDefault(){prevented=true;}});assert(prevented);
 assert(find('Main preview'));find('Export').onclick();assert(calls.includes('export:a'));find('Import').onclick();assert(calls.includes('import'));
-const popup=all(root).find(el=>el.attrs.role==='option' && el.children[0].textContent==='Popup');popup.onclick();assert.equal(closed,1);assert(find('Popup preview'));assert(find('Remove').disabled);find('Edit Page').onclick();assert(calls.includes('open:b'));
+const popup=all(root).find(el=>el.attrs.role==='option' && el.children[0].textContent==='Popup');const entries=all(root).filter(el=>el.attrs.role==='option');popup.onclick();assert.equal(closed,1);assert.deepEqual(all(root).filter(el=>el.attrs.role==='option'),entries);popup.onclick();assert.equal(closed,1,'Selecting the same page must retain its preview');assert(find('Popup preview'));assert(find('Remove').disabled);find('Edit Page').onclick();assert(calls.includes('open:b'));
 const filter=all(root).find(el=>el.type==='search');filter.value='nomatch';filter.oninput();assert(find('No matching pages.'));close();assert.equal(closed,2);
 console.log('Library selection, preview cleanup, filtering, import/export actions, and reference deletion guards passed.');

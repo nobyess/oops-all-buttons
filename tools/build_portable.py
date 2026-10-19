@@ -15,15 +15,15 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = {'PyInstaller': 'pyinstaller', 'BAC0': 'BAC0', 'bacpypes3': 'bacpypes3',
             'pycomm3': 'pycomm3', 'paho.mqtt': 'paho-mqtt', 'pymodbus': 'pymodbus',
-            'formulas': 'formulas', 'ezdxf': 'ezdxf', 'pystray': 'pystray', 'PIL': 'Pillow'}
+            'serial': 'pyserial', 'formulas': 'formulas', 'ezdxf': 'ezdxf', 'pystray': 'pystray', 'PIL': 'Pillow'}
 PORTABLE_README = '''Oops! All Buttons - Windows portable
 
-Extract the entire ZIP to a writable folder. Start OopsAllButtons.exe --tray
-(or add --tray to a shortcut) for the Launch/Restart Server/Exit tray menu.
-Python is included. Keep the _internal folder beside the executable.
+Extract the entire ZIP to a writable folder, then double-click OopsAllButtons.exe.
+The browser opens automatically and the tray offers Launch/Restart Server/Exit.
+Python is included. Keep the files folder beside the executable.
 
 Open http://127.0.0.1:8080 in your browser. Complete first-run setup or restore a backup.
-With --tray, use Launch to open the app or Exit before closing/updating it.
+Use Launch to open the app or Exit before closing/updating it.
 If startup fails, a message is shown; details are in data/server.log.
 
 Your project is stored in the data folder beside OopsAllButtons.exe.
@@ -36,8 +36,8 @@ Network access: create a shortcut with these arguments:
   OopsAllButtons.exe --host 0.0.0.0 --port 8080
 Allow the server through the host firewall and visit http://<server-IP>:8080.
 The default listens only on this computer; traffic uses HTTP.
-By default, only the server starts. Add --tray for Launch/Restart Server/Exit,
---browser to open the default browser, or --kiosk for fullscreen browser launch.
+Browser launch and the tray are enabled by default. Add --no-browser or --no-tray
+to disable either. Use --kiosk for fullscreen browser launch.
 '''
 
 
@@ -50,7 +50,7 @@ def release_version(value):
 
 def package_bundle(bundle, version, output):
     version = release_version(version)
-    if not (bundle / 'OopsAllButtons.exe').is_file() or not (bundle / '_internal' / 'static' / 'index.html').is_file():
+    if not (bundle / 'OopsAllButtons.exe').is_file() or not (bundle / 'files' / 'static' / 'index.html').is_file():
         raise ValueError('The portable executable or bundled web assets are missing')
     # Never ship a project that was initialized during testing.
     if (bundle / 'data').exists() or any(bundle.glob('data-before-restore-*')):
