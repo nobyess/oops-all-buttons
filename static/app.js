@@ -1,3 +1,4 @@
+import {firstSelection,newRule} from './selection-defaults.js';
 import {rotateArtwork} from './artwork-rotation.js';
 import {mountSymbolContent} from './symbol-content.js';
 import {bindControlActions} from './control-actions.js';
@@ -192,7 +193,7 @@ function select(label,parent,options,value,attrs= {
   for(const [key,title] of options)node('option',title,el, {
     value:key
   });
-  if(value!==undefined)el.value=value;
+  el.value=firstSelection(options,value);
   return el;
 }
 let suspendedEditor=null,connectionNotice;
@@ -329,7 +330,8 @@ async function start(afterLogin=false)  {
     const homePage=pages.find(p=>p.id===currentUser.starting_page)||pages[0];
     const home=button('Home',document.querySelector('.header-start'),()=>{
       if(!homePage)return;
-      closePageWindows();
+      closeContextMenu();
+  closePageWindows();
       location.hash='#runtime/'+homePage.id;
     });
     home.id='kiosk-home';
@@ -356,6 +358,7 @@ function auth(setup)  {
   document.querySelector('#exit-kiosk')?.remove();
   document.querySelector('#kiosk-home')?.remove();
   navigation.accept();
+  closeContextMenu();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
   closeEditorPanels?.();closeEditorPanels=null;
@@ -438,6 +441,7 @@ function route() {
     return;
   }
   navigation.accept();
+  closeContextMenu();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
   closeEditorPanels?.();closeEditorPanels=null;
@@ -1705,6 +1709,7 @@ function showInspector(panel) {
     node('hr', null, panel, {className: 'sidebar-divider'});
   }
   const items = isEvent ? c.events : c.actions;
+  if(!items.some(item=>item.id===ruleId))ruleId=items[0]?.id || null;
   node('p', isEvent ? 'Change this control appearance or content when a condition is true.' : (isPage?'Complete actions run when this page opens or closes. Incomplete actions are skipped.':'Complete actions run on their mouse event. Incomplete actions are skipped.'), panel, {className: 'hint'});
   const actionLabels = isGroup?{show:'Show',hide:'Hide'}:isPage?{close_popup:'Close (Popup Only)',set_colors:'Set Colors'}:{show: 'Show', hide: 'Hide', set_colors: 'Set Colors'};
   if(c.type==='symbol')actionLabels.spin='Spin';
@@ -1723,11 +1728,7 @@ function showInspector(panel) {
   list.onchange = () => {ruleId = list.value; showInspector(panel);};
   const row = node('div', null, panel, {className: 'row compact'});
   button('+', row, () => {
-    const item = isEvent
-      ? {id: randomId(), tag: '', operator: '>',
-         operand: {kind: 'value', value: 0}, end_operand: {kind: 'value', value: 100},
-         action: isPage?'set_colors':'show', backColor: '#ffffff', foreColor: '#243247'}
-      : {id: randomId(), tag: '', trigger: isPage?'page_open':c.type==='listbox'?'user_changed':'click', action: 'increment', value: 1};
+    const item=newRule({id:randomId(),isEvent,isPage,isListbox:c.type==='listbox',actions:catalog.actions,visualActions:actionLabels});
     items.push(item); ruleId = item.id; markChanged(); showInspector(panel);
   });
   button('−', row, () => {

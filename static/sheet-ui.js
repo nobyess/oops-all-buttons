@@ -192,6 +192,7 @@ export function openSheetDialog({source,getSheet,saveSheet,onInterest,onTag,read
     function warnUnload(event){if(!readOnly && grid.isDirty()){event.preventDefault();event.returnValue='';}}
     window.addEventListener('beforeunload',warnUnload);
     function finish(value){if(finished)return;finished=true;window.removeEventListener('beforeunload',warnUnload);grid.close();modal.close();modal.remove();resolve(value);}
+    modal.onclose=()=>finish(null);
     async function saveChanges(ask=false) {
       if(readOnly || !grid.isDirty())return true;
       if(saving)return saving;

@@ -5,7 +5,7 @@ export const plcTagName = address => address.replace(/^Program:/, '');
 
 export function plcTagBrowser({source,dialog,node,field,button,api,reload,onDone}) {
   dialog('Add PyComm3 tag — '+(source.name || source.id),(body,submit)=> {
-    body.closest('dialog').classList.add('plc-tag-dialog');
+    const modal=body.closest('dialog');modal.classList.add('plc-tag-dialog');
     const footer=submit.parentElement;
     const refresh=button('Refresh PLC Tags',footer,()=>reset(true));refresh.classList.add('plc-tag-refresh');
     footer.insertBefore(refresh,footer.firstChild);submit.textContent='Save';
@@ -19,8 +19,9 @@ export function plcTagBrowser({source,dialog,node,field,button,api,reload,onDone
     const status=node('p','Loading cached PLC tags…',browser,{className:'hint'});
     const selected=node('strong','Select a tag.',details,{className:'plc-selected-tag'});
     const current=node('p','Current value: —',details,{role:'status'});
-    let selection=null,generation=0,previewRevision=0,timer,visible=[],timestamp;
+    let selection=null,generation=0,previewRevision=0,closed=false,timer,visible=[],timestamp;
     const branches=new Map(),expanded=new Set();
+    modal.addEventListener('close',()=>{closed=true;generation++;previewRevision++;clearTimeout(timer);branches.clear();expanded.clear();},{once:true});
     function picked(item) {
       selection=item;
       for(const row of list.querySelectorAll('[role="treeitem"]'))row.setAttribute('aria-selected',String(row.dataset.address===item?.address));
@@ -64,6 +65,7 @@ export function plcTagBrowser({source,dialog,node,field,button,api,reload,onDone
       status.textContent=timestamp?'Cached '+new Date(timestamp*1000).toLocaleString():'Loading cached PLC tags…';
     }
     async function load(parent,force=false) {
+      if(closed)return;
       let branch=branches.get(parent);
       if(!branch){branch={items:[],total:Infinity,loading:false};branches.set(parent,branch);}
       if(branch.loading || branch.items.length>=branch.total)return;
@@ -73,7 +75,7 @@ export function plcTagBrowser({source,dialog,node,field,button,api,reload,onDone
         if(revision!==generation || !body.isConnected)return;
         branch.items.push(...result.items);branch.total=result.total;timestamp=result.timestamp;
       } catch(error) {
-        if(revision===generation)status.textContent=error.message;
+        if(!closed && revision===generation)status.textContent=error.message;
         branch.loading=false;return;
       } finally {branch.loading=false;}
       if(revision===generation){render();loadVisible();}
@@ -95,6 +97,7 @@ export function plcTagBrowser({source,dialog,node,field,button,api,reload,onDone
       render();
     }
     async function reset(force=false) {
+      if(closed)return;
       generation++;branches.clear();expanded.clear();picked(null);list.scrollTop=0;timestamp=null;
       refresh.disabled=true;
       try {await load('',force);}finally{refresh.disabled=false;}

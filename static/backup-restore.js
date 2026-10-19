@@ -1,13 +1,14 @@
 import {confirmMessage} from './message-dialog.js';
 export function mountBackupRestore(parent,{node,button,api,firstRun=false,onRestore}){
+ let closed=false;const downloads=new Map();
  const section=node('section',null,parent,{className:'backup-restore'});
  if(!firstRun){
   const backup=node('section',null,section,{className:'backup-section'});node('h3','Back Up',backup);
   node('p','Download pages, sources, tags, sheets, images, users and access roles, alarm history, and persistent SQLite tag values.',backup);
   node('p','Backups contain account password hashes and driver credentials. Store them securely. System Memory values are temporary and are not included.',backup,{className:'hint'});
   const save=button('Download Backup',backup,async()=>{save.disabled=true;show('Creating backup…');try{
-   const result=await api('admin/backup',{}),bytes=Uint8Array.from(atob(result.data),c=>c.charCodeAt(0));
-   const url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'})),link=document.createElement('a');link.href=url;link.download=result.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);show('Backup downloaded.');
+   const result=await api('admin/backup',{});if(closed)return;const bytes=Uint8Array.from(atob(result.data),c=>c.charCodeAt(0));
+   const url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'})),link=document.createElement('a');link.href=url;link.download=result.filename;link.click();const timer=setTimeout(()=>{URL.revokeObjectURL(url);downloads.delete(url);},60000);downloads.set(url,timer);show('Backup downloaded.');
   }catch(e){show(e.message,true);}finally{save.disabled=false;}});
  }
  const restore=node('section',null,section,{className:'backup-section'});node('h3','Restore from Backup',restore);
@@ -27,7 +28,7 @@ export function mountBackupRestore(parent,{node,button,api,firstRun=false,onRest
   }catch(e){show(e.message,true);run.disabled=false;file.disabled=false;}
  });run.disabled=true;file.onchange=()=>{run.disabled=!file.files?.length;};
  const status=node('p','',section,{role:'status'});
- function show(text,error=false){status.textContent=text;status.className=error?'bad':'good';}
+ function show(text,error=false){if(closed)return;status.textContent=text;status.className=error?'bad':'good';}
  if(!firstRun)api('admin/backup/status').then(data=>{if(data.pending)show('A backup is ready to restore. Stop and restart the server to apply it.');}).catch(e=>show(e.message,true));
- return ()=>{};
+ return ()=>{closed=true;for(const [url,timer] of downloads){clearTimeout(timer);URL.revokeObjectURL(url);}downloads.clear();};
 }

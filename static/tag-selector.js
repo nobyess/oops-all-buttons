@@ -145,6 +145,7 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
       try{const id=pendingCell?await ensureSheetTag(pendingCell.source,pendingCell.address):selected;finish(id);}
       catch(error){currentValue.textContent=error.message;confirm.disabled=false;}
     };
+    modal.onclose=()=>finish(null);
     cancel.onclick = () => finish(null);
     modal.oncancel = event => {event.preventDefault(); finish(null);};
     const timer = setInterval(poll, refreshPolicy.tagSelector);

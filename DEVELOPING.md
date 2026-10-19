@@ -374,3 +374,9 @@ The existing `modbus` kind uses `settings.transport` (`tcp` when omitted, or `rt
 ### Browser refresh behavior
 
 Keep existing DOM nodes during periodic refreshes. Update changed values in place; add or remove rows only when their identities or visible structure change. Keep tag references separate from live sample values so polling cannot recreate their links. Selection changes should update list selection attributes without replacing list rows, preserving focus and scroll. Clicking the current tab or selected item should retain its mounted editor/preview and unsaved input. When asynchronous responses arrive, confirm that their original view is still active before rendering.
+
+### View lifetime and selection defaults
+
+Every view-owned interval, timeout, observer, global event listener, and temporary object URL needs an explicit cleanup path. Dialog cleanup must run for the close event as well as Cancel/Confirm; invalidate pending responses so closed views cannot restart requests or timers. App-wide listeners and clocks are installed once. Repeated open/close tests should return active resource counts to their starting values.
+
+New dropdowns select the first available option, including a first placeholder when one is present. Retain valid saved choices. Actions/Events lists select their first rule when no selection exists; new rules use the first choices in their menus (Mouse Down, Toggle, Equals, and the first available visual event action).

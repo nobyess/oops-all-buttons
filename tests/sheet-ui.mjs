@@ -160,3 +160,21 @@ await descendants(snapshotParent).find(n=>n['aria-label']==='B1').onclick();asse
 snapshot.close();assert.deepEqual(snapshotInterests,[]);
 globalThis.setTimeout=realSetTimeout;globalThis.clearTimeout=realClearTimeout;
 console.log('Read-only 60-cell picker, Live cadence, cleanup, and import-on-confirm passed.');
+
+// Repeated native/programmatic closes must release picker intervals, sheet timeouts,
+// unload listeners, and live-interest leases just like the Cancel button.
+const oldInterval=globalThis.setInterval,oldClearInterval=globalThis.clearInterval;
+const oldTimeout=globalThis.setTimeout,oldClearTimeout=globalThis.clearTimeout;
+const intervals=new Map(),timeouts=new Map(),unloads=new Set();let timerId=0;
+globalThis.setInterval=fn=>{const id=++timerId;intervals.set(id,fn);return id;};globalThis.clearInterval=id=>intervals.delete(id);
+globalThis.setTimeout=fn=>{const id=++timerId;timeouts.set(id,fn);return id;};globalThis.clearTimeout=id=>timeouts.delete(id);
+globalThis.window={addEventListener:(name,fn)=>{if(name==='beforeunload')unloads.add(fn);},removeEventListener:(name,fn)=>unloads.delete(fn)};
+try{
+ for(let index=0;index<20;index++){
+  const result=openTagSelector({getSources:()=>[{id:'m',kind:'memory',name:'Memory'}],getTags:()=>[],getValues:async()=>({})});
+  const pickerModal=document.body.children[0];assert.equal(intervals.size,1);pickerModal.onclose();assert.equal(await result,null);assert.equal(intervals.size,0);
+  const sheetResult=openSheetDialog({source,getSheet,readOnly:true,onInterest:()=>{}});await new Promise(resolve=>setImmediate(resolve));
+  const sheetModal=document.body.children[0];assert.equal(unloads.size,1);sheetModal.onclose();assert.equal(await sheetResult,null);assert.equal(unloads.size,0);assert.equal(timeouts.size,0);
+ }
+ console.log('Twenty picker/sheet open-close cycles leave no intervals, timeouts, or unload listeners.');
+}finally{globalThis.setInterval=oldInterval;globalThis.clearInterval=oldClearInterval;globalThis.setTimeout=oldTimeout;globalThis.clearTimeout=oldClearTimeout;}

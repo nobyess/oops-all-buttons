@@ -39,7 +39,7 @@ export function mountAccessManager(parent,{node,button,api}){
     const administrator=checkbox(body,'Administrator',Boolean(user?.administrator));
     const kiosk=checkbox(body,'Kiosk Mode',Boolean(user?.kiosk));
     const themeLabel=document.createElement('label');themeLabel.textContent='Interface Theme';const theme=document.createElement('select');themeLabel.append(theme);body.append(themeLabel);
-    for(const [value,text] of [['light','Light'],['dark','Dark'],['system','System']]){const option=document.createElement('option');option.value=value;option.textContent=text;theme.append(option);}theme.value=user?.theme || 'system';
+    for(const [value,text] of [['system','System'],['light','Light'],['dark','Dark']]){const option=document.createElement('option');option.value=value;option.textContent=text;theme.append(option);}theme.value=user?.theme || 'system';
     const startingLabel=document.createElement('label');startingLabel.textContent='Starting Page';const starting=document.createElement('select');startingLabel.append(starting);body.append(startingLabel);
     for(const page of [{id:'',name:'Default (first page)'},...pages]){const option=document.createElement('option');option.value=page.id;option.textContent=page.name;starting.append(option);}starting.value=user?.starting_page || '';
     const kioskHint=document.createElement('p');kioskHint.className='hint';kioskHint.textContent='Kiosk users have live views only, with username and Log Out. Page navigation must be provided by page actions.';body.append(kioskHint);
