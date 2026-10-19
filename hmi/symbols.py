@@ -67,6 +67,10 @@ def prepare_symbol(data):
         if tag in DRAWABLE:
             fill,stroke = style.get('fill','black'),style.get('stroke','none')
             paint = {'fill':fill.lower()!='none','stroke':stroke.lower()!='none'}
+            # An explicit role survives sanitized SVG, library storage and browser trimming.
+            if paint['fill'] and element.get('data-symbol-fill-color')=='fore':
+                paint['fillColor']='fore'
+                attrs['data-symbol-fill-color']='fore'
             attrs['fill'] = 'black' if paint['fill'] else 'none'
             attrs['stroke'] = 'black' if paint['stroke'] else 'none'
             if paint['stroke']:

@@ -64,3 +64,17 @@ for(const coordinates of [[[40,60],[120,140],[200,80]],[[0,0],[100,0],[0,100],[0
  }
 }
 console.log('Stroke changes preserve all page-space vertices, including zero stroke and closed lines at the page origin.');
+
+// Inspector commands must never leak callbacks into persisted control defaults.
+const {controls}=await import('../static/controls.js');
+const {EditHistory}=await import('../static/edit-history.js');
+for(const [type,definition] of Object.entries(controls)){
+ assert.doesNotThrow(()=>structuredClone(definition.defaults),type+' defaults must be plain serializable data');
+}
+const historyPage={id:'new-polyline',controls:[],groups:[]},history=new EditHistory();history.ensure(historyPage);
+const created={id:'line',type:'polyline',...controls.polyline.defaults,...completePolyline([[20,20],[100,20],[100,100],[20,20]])};
+historyPage.controls.push(created);assert.doesNotThrow(()=>history.record(historyPage));
+assert(history.canUndo(historyPage));assert.equal(history.move(historyPage,-1).controls.length,0);
+assert.equal(history.move(historyPage,1).controls[0].points.length,4);
+assert(!Object.hasOwn(created,'rotatePoints'));
+console.log('New polyline completion records serializable defaults and supports Undo/Redo; Rotate remains an inspector command.');

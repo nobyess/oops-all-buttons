@@ -1,3 +1,4 @@
+import {positionArtwork} from './artwork-rotation.js';
 import {symbolDefinition} from './symbol.js';
 import {levelDefinition} from './level-indicator.js';
 import {trendDefinition} from './live-trend.js';
@@ -46,14 +47,14 @@ export const controls = {
     render(el,c,ctx) {
       if(!c.image) {el.textContent=ctx.editing?'Choose image':'';return;}
       const img=document.createElement('img');img.src=c.image;img.alt=c.alt || '';
-      img.draggable=false;img.className='image-content';img.style.objectFit=c.fit || 'contain';el.append(img);
+      img.draggable=false;img.className='image-content';img.style.objectFit=c.fit || 'contain';el.style.position='relative';positionArtwork(img,c);el.append(img);
     },
     update(el,c,ctx) {
       const img=el.querySelector('img');
       if(!c.image) {el.replaceChildren();el.textContent=ctx.editing?'Choose image':'';return;}
       if(!img) {el.replaceChildren();controls.image.render(el,c,ctx);return;}
       if(img.getAttribute('src')!==c.image)img.src=c.image;
-      img.alt=c.alt || '';img.style.objectFit=c.fit || 'contain';
+      img.alt=c.alt || '';img.style.objectFit=c.fit || 'contain';positionArtwork(img,c);
     }
   },
   label: {

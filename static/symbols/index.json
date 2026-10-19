@@ -1,1 +1,40 @@
-{"version":1,"symbols":[]}
+{
+  "version": 1,
+  "symbols": [
+    {
+      "id": "9332a3a4e86b4d0eb4761d3f8c9e6e36",
+      "name": "Gate",
+      "category": "Valve Bodies",
+      "file": "assets/9332a3a4e86b4d0eb4761d3f8c9e6e36.svg",
+      "source_name": "gate.dxf"
+    },
+    {
+      "id": "057bd5d2d1114c01bcd86d7f90e9c2eb",
+      "name": "Globe",
+      "category": "Valve Bodies",
+      "file": "assets/057bd5d2d1114c01bcd86d7f90e9c2eb.svg",
+      "source_name": "globe.dxf"
+    },
+    {
+      "id": "55b08762809344459251b84075e4795c",
+      "name": "Hand Operator",
+      "category": "Valve Actuators",
+      "file": "assets/55b08762809344459251b84075e4795c.svg",
+      "source_name": "hand operator.dxf"
+    },
+    {
+      "id": "b107b66b1d214d3f814c68818992ca71",
+      "name": "Ball",
+      "category": "Valve Bodies",
+      "file": "assets/b107b66b1d214d3f814c68818992ca71.svg",
+      "source_name": "ball.dxf"
+    },
+    {
+      "id": "03ffb602b8c14b6287e034fdaf8ccbf5",
+      "name": "solenoid",
+      "category": "Valve Actuators",
+      "file": "assets/03ffb602b8c14b6287e034fdaf8ccbf5.svg",
+      "source_name": "solenoid.dxf"
+    }
+  ]
+}

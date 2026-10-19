@@ -48,3 +48,31 @@ class DXFSymbolTests(unittest.TestCase):
  def test_visible_block_attributes_are_not_silently_dropped(self):
   doc=self.drawing();doc.blocks.new('Basic').add_line((0,0),(10,0));insert=doc.modelspace().add_blockref('Basic',(0,0));insert.add_attrib('Label','Pump',(0,0))
   with self.assertRaisesRegex(ValueError,'text attributes'):self.paths(doc)
+ def test_forecolor_layer_fill_and_roundtrip(self):
+  doc=self.drawing();doc.layers.new('ForeColor');m=doc.modelspace()
+  h=m.add_hatch(dxfattribs={'layer':'ForeColor'});h.paths.add_polyline_path([(0,0),(10,0),(10,10),(0,10)])
+  m.add_solid([(20,0),(30,0),(20,10),(30,10)])
+  asset=prepare_symbol(self.data(doc));paths=asset['symbol']['children']
+  self.assertEqual(paths[1]['paint'],{'fill':True,'stroke':False,'fillColor':'fore'})
+  self.assertEqual(paths[1]['attributes']['data-symbol-fill-color'],'fore')
+  self.assertEqual(paths[0]['paint'],{'fill':True,'stroke':False})
+  self.assertEqual(prepare_symbol(asset)['symbol'],asset['symbol'])
+
+ def test_forecolor_block_layer_zero(self):
+  doc=self.drawing();doc.layers.new('FORECOLOR');block=doc.blocks.new('Filled')
+  block.add_solid([(0,0),(10,0),(0,10),(10,10)])
+  doc.modelspace().add_blockref('Filled',(0,0),dxfattribs={'layer':'FORECOLOR'})
+  self.assertEqual(self.paths(doc)[0]['paint']['fillColor'],'fore')
+
+ def test_foreground_fills_cover_background_regardless_of_creation_order(self):
+  doc=self.drawing();doc.layers.new('FORECOLOR');m=doc.modelspace()
+  # Foreground circle is drawn first, followed by the white valve body fills.
+  h=m.add_hatch(dxfattribs={'layer':'FORECOLOR'})
+  h.paths.add_edge_path().add_arc((50,50),20,0,360)
+  m.add_line((0,0),(100,100))
+  m.add_solid([(0,0),(50,50),(0,100)])
+  m.add_solid([(100,0),(50,50),(100,100)])
+  asset=prepare_symbol(self.data(doc));paths=asset['symbol']['children']
+  self.assertEqual([p['paint'].get('fillColor','back') for p in paths[:3]],['back','back','fore'])
+  self.assertEqual(paths[-1]['paint'],{'fill':False,'stroke':True})
+  self.assertEqual(prepare_symbol(asset)['symbol'],asset['symbol'])

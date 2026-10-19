@@ -2,6 +2,14 @@
 
 A browser-based HMI for building live operator screens, connecting device tags, and monitoring alarms. Built with Python and plain HTML, CSS, and JavaScript.
 
+## Safety and network warning
+
+This software can write to PLCs and other controllers. Incorrect commands or configuration can cause unexpected machinery movement, serious injury, death, or property damage. Use only if qualified and authorized, test with safely isolated equipment, and verify your configuration. Keep emergency stops and safety interlocks independent of this HMI; it is not a safety system.
+
+Keep the HMI and connected devices on a **trusted, access-controlled network**. Do not expose the server or device ports directly to the internet. For remote access, use a securely configured VPN and limit access to authorized users.
+
+You are responsible for validating suitability and operating the system safely. The software is provided **“as is,” without warranties**. To the extent permitted by applicable law, the developer assumes no responsibility or liability for injury, damage, loss, or other consequences of its use.
+
 ## What you can do
 
 - **Design pages** with drag-and-drop controls, shapes, groups, actions, and events.
@@ -99,7 +107,7 @@ See [DEVELOPING.md](DEVELOPING.md) for architecture, styling guidelines, and dev
 
 ## Built-in symbol library manager
 
-The standalone desktop manager imports SVG and basic 2D DXF symbols, previews them in a searchable category grid, and lets you rename, categorize, or remove them. It does not need the HMI server running.
+The standalone desktop manager imports SVG and basic 2D DXF symbols, previews them in a searchable category grid, and lets you rename, categorize, replace the artwork, or remove them. It does not need the HMI server running.
 
 ```powershell
 python -m venv .venv-symbol-manager
@@ -111,4 +119,28 @@ On Linux, use `.venv-symbol-manager/bin/python` instead. The manager also accept
 
 Artwork is copied into `static/symbols/assets` as sanitized SVG, with names and categories in `static/symbols/index.json`. Original input files are left alone. Commit and push the entire `static/symbols` folder together with the manager code. Pulling the repository then brings down the latest built-in symbols. Future portable builds include these assets automatically; existing portable downloads need a new release to receive changes.
 
-The library starts empty. This authoring tool prepares the catalog for the proposed web Symbol library picker; that picker is not connected yet. Removing a library symbol does not alter artwork already embedded in saved controls.
+The library starts empty. In the designer, select a Symbol and open Content → Library to browse its categories or filter by name. Reopen the Content section to pick up changes made in the manager. Choose File imports an SVG or DXF directly. Library selections are copied into the normal saved image assets; removing a library symbol does not alter artwork already embedded in saved controls.
+
+### Solid foreground shapes from LibreCAD
+
+Draw a closed boundary and create a **solid hatch**. Put that hatch on a layer named `FORECOLOR` (case insensitive) to have its filled area follow the Symbol's **Fore Color**, including color events. Other solid hatches and SOLID/TRACE entities use **Back Color** by default. Strokes continue to use Fore Color; Stroke Width only changes actual strokes, not filled geometry. Closed outlines alone remain unfilled.
+
+This works through both Choose File and the Symbol Library Manager. Re-import older DXF library entries to apply the layer convention; existing controls retain their saved artwork until replaced.
+
+Symbols and images have a **Rotate 90°** button in Content. Each click turns the artwork clockwise inside the existing control boundary; the source artwork is unchanged. Polyline has the same button under Shape; it rotates the editable points about their center and recalculates the boundary.
+
+### Fullscreen browser launch
+
+```powershell
+python run.py --tray --kiosk
+```
+
+For a newly built portable release, use `OopsAllButtons.exe --kiosk`, or add `--kiosk` to its shortcut target. The tray offers **Launch** and **Stop Server**. Launch uses the same fullscreen option as startup. `--no-browser` skips automatic startup launch; the tray Launch command still works.
+
+Kiosk launch uses an installed Microsoft Edge, Google Chrome, or Chromium browser in a fullscreen window without the address bar or window borders. It uses a separate profile in the operating system's user cache/local application-data folder. Close the browser with Alt+F4 on Windows/Linux (Command+Q on macOS); the server remains running until stopped. This display option does not change user accounts, access roles, or the HMI's per-user kiosk setting. A supported browser and a graphical desktop session are required.
+
+## Acknowledgments
+
+I take no credit for the coding work in this project—it was coded with ChatGPT Codex.
+
+Thank you to all the developers who shared their knowledge, code, tools, and documentation. Your contributions made this project possible.

@@ -23,3 +23,13 @@ styleSymbol(first,{...settings,strokeWidth:2});assert.equal(mutations(),before+1
 styleSymbol(second,settings);assert.equal(second.children[1].attrs['stroke-width'],'1','Each SVG maintains independent style state');
 
 assert.equal(first.children[1].attrs['vector-effect'],'non-scaling-stroke');assert.equal(second.children[1].attrs['vector-effect'],'non-scaling-stroke');
+
+const foreground=buildSymbol({tag:'svg',children:[{tag:'path',paint:{fill:true,stroke:false,fillColor:'fore'}},{tag:'path',paint:{fill:true,stroke:false}}]});
+styleSymbol(foreground,{backColor:'#ffeeaa',foreColor:'#123456',strokeWidth:2});
+assert.equal(foreground.children[0].attrs.fill,'#123456');assert.equal(foreground.children[0].attrs.stroke,'none');
+assert.equal(foreground.children[1].attrs.fill,'#ffeeaa');
+styleSymbol(foreground,{backColor:'#ffeeaa',foreColor:'#ff000080',strokeWidth:2});
+assert.equal(foreground.children[0].attrs.fill,'#ff000080','Fore Color events also recolor solid foreground shapes');
+styleSymbol(foreground,{backColor:'#000000',foreColor:'#ff000080',strokeWidth:9});
+assert.equal(foreground.children[0].attrs.fill,'#ff000080');assert.equal(foreground.children[1].attrs.fill,'#000000');
+assert.equal(foreground.children[0].attrs['stroke-width'],undefined,'Foreground fills do not grow with Stroke Width');

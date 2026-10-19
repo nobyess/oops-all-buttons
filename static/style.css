@@ -1230,3 +1230,17 @@ body {background:var(--app-background,var(--ui-background))}
 @keyframes level-sheen-x {0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
 @keyframes level-sheen-y {0%,100%{transform:translateY(-100%)}50%{transform:translateY(100%)}}
 @media(prefers-reduced-motion:reduce){.level-surface-glint {animation:none!important}}
+
+/* Symbol source picker is confined to the inspector Content section. */
+.symbol-content .symbol-content-tabs {margin-bottom:16px}
+.symbol-content [hidden] {display:none!important}
+.symbol-content .symbol-library-filter {margin-bottom:8px;width:100%;box-sizing:border-box}
+.symbol-content select {width:100%;margin-bottom:8px}
+.symbol-library-viewport {max-height:340px;overflow:auto;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel)}
+.symbol-library-viewport h4 {margin:12px 0 8px;font-size:12px;line-height:18px;color:var(--ui-muted);font-weight:600}
+.symbol-library-viewport h4:first-child {margin-top:0}
+.symbol-library-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.editor > .sidebar .symbol-library-tile {display:flex;flex-direction:column;align-items:center;gap:6px;margin:0;padding:8px;min-width:0;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-subtle);color:var(--ui-text)}
+.editor > .sidebar .symbol-library-tile:hover {border-color:var(--ui-link);background:var(--ui-hover)}
+.symbol-library-tile img {width:100%;height:64px;object-fit:contain;background:white;border-radius:4px;padding:4px;box-sizing:border-box}
+.symbol-library-tile span {font-size:12px;line-height:18px;overflow-wrap:anywhere}

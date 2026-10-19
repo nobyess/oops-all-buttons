@@ -1,3 +1,5 @@
+import {rotateArtwork} from './artwork-rotation.js';
+import {mountSymbolContent} from './symbol-content.js';
 import {bindControlActions} from './control-actions.js';
 import {trendSeries,trendColors} from './live-trend.js';
 import {mountAlarmAttention} from './alarm-attention.js';
@@ -1599,6 +1601,19 @@ function showInspector(panel) {
       if(prop.type==='image' || prop.type==='symbol') {
         const symbol=prop.type==='symbol';
         node('h3',symbol?'Content':'Image',propertyParent);
+        if(symbol){
+          mountSymbolContent(propertyParent,{control:c,safe,
+            rotate:()=>{rotateArtwork(c);markChanged();refreshEditedControl(c,true);},
+            importSymbol:async(name,data)=>{
+              const prepared=await api('images',{name,data,symbol:true,prepare_only:true});
+              data=await trimSymbolData(prepared.symbol,c);
+              const asset=await api('images',{name,data,symbol:true});
+              c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);
+            },
+            clear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}
+          });
+          continue;
+        }
         node('p',c.imageName || 'No image selected',propertyParent,{className:'hint'});
         const upload=field(symbol?'Choose SVG or DXF':'Choose SVG or raster',propertyParent,'file');
         upload.accept=symbol?'.svg,.dxf':'.svg,.png,.jpg,.jpeg,.gif,.webp,.bmp';
@@ -1612,6 +1627,7 @@ function showInspector(panel) {
           c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);
         });
         if(c.image)button('Clear image',propertyParent,()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);});
+        button('Rotate 90°',propertyParent,()=>{rotateArtwork(c);markChanged();refreshEditedControl(c,true);});
         continue;
       }
       if(prop.type==='alignment') {

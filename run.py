@@ -1,4 +1,4 @@
-"""Run: python run.py [--tray] [--no-browser] [--host 127.0.0.1] [--port 8080]."""
+"""Run: python run.py [--tray] [--kiosk] [--no-browser] [--host 127.0.0.1] [--port 8080]."""
 import argparse
 import platform
 import hashlib
@@ -8,7 +8,7 @@ import secrets
 import sys
 import threading
 import time
-import webbrowser
+from hmi.browser_launch import launch_browser
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as BaseThreadingHTTPServer
 from pathlib import Path
@@ -421,6 +421,7 @@ def main():
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument('--kiosk', action='store_true', help='Launch a fullscreen browser without browser chrome (Edge/Chrome/Chromium)')
     tray_options = parser.add_mutually_exclusive_group()
     tray_options.add_argument('--tray', action='store_true', dest='tray')
     tray_options.add_argument('--no-tray', action='store_false', dest='tray')
@@ -438,13 +439,22 @@ def main():
     url = f'http://{browser_host}:{args.port}'
     print(f'Oops! All Buttons: {url} (bind: {args.host}); Ctrl+C stops server')
     print_network_interfaces()
+    def launch():
+        try:
+            launch_browser(url, kiosk=args.kiosk)
+        except (OSError, RuntimeError) as error:
+            print(f'Unable to launch browser: {error}')
+            service.error_log.record('Browser launch', str(error))
+            if getattr(sys, 'frozen', False):
+                from portable import show_error
+                show_error(str(error))
     if not args.no_browser:
-        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.5, launch).start()
     if args.tray:
         from hmi.tray import run_tray
         def tray_worker():
             try:
-                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'app-icon.png')
+                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'app-icon.png', launch=launch)
             except Exception:
                 import traceback
                 traceback.print_exc()

@@ -10,6 +10,11 @@ export function closedPolyline(control){
  const points=linePoints(control),first=points[0],last=points.at(-1);
  return points.length>=4 && Math.abs(first[0]-last[0])<1e-9 && Math.abs(first[1]-last[1])<1e-9;
 }
+export function rotatePolyline(control){
+ const points=polylinePagePoints({...control,points:linePoints(control)});
+ const cx=control.left+control.width/2,cy=control.top+control.height/2;
+ reshapePolyline(control,points.map(([x,y])=>[cx-(y-cy),cy+(x-cx)]));
+}
 export function shapeFill(control){return control.type==='polyline' && !(control.fillWhenClosed && closedPolyline(control))?'none':(control.backColor || '#ffffff');}
 export function addLinePoint(control) {
   const points=linePoints(control).map(point=>[...point]);
@@ -86,7 +91,7 @@ export function shapeDefinitions(common) {
   return Object.fromEntries([['square','Square'],['circle','Ellipse'],['triangle','Triangle'],['polyline','Polyline']].map(([type,label])=>[type,{
     label,hidden:type==='triangle',category:'shapes',props:{...base,strokeWidth:{label:'Stroke Width',type:'number',min:0,step:'any'},
       ...(type==='square'?{edgeDiameter:{label:'Edge Diameter',type:'number',min:0,step:'any'}}:{}),
-      ...(type==='triangle'?{rotation:{label:'Rotate 90°',type:'button',onClick:control=>{control.rotation=((Number(control.rotation)||0)+90)%360;}}}:{}),...(type==='polyline'?{fillWhenClosed:{label:'Fill when closed',type:'checkbox'},pointEditing:{label:control=>editingPolyline(control)?'Finish Editing Points':'Edit Points',type:'button',onClick:control=>{if(editingPolyline(control)){if(!control.points)control.points=linePoints(control).map(point=>[...point]);reshapePolyline(control,polylinePagePoints(control));}polylineEditing.set(control.id,!editingPolyline(control));}},addBefore:{label:'Add Before Selection',type:'button',visibleWhen:control=>canInsertLinePoint(control,true),onClick:control=>insertLinePoint(control,true)},addAfter:{label:'Add After Selection',type:'button',visibleWhen:control=>canInsertLinePoint(control,false),onClick:control=>insertLinePoint(control,false)},openLine:{label:'Open Polyline',type:'button',visibleWhen:control=>editingPolyline(control) && closedPolyline(control),onClick:openPolyline},continueDrawing:{label:control=>selectedLinePoint(control)===0?'Continue Drawing Backward':'Continue Drawing',type:'button',visibleWhen:canContinuePolyline,command:'continuePolyline'},removePoint:{label:'Remove Selected Point',type:'button',visibleWhen:editingPolyline,onClick:removeLinePoint}}:{}),backColor,foreColor},
+      ...(type==='triangle'?{rotation:{label:'Rotate 90°',type:'button',onClick:control=>{control.rotation=((Number(control.rotation)||0)+90)%360;}}}:{}),...(type==='polyline'?{rotatePoints:{label:'Rotate 90°',type:'button',onClick:rotatePolyline},fillWhenClosed:{label:'Fill when closed',type:'checkbox'},pointEditing:{label:control=>editingPolyline(control)?'Finish Editing Points':'Edit Points',type:'button',onClick:control=>{if(editingPolyline(control)){if(!control.points)control.points=linePoints(control).map(point=>[...point]);reshapePolyline(control,polylinePagePoints(control));}polylineEditing.set(control.id,!editingPolyline(control));}},addBefore:{label:'Add Before Selection',type:'button',visibleWhen:control=>canInsertLinePoint(control,true),onClick:control=>insertLinePoint(control,true)},addAfter:{label:'Add After Selection',type:'button',visibleWhen:control=>canInsertLinePoint(control,false),onClick:control=>insertLinePoint(control,false)},openLine:{label:'Open Polyline',type:'button',visibleWhen:control=>editingPolyline(control) && closedPolyline(control),onClick:openPolyline},continueDrawing:{label:control=>selectedLinePoint(control)===0?'Continue Drawing Backward':'Continue Drawing',type:'button',visibleWhen:canContinuePolyline,command:'continuePolyline'},removePoint:{label:'Remove Selected Point',type:'button',visibleWhen:editingPolyline,onClick:removeLinePoint}}:{}),backColor,foreColor},
     defaults:{width:120,height:120,strokeWidth:2,...(type==='polyline'?{fillWhenClosed:false}:{}),...(type==='square'?{edgeDiameter:0}:{})},
     render:renderShape,update:renderShape
   }]));

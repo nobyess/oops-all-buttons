@@ -75,13 +75,13 @@ class Manager(QMainWindow):
         splitter.addWidget(details)
         splitter.setSizes([680, 300])
         buttons = QHBoxLayout()
-        for label, callback in [('Add Symbols…', self.add), ('Remove Symbol', self.remove), ('Reload', self.reload)]:
+        for label, callback in [('Add Symbols…', self.add), ('Replace Symbol…', self.replace), ('Remove Symbol', self.remove), ('Reload', self.reload)]:
             button = QPushButton(label)
             button.clicked.connect(callback)
             buttons.addWidget(button)
         buttons.addStretch()
         layout.addLayout(buttons)
-        hint = QLabel('SVG and basic 2D DXF • Changes are saved to this library • Commit static/symbols to Git')
+        hint = QLabel('DXF: FORECOLOR layer fills follow Fore Color • Commit static/symbols to Git')
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
         self.search.textChanged.connect(self.filter)
@@ -199,6 +199,16 @@ class Manager(QMainWindow):
                 errors.append(Path(filename).name + ': ' + str(error))
         if files: self.refresh(identifier)
         if errors: self.report('\n'.join(errors))
+
+    def replace(self):
+        if not self.current or not self.discard(): return
+        filename, _ = QFileDialog.getOpenFileName(self, 'Replace Symbol Artwork', '', 'Symbols (*.svg *.dxf)')
+        if not filename: return
+        try:
+            self.library.replace(self.current, filename)
+            self.refresh(self.current)
+        except Exception as error:
+            self.report(error)
 
     def remove(self):
         if not self.current: return

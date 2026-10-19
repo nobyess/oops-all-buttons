@@ -1,3 +1,4 @@
+import {positionArtwork} from './artwork-rotation.js';
 import {fitSymbolGeometry} from './symbol-geometry.js';
 import {randomId} from './uuid.js';
 const cache=new Map();
@@ -17,7 +18,7 @@ export function buildSymbol(tree){
    value=value.replace(/url\(\s*#([^)]*)\s*\)/g,(_,id)=>'url(#'+prefix+id.trim()+')');
    element.setAttribute(key,value);
   }
-  if(item.paint){element.dataset.symbolFill=String(item.paint.fill);element.dataset.symbolStroke=String(item.paint.stroke);if(item.paint.stroke)element.setAttribute('vector-effect','non-scaling-stroke');}
+  if(item.paint){element.dataset.symbolFill=String(item.paint.fill);if(item.paint.fillColor==='fore')element.dataset.symbolFillColor='fore';element.dataset.symbolStroke=String(item.paint.stroke);if(item.paint.stroke)element.setAttribute('vector-effect','non-scaling-stroke');}
   if(item.text)element.textContent=item.text;
   for(const child of item.children || [])element.append(build(child));
   return element;
@@ -46,7 +47,7 @@ export function styleSymbol(svg,c){
  if(!previous || next.label!==previous.label)svg.setAttribute('aria-label',next.label);
  if(!previous || next.fill!==previous.fill || next.stroke!==previous.stroke || next.width!==previous.width){
   for(const element of svg.querySelectorAll('[data-symbol-fill]')){
-   if(!previous || next.fill!==previous.fill)element.setAttribute('fill',element.dataset.symbolFill==='true'?next.fill:'none');
+   if(!previous || next.fill!==previous.fill || next.stroke!==previous.stroke)element.setAttribute('fill',element.dataset.symbolFill==='true'?(element.dataset.symbolFillColor==='fore'?next.stroke:next.fill):'none');
    if(!previous || next.stroke!==previous.stroke)element.setAttribute('stroke',element.dataset.symbolStroke==='true'?next.stroke:'none');
    if(element.dataset.symbolStroke==='true' && (!previous || next.width!==previous.width))element.setAttribute('stroke-width',next.width);
   }
@@ -55,7 +56,7 @@ export function styleSymbol(svg,c){
 }
 export function symbolDefinition(common){
  function update(el,c,ctx){
-  el.symbolControl=c;
+  el.symbolControl=c;el.style.position='relative';
   spinSymbol(el,c.spinRpm,ctx.editing);
   if(el.dataset.symbolImage!==c.image){
    el.dataset.symbolImage=c.image || '';el.replaceChildren();
@@ -64,10 +65,10 @@ export function symbolDefinition(common){
    const url=c.image;
    load(url).then(tree=>{
     if(el.dataset.symbolImage!==url || !el.isConnected)return;
-    const svg=buildSymbol(tree);el.replaceChildren(svg);styleSymbol(svg,el.symbolControl);fitSymbolGeometry(svg);
+    const svg=buildSymbol(tree);el.replaceChildren(svg);styleSymbol(svg,el.symbolControl);fitSymbolGeometry(svg);positionArtwork(svg,el.symbolControl);
    }).catch(error=>{if(el.dataset.symbolImage===url && el.isConnected){el.textContent=ctx.editing?'Symbol unavailable':'';el.title=error.message;}});
   }
-  const svg=el.querySelector('svg');if(svg){styleSymbol(svg,c);fitSymbolGeometry(svg);}
+  const svg=el.querySelector('svg');if(svg){styleSymbol(svg,c);fitSymbolGeometry(svg);positionArtwork(svg,c);}
  }
  return {label:'Symbol',props:{image:{label:'SVG / DXF symbol',type:'symbol'},fit:{label:'Fit',type:'select',options:[['contain','Fit (keep proportions)'],['cover','Fill (crop)'],['fill','Stretch']]},alt:{label:'Description',type:'text'},
   ...Object.fromEntries(['left','top','width','height','visible'].map(key=>[key,common[key]])),strokeWidth:{label:'Stroke Width',type:'number',min:0,step:'any'},backColor:common.backColor,foreColor:common.foreColor},

@@ -55,11 +55,13 @@ def dxf_to_svg(data):
         if entity.dxf.get('invisible',0):return False
         layer=doc.layers.get(entity.dxf.layer) if doc.layers.has_entry(entity.dxf.layer) else None
         return not layer or not (layer.is_off() or layer.is_frozen())
-    def visit(entity,depth=0):
+    def visit(entity,depth=0,inherited_layer=None):
         nonlocal entities
         entities+=1
         if depth>8 or entities>MAX_ENTITIES:raise ValueError('DXF is too complex (maximum 4000 entities and 8 block levels)')
         if not visible(entity):return
+        layer=entity.dxf.layer
+        if layer=='0' and inherited_layer is not None:layer=inherited_layer
         kind=entity.dxftype()
         if kind not in SUPPORTED:unsupported.add(kind);return
         if entity.dxf.hasattr('thickness') and entity.dxf.thickness:raise ValueError('Only flat 2D DXF geometry without thickness is supported')
@@ -70,10 +72,10 @@ def dxf_to_svg(data):
             if block.block.dxf.flags & 12:raise ValueError('External-reference DXF blocks are not supported; explode them before export')
             if entity.mcount>1:
                 if entity.mcount>MAX_ENTITIES:raise ValueError('DXF block array is too large')
-                for instance in entity.multi_insert():visit(instance,depth+1)
+                for instance in entity.multi_insert():visit(instance,depth+1,layer)
             else:
                 skipped=[]
-                for child in entity.virtual_entities(skipped_entity_callback=lambda e,reason:skipped.append(e.dxftype())):visit(child,depth+1)
+                for child in entity.virtual_entities(skipped_entity_callback=lambda e,reason:skipped.append(e.dxftype())):visit(child,depth+1,layer)
                 if skipped:raise ValueError('Could not convert DXF block elements: '+', '.join(sorted(set(skipped)))+'. Explode the block before export')
             return
         if kind=='POLYLINE' and not entity.is_2d_polyline:raise ValueError('Only 2D DXF polylines are supported')
@@ -88,7 +90,9 @@ def dxf_to_svg(data):
             filled=kind in ('SOLID','TRACE')
         if drawing:
             attrs={'d':drawing,'fill':'black' if filled else 'none','stroke':'none' if filled else 'black'}
-            if filled:attrs['fill-rule']='evenodd'
+            if filled:
+                attrs['fill-rule']='evenodd'
+                if layer.strip().casefold()=='forecolor':attrs['data-symbol-fill-color']='fore'
             else:attrs.update({'stroke-width':'2','stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'})
             (fills if filled else outlines).append(attrs)
     try:
@@ -102,6 +106,9 @@ def dxf_to_svg(data):
     if width==0:x-=.5;width=1
     if height==0:y-=.5;height=1
     root=ET.Element('svg',{'xmlns':'http://www.w3.org/2000/svg','viewBox':f'{x:.15g} {y:.15g} {width:.15g} {height:.15g}'})
+    # Keep CAD creation order within each role, but foreground fills must cover
+    # background fills even when those were drawn later in LibreCAD.
+    fills.sort(key=lambda attrs:attrs.get('data-symbol-fill-color')=='fore')
     for attrs in fills+outlines:ET.SubElement(root,'path',attrs)
     svg=ET.tostring(root,encoding='utf-8')
     if len(svg)>MAX_IMAGE_BYTES:raise ValueError('Converted DXF is too large; simplify the drawing')

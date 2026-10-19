@@ -38,3 +38,10 @@ class SymbolTests(unittest.TestCase):
             stored=service.store.get('image:'+copy['image'].rsplit('/',1)[-1])
             self.assertEqual(prepare_symbol(stored)['symbol']['children'][0]['paint'],{'fill':False,'stroke':True})
             self.assertEqual(copy['strokeWidth'],4);self.assertEqual(copy['foreColor'],'#123456')
+    def test_forecolor_marker_survives_browser_serialization(self):
+        asset=self.symbol('<svg xmlns="http://www.w3.org/2000/svg"><path fill="#123456" data-symbol-fill="true" data-symbol-fill-color="fore" d="M0 0L10 0L0 10Z"/><path fill="red" data-symbol-fill-color="invalid" d="M0 0L20 0L0 20Z"/></svg>')
+        first,second=asset['symbol']['children']
+        self.assertEqual(first['paint'],{'fill':True,'stroke':False,'fillColor':'fore'})
+        self.assertNotIn('fillColor',second['paint'])
+        self.assertNotIn('data-symbol-fill-color',second['attributes'])
+        self.assertEqual(self.symbol(base64.b64decode(asset['data']).decode())['symbol'],asset['symbol'])

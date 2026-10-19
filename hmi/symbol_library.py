@@ -62,6 +62,25 @@ class SymbolLibrary:
             raise
         return identifier
 
+    def replace(self, identifier, filename):
+        """Swap artwork while retaining identity and descriptive metadata."""
+        previous = next(item for item in self.items if item['id'] == identifier)
+        source = Path(filename)
+        if source.stat().st_size > 5 * 1024 * 1024:
+            raise ValueError('Maximum symbol size is 5 MB')
+        asset = prepare_symbol({'name': source.name, 'data': base64.b64encode(source.read_bytes()).decode('ascii')})
+        replacement = dict(previous, file='assets/' + uuid.uuid4().hex + '.svg', source_name=source.name)
+        target = self.asset_path(replacement)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(base64.b64decode(asset['data']))
+        try:
+            self.save([replacement if item['id'] == identifier else item for item in self.items])
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+        if not any(item['file'] == previous['file'] for item in self.items):
+            self.asset_path(previous).unlink(missing_ok=True)
+
     def update(self, identifier, name, category):
         if not name.strip() or not category.strip(): raise ValueError('Name and category are required')
         items = [dict(item) for item in self.items]
