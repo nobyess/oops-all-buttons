@@ -18,11 +18,12 @@ PACKAGES = {'PyInstaller': 'pyinstaller', 'BAC0': 'BAC0', 'bacpypes3': 'bacpypes
             'formulas': 'formulas', 'ezdxf': 'ezdxf', 'pystray': 'pystray', 'PIL': 'Pillow'}
 PORTABLE_README = '''Oops! All Buttons - Windows portable
 
-Extract the entire ZIP to a writable folder, then double-click OopsAllButtons.exe.
+Extract the entire ZIP to a writable folder. Start OopsAllButtons.exe --tray
+(or add --tray to a shortcut) for the Launch/Restart Server/Exit tray menu.
 Python is included. Keep the _internal folder beside the executable.
 
-The browser opens at http://127.0.0.1:8080. Complete first-run setup or restore a backup.
-Use the tray icon to open the app or choose Stop Server before closing/updating it.
+Open http://127.0.0.1:8080 in your browser. Complete first-run setup or restore a backup.
+With --tray, use Launch to open the app or Exit before closing/updating it.
 If startup fails, a message is shown; details are in data/server.log.
 
 Your project is stored in the data folder beside OopsAllButtons.exe.
@@ -35,7 +36,8 @@ Network access: create a shortcut with these arguments:
   OopsAllButtons.exe --host 0.0.0.0 --port 8080
 Allow the server through the host firewall and visit http://<server-IP>:8080.
 The default listens only on this computer; traffic uses HTTP.
-Advanced: --no-browser disables browser launch; --no-tray disables the tray.
+By default, only the server starts. Add --tray for Launch/Restart Server/Exit,
+--browser to open the default browser, or --kiosk for fullscreen browser launch.
 '''
 
 

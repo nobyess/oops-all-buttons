@@ -10,4 +10,14 @@ __pycache__/
 build/
 dist/
 release/
+
+# Symbol library manager: local environment and interrupted catalog writes
 .venv-symbol-manager/
+/static/symbols/catalog-*.tmp
+
+# Local symbol-library authoring tool (built-in catalog/assets remain tracked)
+/symbol_library_manager.py
+/manage-symbols.cmd
+/requirements-symbol-manager.txt
+/hmi/symbol_library.py
+/tests/test_symbol_library.py

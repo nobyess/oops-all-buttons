@@ -54,7 +54,7 @@ The workflow uses GitHub's built-in token. No personal access token is needed. M
 ## Updating a portable installation
 
 1. Make a backup in **Administration → Backup/Restore**.
-2. Stop the server from its tray menu.
+2. Exit the server from its tray menu (start with `--tray` to enable it).
 3. Extract the new release into a new writable folder.
 4. Copy your old `data` folder beside the new executable. If a restore is pending, copy `data.restore.zip` beside it too. Start the new executable. Alternatively, restore your backup through first run.
 

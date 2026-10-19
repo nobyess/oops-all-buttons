@@ -37,7 +37,7 @@ def smoke(bundle):
                 return json.loads(payload) if response.headers.get_content_type() == 'application/json' else payload
 
         def start():
-            process = subprocess.Popen([str(exe), '--no-browser', '--no-tray', '--port', str(port)], cwd=directory)
+            process = subprocess.Popen([str(exe), '--port', str(port)], cwd=directory)
             deadline = time.monotonic() + 45
             while time.monotonic() < deadline:
                 if process.poll() is not None:

@@ -23,6 +23,7 @@ def open_startup_log(directory):
 def main():
     from run import application_directory, main as run_server
     from hmi.backup import apply_pending
+    restart_requested = False
     log = None
     directory = None
     original_stdout, original_stderr = sys.stdout, sys.stderr
@@ -46,7 +47,7 @@ def main():
                 raise ValueError('Formula calculation check failed')
             (directory / 'build-check.json').write_text(json.dumps({'imports': modules, 'formula': 3}), encoding='utf-8')
             return 0
-        run_server()
+        restart_requested = run_server() is True
     except Exception as error:
         if log is None and directory is not None:
             try:
@@ -65,6 +66,13 @@ def main():
             log.flush()
             sys.stdout, sys.stderr = original_stdout, original_stderr
             log.close()
+    if restart_requested:
+        try:
+            from hmi.restart import restart_process
+            restart_process()
+        except OSError as error:
+            show_error(f'Unable to restart Oops! All Buttons.\n\n{error}\n\nStart the application again manually.')
+            return 1
     return 0
 
 

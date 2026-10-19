@@ -39,7 +39,7 @@ A demo project using simulated values.
 
 ## Run the portable app (Windows)
 
-Download the Windows portable ZIP from **Releases**, extract the whole folder, and double-click `OopsAllButtons.exe`. Python is included. Use the tray icon to open the app or select **Stop Server** to quit.
+Download the Windows portable ZIP from **Releases**, extract the whole folder, and run `OopsAllButtons.exe --tray` (or add `--tray` to a shortcut). Python is included. Use **Launch** in the tray to open the app or **Exit** to quit. Without options, only the server starts, with no browser or tray; the portable executable runs in the background.
 
 Your project lives in the `data` folder beside the executable. Keep the `_internal` folder in place. See [BUILDING.md](BUILDING.md) for building releases, GitHub uploads, and updating a portable installation.
 
@@ -51,7 +51,7 @@ Install Python 3.11 or newer, then open a terminal in the project folder:
 python run.py
 ```
 
-The app opens at [localhost:8080](http://127.0.0.1:8080). On first run, complete the safety acknowledgement and create an administrator account. Passwords require at least eight characters.
+Open [localhost:8080](http://127.0.0.1:8080) in your browser. Startup defaults to the server only, with no browser launch or tray icon. On first run, complete the safety acknowledgement and create an administrator account. Passwords require at least eight characters.
 
 The core server, System tags, and SQLite storage need no additional Python packages. Install the optional packages for the features you use:
 
@@ -75,16 +75,16 @@ source .venv/bin/activate
 ## Start options
 
 ```sh
-python run.py --host 0.0.0.0 --port 8080 --no-browser
+python run.py --host 0.0.0.0 --port 8080
 ```
 
 | Option | Purpose |
 | --- | --- |
 | `--host` | Address to listen on. Defaults to `127.0.0.1`; use `0.0.0.0` for network access. |
 | `--port` | HTTP port. Defaults to `8080`. |
-| `--no-browser` | Start without opening a browser. |
-| `--tray` | Show the desktop tray icon. Enabled by default in the portable executable. |
-| `--no-tray` | Start without a tray icon. |
+| `--browser` | Open the app in the default browser at startup. |
+| `--kiosk` | Open a fullscreen kiosk browser at startup. |
+| `--tray` | Show the desktop tray icon with Launch, Restart Server, and Exit. |
 
 Startup lists available IPv4 interfaces. For network access, open `http://<server-IP>:8080` from another device and allow the server through the host firewall. The app serves HTTP. Press **Ctrl+C** in the terminal to stop the server.
 
@@ -135,7 +135,7 @@ Symbols and images have a **Rotate 90°** button in Content. Each click turns th
 python run.py --tray --kiosk
 ```
 
-For a newly built portable release, use `OopsAllButtons.exe --kiosk`, or add `--kiosk` to its shortcut target. The tray offers **Launch** and **Stop Server**. Launch uses the same fullscreen option as startup. `--no-browser` skips automatic startup launch; the tray Launch command still works.
+For a newly built portable release, use `OopsAllButtons.exe --kiosk`, or add `--kiosk` to its shortcut target. The tray offers **Launch**, **Restart Server**, and **Exit**. Launch uses the same fullscreen option as startup. Without `--browser` or `--kiosk`, the browser stays closed until you use Launch. The tray itself requires `--tray`.
 
 Kiosk launch uses an installed Microsoft Edge, Google Chrome, or Chromium browser in a fullscreen window without the address bar or window borders. It uses a separate profile in the operating system's user cache/local application-data folder. Close the browser with Alt+F4 on Windows/Linux (Command+Q on macOS); the server remains running until stopped. This display option does not change user accounts, access roles, or the HMI's per-user kiosk setting. A supported browser and a graphical desktop session are required.
 
@@ -144,3 +144,5 @@ Kiosk launch uses an installed Microsoft Edge, Google Chrome, or Chromium browse
 I take no credit for the coding work in this project—it was coded with ChatGPT Codex.
 
 Thank you to all the developers who shared their knowledge, code, tools, and documentation. Your contributions made this project possible.
+
+**Restart Server** cleanly stops and relaunches the application with the same startup options. It reloads saved project data and source-code changes when running from Python. Save browser edits first; you will need to sign in again, and existing browser tabs may need refreshing. A portable executable must be rebuilt to include code changes. **Exit** shuts down the server and removes the tray icon.

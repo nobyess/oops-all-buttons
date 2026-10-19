@@ -1,4 +1,4 @@
-"""Run: python run.py [--tray] [--kiosk] [--no-browser] [--host 127.0.0.1] [--port 8080]."""
+"""Run: python run.py [--tray] [--kiosk] [--browser] [--host 127.0.0.1] [--port 8080]."""
 import argparse
 import platform
 import hashlib
@@ -416,23 +416,26 @@ def print_network_interfaces():
         print(f"  {interface['name']}: {interface['address']}")
 
 
-def main():
+def parse_options(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8080)
-    parser.add_argument('--no-browser', action='store_true')
-    parser.add_argument('--kiosk', action='store_true', help='Launch a fullscreen browser without browser chrome (Edge/Chrome/Chromium)')
-    tray_options = parser.add_mutually_exclusive_group()
-    tray_options.add_argument('--tray', action='store_true', dest='tray')
-    tray_options.add_argument('--no-tray', action='store_false', dest='tray')
-    parser.set_defaults(tray=bool(getattr(sys, 'frozen', False)))
-    args = parser.parse_args()
+    browser_options = parser.add_mutually_exclusive_group()
+    browser_options.add_argument('--browser', action='store_true', help='Open the app in the default browser at startup')
+    browser_options.add_argument('--kiosk', action='store_true', help='Launch a fullscreen browser without browser chrome (Edge/Chrome/Chromium)')
+    parser.add_argument('--tray', action='store_true', help='Show the desktop tray icon')
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_options()
     data_directory = application_directory() / 'data'
     apply_pending(data_directory)
     service = Service(Store(data_directory / 'hmi.sqlite3'))
     request_log = RequestLog()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(service, request_log))
     stopped = threading.Event()
+    restart_requested = threading.Event()
     polling_worker = threading.Thread(target=service.polling.run, args=(stopped,), daemon=True)
     polling_worker.start()
     browser_host = '127.0.0.1' if args.host in ('', '0.0.0.0') else args.host
@@ -448,13 +451,16 @@ def main():
             if getattr(sys, 'frozen', False):
                 from portable import show_error
                 show_error(str(error))
-    if not args.no_browser:
+    if args.browser or args.kiosk:
         threading.Timer(0.5, launch).start()
+    def request_restart():
+        restart_requested.set()
+        server.shutdown()
     if args.tray:
         from hmi.tray import run_tray
         def tray_worker():
             try:
-                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'app-icon.png', launch=launch)
+                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'app-icon.png', launch=launch, on_restart=request_restart)
             except Exception:
                 import traceback
                 traceback.print_exc()
@@ -474,7 +480,10 @@ def main():
         server.server_close()
         for driver in service.drivers.values():
             driver.close()
+    return restart_requested.is_set()
 
 
 if __name__ == '__main__':
-    main()
+    if main():
+        from hmi.restart import restart_process
+        restart_process()
