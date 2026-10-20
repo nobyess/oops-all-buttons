@@ -2,6 +2,14 @@
 
 Ideas to revisit when useful. These are deferred improvements, not scheduled work.
 
+## Load HVAC Demo
+
+Added: October 19, 2026. Status: deferred.
+
+Add a **Load HVAC Demo** button under **Administration → Simulation**. Enable the Air Handler simulator and add a ready-to-use page with a coil/heater/blower schematic, live temperatures, heating/cooling outputs, a unit enable button, and temperature trends. Build it from ordinary editable controls and shapes so new users can explore how bindings, actions, and trends work without connecting equipment.
+
+Preserve existing pages and simulation configuration, and avoid duplicate demo pages on repeated loads. Use the HVAC README screenshots as the visual reference. The temporary screenshot-project generator is retained locally at `work/readme_hvac_demo.py` (outside the application repository); bring the example into the repository when implementing this feature.
+
 ## BACnet reliability and diagnostics
 
 Added: October 17, 2026. Status: deferred.
