@@ -94,6 +94,10 @@ Keep the server and devices on a **trusted, access-controlled network**. Do not 
 
 You are responsible for validating the system and operating it safely. This software is provided **“as is,” without warranties**. To the extent permitted by applicable law, the developer assumes no responsibility or liability for injury, damage, loss, or other consequences of its use.
 
+## License
+
+The project's original code is available under the [MIT License](LICENSE). Bundled libraries retain their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md) and the [portable license review](docs/LICENSE_REVIEW.md).
+
 ## Acknowledgments
 
 I take no credit for the coding work in this project—it was coded with ChatGPT Codex.

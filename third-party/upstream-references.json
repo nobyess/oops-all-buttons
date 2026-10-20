@@ -1,0 +1,50 @@
+{
+  "bac0": {
+    "version": "2026.7.25",
+    "filename": "bac0-2026.7.25.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/1c/5a/cebf758e76e06a00b5d0b17486276833aa9879a8184397034ca4eab42374/bac0-2026.7.25.tar.gz",
+    "sha256": "4a782b0afc9607aeffd6c97ecb90d0f8a20aadb955ff8380e9dad4e01228b137"
+  },
+  "formulas": {
+    "version": "1.3.4",
+    "filename": "formulas-1.3.4.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/a1/03/87e2931f7e134cfffb6c6199003ce1a59feeea5160abd774dfad1c19e1ef/formulas-1.3.4.tar.gz",
+    "sha256": "018ee4c43056d2ea2497243e83bb61d92c0f1039ca8eb82a8f0e969562e3e8e9"
+  },
+  "schedula": {
+    "version": "1.6.15",
+    "filename": "schedula-1.6.15.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/f5/16/25b477d86e12af6a40f17e648c5399c69408391e91835c2bee8e076f9b12/schedula-1.6.15.tar.gz",
+    "sha256": "85654c82cb8e73fb5ca48952c317119157cd8da248c9d395bac90ffb9a01927c"
+  },
+  "tqdm": {
+    "version": "4.70.1",
+    "filename": "tqdm-4.70.1.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz",
+    "sha256": "cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4"
+  },
+  "bacpypes3": {
+    "version": "0.0.110",
+    "filename": "bacpypes3-0.0.110.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/58/13/b01d7c4a36e4bdc41167f249cb9f65d3049b332214b761d02d09522b037f/bacpypes3-0.0.110.tar.gz",
+    "sha256": "fd130ae5844a370a28110011f14aae04654939d325e26ca71147b39bb4cbd942"
+  },
+  "numpy-financial": {
+    "version": "1.1.0",
+    "filename": "numpy_financial-1.1.0.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/55/c9/cc76e044ce717a8236d6b51dc3decbec9b4fa69faef45cbda3432ace6c35/numpy_financial-1.1.0.tar.gz",
+    "sha256": "45d45578473ff1bc5cebd586c42f7d0821ac5d7d7cd87f7289a58d0a6c9ad71c"
+  },
+  "pyserial": {
+    "version": "3.5",
+    "filename": "pyserial-3.5.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/1e/7d/ae3f0a63f41e4d2f6cb66a5b57197850f919f59e558159a4dd3a818f5082/pyserial-3.5.tar.gz",
+    "sha256": "3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb"
+  },
+  "pystray": {
+    "version": "0.19.5",
+    "filename": "pystray-0.19.5.tar.gz",
+    "url": "https://codeload.github.com/moses-palmer/pystray/tar.gz/refs/tags/v0.19.5",
+    "sha256": "2ab6bd15c14b400c9e8271a82c9de8adc0f1a0cacfc14080bdd4fb42bb88ec92"
+  }
+}

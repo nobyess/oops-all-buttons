@@ -11,6 +11,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
+if __package__:
+    from .third_party import include_licenses
+else:
+    from third_party import include_licenses
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = {'PyInstaller': 'pyinstaller', 'BAC0': 'BAC0', 'bacpypes3': 'bacpypes3',
@@ -97,6 +101,7 @@ def main():
         'built_at': datetime.now(timezone.utc).isoformat(), 'python': sys.version,
         'packages': {package: importlib.metadata.version(package) for package in PACKAGES.values()},
     }, indent=2), encoding='utf-8')
+    include_licenses(bundle, ROOT, work / 'work' / 'windows')
     for path in package_bundle(bundle, version, ROOT / 'release'):
         print(path)
 

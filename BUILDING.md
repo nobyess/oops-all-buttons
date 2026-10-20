@@ -26,6 +26,12 @@ Project data stays in a writable `data` folder beside the executable; bundled ap
 
 The executable is unsigned. No signing certificate or signing service is configured in this build.
 
+## Third-party licenses and source
+
+The build includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and a `third-party` folder with a dependency inventory and license notices. Source archives are intentionally not downloaded, required by the build, or bundled while the maintainer reviews source-distribution requirements. See [the license review](docs/LICENSE_REVIEW.md). This notices-only packaging is not a determination that all dependency-license obligations are satisfied.
+
+The collector reads PyInstaller’s actual dependency lists and stops if a selected package has no license text or version-specific supplement. Review licenses when upgrading dependencies, including source-availability and replacement requirements; those obligations are not checked automatically by this notices-only collector.
+
 ## Verify a build
 
 ```powershell
