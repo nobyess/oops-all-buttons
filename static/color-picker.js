@@ -6,10 +6,11 @@ export function withOpacity(color, percent) {
   const alpha=Math.round(Math.max(0,Math.min(100,Number(percent)||0))*255/100);
   return color.slice(0,7)+(alpha===255?'':alpha.toString(16).padStart(2,'0'));
 }
-export function colorPicker(title, parent, value, change) {
+export function colorPicker(title, parent, value, change, {opacity:showOpacity=true}={}) {
   const group=document.createElement('div');group.className='color-picker';parent.append(group);
   const label=document.createElement('label');label.textContent=title;group.append(label);
   const color=document.createElement('input');color.type='color';color.value=value.slice(0,7);label.append(color);
+  if(!showOpacity){color.onchange=()=>change(color.value);return color;}
   const opacityLabel=document.createElement('label');opacityLabel.textContent='Opacity (%)';group.append(opacityLabel);
   const opacity=document.createElement('input');opacity.type='number';opacity.min=0;opacity.max=100;opacity.step=1;
   opacity.value=colorOpacity(value);opacityLabel.append(opacity);

@@ -20,7 +20,7 @@ export function openPageWindow({page, position = 'centered', point, render}) {
   frame.setAttribute('aria-label', page.name);
   frame.tabIndex = -1;
   const caption = document.createElement('div');
-  caption.className = 'page-window-caption';
+  caption.className = 'page-window-caption floating-window-caption';
   const title = document.createElement('strong'); title.textContent = page.name;
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
@@ -33,7 +33,7 @@ export function openPageWindow({page, position = 'centered', point, render}) {
   let located = false;
   function resize() {
     frame.style.width = Math.min(page.width + 2, window.innerWidth - 16) + 'px';
-    frame.style.height = Math.min(page.height + 42, window.innerHeight - 16) + 'px';
+    frame.style.height = Math.min(page.height + 51, window.innerHeight - 16) + 'px';
     const rect = frame.getBoundingClientRect();
     const center = position === 'mouse' && point ? point : {x: window.innerWidth / 2, y: window.innerHeight / 2};
     const desired = located ? {x: rect.left, y: rect.top} : {x: center.x - rect.width / 2, y: center.y - rect.height / 2};

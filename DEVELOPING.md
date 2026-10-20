@@ -1,5 +1,22 @@
 # Extending the framework
 
+## Button icons
+
+Button supports Text only (the existing default), Icon only, and Icon and text.
+The Content inspector uses the shared 64px preview picker with a centered clear
+X. The shared asset picker offers Icons, Images, and Symbols for button artwork,
+with type, category, and text filters. The 151 bundled icons in 14 categories
+appear only in the picker, not Asset Center; choosing them needs no import or
+file upload. Other controls retain their forced content types. Enter confirms and
+Escape cancels. Icon Size is bounded to 12–128px; Icon Position supports before,
+after, above, and below text. Icons use forecolor and follow content blink,
+while the button background stays visible. Whole-control blink remains separate.
+The text provides the accessible label even in Icon only mode. Saved pages need
+only the icon ID and presentation properties for bundled icons, with no
+external icon downloads. Image/Symbol button artwork uses normal asset
+references, replacement, backup, and page export/import. Existing text-only buttons retain behavior.
+Live updates keep the button and unchanged SVG in place.
+
 ## Dropdown control
 
 Dropdown shares the Listbox's Content settings: one text line per option,
@@ -432,8 +449,8 @@ The content picker receives a required kind from its caller. Symbol and Image
 controls only see their own kind, including a fixed upload accept list. The
 filter row has a search field and a category dropdown, never a type dropdown.
 Built-in symbols are available alongside project symbols; selecting one copies
-it into project assets. Login logos use the image picker. Text Editor's Insert
-Text Asset command inserts a copy into editable content (not a live file link).
+it into project assets. Login logos use the image picker. Text assets remain available in Asset Center for storage and preview; the Text
+Editor offers Insert Tag without text-asset insertion.
 Movies can be uploaded, previewed and served; no new movie control is introduced.
 
 Images/symbols/text are limited to 5 MiB per file; movies to 25 MiB. Authenticated
@@ -518,3 +535,44 @@ Enter submits the default confirmation after validation; Escape cancels.
 Native dropdown navigation takes precedence while its options are open.
 Use native modal focus handling, restore focus to the opener when it remains
 available, show errors inline, and prevent duplicate submissions while saving.
+
+Image and Symbol inspector content uses the shared contentField row: a 64px
+minimum picker height, 48px contained artwork preview, selected asset name,
+and a 30px-wide clear button with the shared centered close icon. Use the tag
+picker’s 4px gap and clear-button theme colors, and the standard subtle outer
+field surface; clearing retains the control. Icon picker rows share this style.
+
+Empty Icon/Image/Symbol picker clear buttons retain full theme opacity and
+colors; disabled behavior prevents clearing without visually dimming the X.
+
+Button Content ordering: Display first, then one Icon surface containing the
+preview/clear picker, Size and Position, then a separate subtle surface
+containing only an Edit button when text is enabled. Hide the Icon surface in
+Text only mode and hide the text Edit surface in Icon only mode. Retain
+Back/Fore color editing in Icon only mode, where the Text Editor is hidden.
+
+The Icon surface reuses colorPicker for Icon Color and Opacity (%), without
+another outer frame. iconColor overrides icon/symbol foreground only; absent
+values inherit the control forecolor. Image artwork retains its original colors
+and hides this tint setting. The text Edit surface has a Text label above Edit.
+
+Icon settings place Size and Icon Color side by side, followed by full-width
+Icon Position. Use colorPicker with opacity:false for Icon Color; other shared
+color pickers retain opacity controls. Icon/text spacing inside buttons is 4px.
+
+Content pickers use an action-popup-style draggable caption and shared close
+icon. Drag with mouse, touch or pen; clamp the window after dragging, viewport
+resizes and content-size changes. Retain native modal focus, Enter confirmation,
+Escape cancellation and focus restoration. Closing must release pointer capture
+and remove the resize listener. No positioning timer is needed.
+
+Tag/content pickers and runtime popup pages share floating-window-caption:
+49px header, 8px/12px padding, subtle theme surface, neutral bottom divider,
+14px/20px semibold title and the same 32px close button/16px close graphic.
+Tag picker closing cancels selection, restores focus and stops both polling
+and dragging listeners. Runtime page window height includes the 49px caption
+plus its 2px frame, preserving the configured page body dimensions.
+
+Text Editor uses the same movable caption and close graphic as the pickers.
+Insert Tag stays in a separate toolbar below the caption. Close/Escape cancel
+the draft, Save commits, and cleanup releases dragging listeners and focus.

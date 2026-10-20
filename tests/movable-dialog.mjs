@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {makeDialogMovable} from '../static/movable-dialog.js';
+const listeners=new Map();globalThis.window={innerWidth:1000,innerHeight:700,addEventListener:(key,fn)=>listeners.set(key,fn),removeEventListener:key=>listeners.delete(key)};
+let width=500,height=400,captured=false;
+const frame={style:{},getBoundingClientRect(){return {width,height,left:parseFloat(this.style.left)||0,top:parseFloat(this.style.top)||0};}};
+const caption={setPointerCapture(){captured=true;},hasPointerCapture(){return captured;},releasePointerCapture(){captured=false;}};
+const stop=makeDialogMovable(frame,caption);assert.equal(frame.style.left,'250px');assert.equal(frame.style.top,'150px');
+const event={button:0,pointerId:1,clientX:300,clientY:170,preventDefault(){},target:{closest(){return null;}}};
+caption.onpointerdown(event);caption.onpointermove({...event,clientX:900,clientY:650});assert.equal(frame.style.left,'500px');assert.equal(frame.style.top,'300px');
+caption.onpointercancel();assert(!captured);
+height=600;stop.reposition();assert.equal(frame.style.top,'100px');
+window.innerWidth=600;listeners.get('resize')();assert.equal(frame.style.left,'100px');
+caption.onpointerdown({...event,target:{closest(){return {};}}});assert(!captured);
+stop();stop();assert.equal(listeners.size,0);assert.equal(caption.onpointermove,null);
+console.log('Movable dialog clamps dragging/resizes, excludes close button, and cleans up listeners.');

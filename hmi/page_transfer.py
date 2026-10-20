@@ -138,7 +138,7 @@ def import_page(service, data):
                 raw = payload.get('images', {}).get(image)
                 if not isinstance(raw, dict):
                     raise ValueError('Missing embedded page image')
-                asset = (prepare_symbol if control.get('type')=='symbol' else prepare_image)(raw)
+                asset = (prepare_symbol if control.get('type')=='symbol' or (control.get('type')=='button' and control.get('buttonArtworkKind')=='symbol') else prepare_image)(raw)
                 assets[asset['id']] = asset
                 control['image'] = '/api/images/' + asset['id']
         for identity, asset in assets.items():

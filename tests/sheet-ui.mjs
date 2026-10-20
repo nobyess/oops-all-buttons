@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {mountSheetGrid,openSheetDialog,adjacentSheetCell} from '../static/sheet-ui.js';
 import {openTagSelector} from '../static/tag-selector.js';
 class Element {
- constructor(tag){this.tagName=tag;this.children=[];this.value='';this.classes=new Set();this.classList={toggle:(name,enabled)=>{if(enabled)this.classes.add(name);else this.classes.delete(name);},contains:name=>this.classes.has(name)};}
+ constructor(tag){this.tagName=tag;this.style={};this.children=[];this.value='';this.classes=new Set();this.classList={toggle:(name,enabled)=>{if(enabled)this.classes.add(name);else this.classes.delete(name);},contains:name=>this.classes.has(name)};}
+ getBoundingClientRect(){return {left:100,top:100,width:600,height:400};}
  append(child){child.parent=this;this.children.push(child);}
  querySelector(selector){return descendants(this).find(node=>selector.startsWith('.')?node.className===selector.slice(1):node.tagName===selector);}
  querySelectorAll(tag){return this.children.filter(child=>child.tagName===tag);}
@@ -12,6 +13,7 @@ class Element {
  remove(){this.parent.children=this.parent.children.filter(child=>child!==this);}
 }
 const descendants=root=>root.children.flatMap(child=>[child,...descendants(child)]);
+globalThis.window={innerWidth:1000,innerHeight:800,addEventListener(){},removeEventListener(){}};
 globalThis.document={body:new Element('body'),createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag)};
 const source={id:'sheet',name:'Sheet1',kind:'sheet',settings:{live:.5}};
 const interests=[],timers=[];let selected,requests=0;
@@ -168,7 +170,7 @@ const oldTimeout=globalThis.setTimeout,oldClearTimeout=globalThis.clearTimeout;
 const intervals=new Map(),timeouts=new Map(),unloads=new Set();let timerId=0;
 globalThis.setInterval=fn=>{const id=++timerId;intervals.set(id,fn);return id;};globalThis.clearInterval=id=>intervals.delete(id);
 globalThis.setTimeout=fn=>{const id=++timerId;timeouts.set(id,fn);return id;};globalThis.clearTimeout=id=>timeouts.delete(id);
-globalThis.window={addEventListener:(name,fn)=>{if(name==='beforeunload')unloads.add(fn);},removeEventListener:(name,fn)=>unloads.delete(fn)};
+globalThis.window={innerWidth:1000,innerHeight:800,addEventListener:(name,fn)=>{if(name==='beforeunload')unloads.add(fn);},removeEventListener:(name,fn)=>unloads.delete(fn)};
 try{
  for(let index=0;index<20;index++){
   const result=openTagSelector({getSources:()=>[{id:'m',kind:'memory',name:'Memory'}],getTags:()=>[],getValues:async()=>({})});

@@ -1,4 +1,6 @@
 import {openContentPicker} from './content-picker.js';
+import {contentField} from './content-field.js';
+import {buttonIcons,buttonIcon} from './button-icons.js';
 import {openInlineTagDialog} from './inline-tag-dialog.js';
 import {firstSelection,newRule} from './selection-defaults.js';
 import {rotateArtwork} from './artwork-rotation.js';
@@ -218,11 +220,6 @@ function sessionExpired(reason='expired') {
   button('OK',footer,()=>modal.close());
   modal.onclose=()=>{modal.remove();if(connectionNotice===modal)connectionNotice=null;};
   modal.showModal();
-}
-async function pickTextAsset(){
- const asset=await openContentPicker({api,kind:'text'});if(!asset)return null;
- const response=await fetch(asset.url);if(!response.ok)throw Error('Could not load text asset');
- const text=await response.text();if(text.length>10000)throw Error('Text editor content is limited to 10,000 characters.');return text;
 }
 async function api(path,data) {
   if(!csrf && !['status','setup','setup/restore','login'].includes(path))throw new Error('Please log in again.');
@@ -1555,26 +1552,34 @@ function showInspector(panel) {
   if(isGroup && tab==='Actions')tab='Properties';
   if (!c) return void node('p', 'Select a control.', panel);
   if (tab === 'Properties') {
-    let colorRow,layoutFields;
+    let colorRow,layoutFields,iconSettings,iconGroup;
     const props=isGroup?{visible:{label:'Visible',type:'checkbox'}}:controls[c.type]?.props || {};
     const entries=Object.entries(props).filter(([key])=>!['visible','roundedCorners'].includes(key));
+    if(c.type==='button'){
+      const order=['buttonDisplay','icon','iconSize','iconColor','iconPosition','text'];
+      entries.sort(([a],[b])=>(order.includes(a)?order.indexOf(a):order.length)-(order.includes(b)?order.indexOf(b):order.length));
+    }
     if(props.visible)entries.splice(Math.max(0,entries.findIndex(([key])=>key==='left')),0,['visible',props.visible],...(props.roundedCorners?[['roundedCorners',props.roundedCorners]]:[]));
     for (const [propertyIndex, [key, prop]] of entries.entries()) {
       if(prop.visibleWhen && !prop.visibleWhen(c))continue;
+      if(c.type==='button'&&key==='text'&&c.buttonDisplay==='icon')continue;
       if (key === 'tag') continue;
-      if(props.text && textFields.includes(key) && key!=='text' && !(controls[c.type]?.category==='shapes' && ['backColor','foreColor'].includes(key)))continue;
-      const sections = {trendSeries:'Content',valueTag:'Content',elements:'Elements',strokeWidth:'Shape',text: 'Content', [props.visible?'visible':'left']: 'Layout', fontFamily: 'Font', [props.backColor?'backColor':'foreColor']: 'Colors'};
+      if(props.text && textFields.includes(key) && key!=='text' && !((controls[c.type]?.category==='shapes'||c.type==='button'&&c.buttonDisplay==='icon') && ['backColor','foreColor'].includes(key)))continue;
+      const sections = {trendSeries:'Content',valueTag:'Content',elements:'Elements',strokeWidth:'Shape',...(c.type==='button'?{buttonDisplay:'Content'}:{text:'Content'}), [props.visible?'visible':'left']: 'Layout', fontFamily: 'Font', [props.backColor?'backColor':'foreColor']: 'Colors'};
       if (sections[key]) {
         if (key !== 'text' && propertyIndex>0) node('hr', null, panel, {className: 'sidebar-divider'});
         node('h3', sections[key], panel);
       }
       if(key==='text'){
-        const edit=button('Edit',panel,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag,onPickText:pickTextAsset,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
+        const host=c.type==='button'?node('div',null,panel,{className:'button-text-settings'}):panel;
+        if(c.type==='button')node('span','Text',host,{className:'content-field-label'});
+        const edit=button('Edit',host,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
         edit.setAttribute('aria-label','Edit text');continue;
       }
       if (key === 'backColor') colorRow = node('div', null, panel, {className: 'color-picker-row'});
       const propertyParent = ['left','top','width','height'].includes(key)
         ? (layoutFields ||= node('div',null,panel,{className:'designer-field-grid'}))
+        : ['iconSize','iconColor','iconPosition'].includes(key)&&iconSettings?iconSettings
         : (key === 'backColor' || key === 'foreColor') && colorRow ? colorRow : panel;
       if(prop.type==='accessRoles'){
         const roles=c[key] || [];
@@ -1635,13 +1640,20 @@ function showInspector(panel) {
       if(prop.type==='image' || prop.type==='symbol') {
         const symbol=prop.type==='symbol';
         node('h3',symbol?'Content':'Image',propertyParent);
-        node('p',c.imageName || 'No content selected',propertyParent,{className:'hint'});
-        button('Select Content…',propertyParent,()=>safe(async()=>{
+        contentField(propertyParent,{kind:symbol?'symbol':'image',value:c.image||'',name:c.imageName||'',onPick:()=>safe(async()=>{
           const asset=await openContentPicker({api,kind:symbol?'symbol':'image',value:c.image || ''});
           if(asset){c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);}
-        }));
-        if(c.image)button('Clear content',propertyParent,()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);});
+        }),onClear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});
         button('Rotate 90°',propertyParent,()=>{rotateArtwork(c);markChanged();refreshEditedControl(c,true);});
+        continue;
+      }
+      if(prop.type==='icon'){
+        const kind=c.buttonArtworkKind||'icon';
+        const group=contentField(propertyParent,{label:'Icon',kind,value:kind==='icon'?c.icon||'':c.image||'',name:kind==='icon'?buttonIcons.find(icon=>icon.id===c.icon)?.name||'':c.imageName||'',...(kind==='icon'?{renderPreview:host=>{host.style.color=c.iconColor?.slice(0,7)||'var(--ui-text)';const svg=buttonIcon(c.icon);if(svg)host.append(svg);}}:{}),onPick:()=>safe(async()=>{
+          const asset=await openContentPicker({api,kind,kinds:['icon','image','symbol'],value:kind==='icon'?c.icon||'':c.image||''});
+          if(asset){c.buttonArtworkKind=asset.kind;c.icon=asset.kind==='icon'?asset.id:'';c.image=asset.kind==='icon'?'':asset.url;c.imageName=asset.kind==='icon'?'':asset.name;markChanged();refreshEditedControl(c,true);}
+        }),onClear:()=>{c.icon='';c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});
+        group.classList.add('button-icon-group');iconGroup=group;iconSettings=node('div',null,group,{className:'button-icon-settings'});
         continue;
       }
       if(prop.type==='alignment') {
@@ -1654,7 +1666,7 @@ function showInspector(panel) {
         continue;
       }
       if(prop.type==='color') {
-        colorPicker(prop.label,propertyParent,c[key] || '#ffffff',value=>{c[key]=value;markChanged();refreshEditedControl(c);});
+        colorPicker(prop.label,propertyParent,c[key] || (key==='iconColor'?c.foreColor||'#243247':'#ffffff'),value=>{c[key]=value;if(key==='iconColor'&&iconGroup){const preview=iconGroup.querySelector('.content-field-preview');if(preview)preview.style.color=value;}markChanged();refreshEditedControl(c);},{opacity:key!=='iconColor'});
         continue;
       }
       const input = prop.type === 'tag'
@@ -1681,7 +1693,7 @@ function showInspector(panel) {
         if (['width', 'height', 'fontSize'].includes(key)) c[key] = Math.max(1, c[key]);
         markChanged();
         if(prop.type==='number')input.value=c[key];
-        refreshEditedControl(c);
+        refreshEditedControl(c,key==='buttonDisplay');
       };
       if (key === 'height') node('p', `Right: ${c.left + c.width} · Bottom: ${c.top + c.height}`, panel, {className: 'hint layout-edges'});
     }
@@ -1849,7 +1861,7 @@ function showInspector(panel) {
   } else if (item.action === 'set_content') {
     button('Edit Content', panel, async () => {
       const draft = {...c, ...item.contentStyle, text: item.content ?? c.text ?? ''};
-      const changed = await openTextEditor(draft, {onInsertTag:pickInlineTag,onPickText:pickTextAsset,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});
+      const changed = await openTextEditor(draft, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});
       if (changed) {
         const {text, ...style} = changed;
         item.contentStyle = style;

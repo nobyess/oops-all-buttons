@@ -1035,6 +1035,14 @@ body {background:var(--app-background,var(--ui-background))}
 .control[data-control-type="label"].content-blink > .control-content,
 .control[data-control-type="button"].content-blink .button-text {animation:content-blink 1s steps(1,end) infinite}
 .control .button-text {min-width:0;max-width:100%;pointer-events:none}
+.control button {gap:4px}
+.control .button-icon {display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none;order:-1}
+.control .button-icon svg {display:block;width:100%;height:100%}
+.control .button-icon img {display:block;width:100%;height:100%;object-fit:contain}
+.control button[data-icon-position="after"] .button-icon,.control button[data-icon-position="below"] .button-icon {order:1}
+.control button:is([data-icon-position="above"],[data-icon-position="below"]) {flex-direction:column;align-items:var(--text-horizontal,center);justify-content:var(--text-vertical,center)}
+.control .button-icon[hidden],.control .button-text[hidden] {display:none}
+.control[data-control-type="button"].content-blink .button-icon {animation:content-blink 1s steps(1,end) infinite}
 
 /* Event Blink includes the entire control; content Blink remains text-only. */
 .control.control-blink {animation:content-blink 1s steps(1,end) infinite}
@@ -1279,6 +1287,7 @@ body {background:var(--app-background,var(--ui-background))}
 .asset-columns {display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,1fr);gap:16px;min-height:580px}
 .asset-left,.asset-right {display:flex;flex-direction:column;min-width:0}
 .asset-filters {display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,.55fr);gap:8px;margin:0 0 12px}
+.asset-filters.asset-filters-with-type {grid-template-columns:minmax(0,1fr) minmax(90px,.45fr) minmax(110px,.6fr)}
 .asset-filters :is(input,select) {width:100%;min-height:36px;margin:0;background:var(--ui-panel);color:var(--ui-text);border-radius:6px}
 .asset-manager-list {flex:1;min-height:280px;max-height:560px;overflow:auto;border:1px solid var(--ui-border);padding:4px;border-radius:6px;background:var(--ui-panel)}
 .asset-manager-row {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:32px;border:0;margin:0;padding:6px 8px;border-radius:4px;text-align:left;background:transparent;color:var(--ui-text);font-size:14px;line-height:20px}
@@ -1298,6 +1307,25 @@ body {background:var(--app-background,var(--ui-background))}
 .content-picker.designer-dialog {width:min(720px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto}
 .content-picker-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
 .content-picker-heading h2 {margin:0}
+.content-picker.designer-dialog {position:fixed}
+.content-picker .content-picker-heading {margin:-24px -24px 16px;padding:8px 12px;background:var(--ui-subtle);border-bottom:1px solid var(--ui-divider);cursor:move;touch-action:none;user-select:none}
+.content-picker .content-picker-heading h2 {font-size:14px;line-height:20px;font-weight:600}
+.content-picker .content-picker-heading .asset-close {min-height:32px}
+.floating-window-caption {display:flex;align-items:center;justify-content:space-between;gap:8px;height:49px;flex-shrink:0;padding:8px 12px;background:var(--ui-subtle);border-bottom:1px solid var(--ui-divider);cursor:move;touch-action:none;user-select:none}
+.floating-window-caption>:is(h2,strong) {min-width:0;margin:0;font-size:14px;line-height:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.floating-window-caption>button {display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;min-height:32px;margin:0;padding:0;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel);color:var(--ui-text)}
+.floating-window-caption>button:hover {background:var(--ui-hover)}
+.floating-window-caption>button>svg {display:block;flex:none;width:16px;height:16px;pointer-events:none}
+.tag-selector.designer-dialog {position:fixed}
+.tag-selector .tag-selector-heading {margin:-24px -24px 16px}
+.tag-selector .tag-selector-heading h2 {margin:0;font-size:14px;line-height:20px}
+.text-editor.designer-dialog {position:fixed}
+.text-editor .text-editor-caption {margin:-24px -24px 16px}
+.text-editor .text-editor-caption h2 {margin:0;font-size:14px;line-height:20px}
+.text-editor .text-editor-header {justify-content:flex-end}
+.text-editor .text-editor-header[hidden] {display:none}
+.page-window {border-color:var(--ui-border)}
+.page-window .page-window-caption {height:49px;background:var(--ui-subtle);padding:8px 12px;gap:8px}
 .asset-close {display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;padding:0}
 .asset-close svg {display:block;width:16px;height:16px}
 .asset-picker-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:360px;overflow:auto;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel)}
@@ -1326,6 +1354,35 @@ body {background:var(--app-background,var(--ui-background))}
 .asset-field .category-combo input {display:block;width:100%;min-width:0;padding-right:42px;border-radius:6px}
 .asset-field .category-combo select {position:absolute;top:1px;right:1px;bottom:1px;width:36px;min-width:36px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:5px;background-color:transparent;color:var(--ui-text);font:inherit}
 .asset-field .category-combo select option {background:var(--ui-panel);color:var(--ui-text)}
+
+.editor>.sidebar .content-field {padding:8px;margin:12px 0;background:var(--ui-subtle);border:1px solid var(--ui-divider);border-radius:6px}
+.content-field-label {display:block;margin-bottom:6px;font-size:14px;line-height:20px}
+.content-field:focus-within {border-color:var(--ui-link)}
+.content-field-row {display:flex;align-items:stretch;gap:4px;min-width:0}
+.editor>.sidebar .content-field-pick {display:flex;align-items:center;gap:8px;flex:1;min-width:0;min-height:64px;margin:0;padding:8px;text-align:left}
+.content-field-preview {display:flex;align-items:center;justify-content:center;flex:0 0 48px;width:48px;height:48px;color:var(--ui-text);overflow:hidden}
+.content-field-preview :is(img,svg) {width:100%;height:100%;object-fit:contain}
+.content-field-name {min-width:0;overflow-wrap:anywhere}
+.editor>.sidebar .content-field-clear {display:flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;min-width:30px;margin:0;padding:0;background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-border)}
+.editor>.sidebar .content-field-clear:hover:not(:disabled) {background:var(--ui-hover)}
+.editor>.sidebar .content-field-clear:disabled {opacity:1}
+.editor>.sidebar .button-text-settings {margin:12px 0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
+.editor>.sidebar .button-text-settings>button {margin:0}
+.button-icon-settings {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.editor>.sidebar .button-icon-settings>label {margin:0;padding:0;border:0;background:transparent;border-radius:0}
+.button-icon-settings>label:only-child {grid-column:1/-1}
+.button-icon-settings>label:has(select) {grid-column:1/-1}
+.editor>.sidebar .button-icon-settings>.color-picker {width:auto;margin:0;padding:0;border:0;background:transparent;align-items:stretch}
+.editor>.sidebar .button-icon-settings>.color-picker label {width:100%;margin:0;padding:0;border:0;background:transparent;align-items:stretch}
+.editor>.sidebar .button-icon-settings>.color-picker input[type="color"] {width:100%;height:36px;padding:5px 7px}
+.editor>.sidebar .button-icon-group>.color-picker {margin-top:12px;padding:0;border:0;background:transparent;width:100%;align-items:stretch;gap:12px}
+.editor>.sidebar .button-icon-group>.color-picker label {width:100%;padding:0;border:0;background:transparent;margin:0;align-items:stretch}
+.editor>.sidebar .button-icon-group>.color-picker label:last-child {margin-bottom:0}
+.editor>.sidebar .button-icon-group>.color-picker input {width:100%}
+.editor>.sidebar .button-icon-group>.color-picker input[type="color"] {height:36px;padding:5px 7px}
+@container designer-inspector (max-width:220px){.button-icon-settings {grid-template-columns:minmax(0,1fr)}}
+@media(max-width:650px){.asset-filters.asset-filters-with-type {grid-template-columns:minmax(0,1fr)}}
+.content-field-clear svg {display:block;width:16px;height:16px}
 
 /* Asset management uses the shared management-page and popup rhythm. */
 .asset-center {font-size:14px;line-height:20px}

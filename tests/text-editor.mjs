@@ -3,6 +3,7 @@ import {openTextEditor} from '../static/text-editor.js';
 import {controls} from '../static/controls.js';
 class Element {
  constructor(tag){this.tagName=tag;this.children=[];this.style={};}
+ getBoundingClientRect(){return {left:100,top:100,width:660,height:600};}
  append(child){child.parent=this;this.children.push(child);}
  setAttribute(key,value){this[key]=value;}
  showModal(){}close(){}focus(){}reportValidity(){return true;}
@@ -10,6 +11,7 @@ class Element {
 }
 const all=root=>root.children.flatMap(child=>[child,...all(child)]);
 globalThis.document={body:new Element('body'),createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag)};
+globalThis.window={innerWidth:1000,innerHeight:800,addEventListener(){},removeEventListener(){}};
 const original={text:'Original',fontSize:16,bold:false,foreColor:'#243247'};
 const cancel=openTextEditor(original);let modal=document.body.children[0],nodes=all(modal);
 nodes.find(node=>node.tagName==='textarea').value='Changed';nodes.find(node=>node.textContent==='Cancel').onclick();
@@ -63,11 +65,8 @@ await nodes.find(el=>el.textContent==='Insert Tag').onclick();assert.equal(token
 nodes.find(el=>el.tagName==='form').onsubmit({preventDefault(){}});await editingToken;
 console.log('Insert Tag reopens and replaces the occurrence under the caret, retaining its saved tag reference.');
 
-const assetText=openTextEditor({text:'Start end'},{onPickText:async()=> 'asset notes'});
-modal=document.body.children[0];modal.isConnected=true;nodes=all(modal);
-const assetInput=nodes.find(node=>node.tagName==='textarea');assetInput.selectionStart=6;assetInput.selectionEnd=6;
-await nodes.find(node=>node.textContent==='Insert Text Asset…').onclick();
-assert.equal(assetInput.value,'Start asset notesend');
-nodes.find(node=>node.tagName==='form').onsubmit({preventDefault(){}});
-assert.equal((await assetText).text,'Start asset notesend');
-console.log('Text assets insert an editable copy at the current selection.');
+const framed=openTextEditor({text:'Start end'});modal=document.body.children[0];nodes=all(modal);
+assert(!nodes.some(node=>node.textContent==='Insert Text Asset…'));
+assert(nodes.some(node=>node.className==='text-editor-caption floating-window-caption'));
+nodes.find(node=>node['aria-label']==='Close').onclick();assert.equal(await framed,null);
+console.log('Text Editor uses the movable frame, closes without saving, and omits text asset insertion.');

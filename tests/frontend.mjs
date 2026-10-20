@@ -66,6 +66,7 @@ assert.deepEqual(pagePoint(60, 45, {left:10, top:20}, 0.5), {x:100, y:50});
 
 class Element {
   constructor(tag) {this.tagName = tag; this.children = []; this.dataset = {}; this.style = {}; this.value = '';}
+  getBoundingClientRect(){return {left:100,top:100,width:600,height:400};}
   append(...children) {for (const child of children) {child.parent = this; this.children.push(child);}}
   replaceChildren() {this.children = [];}
   setAttribute(key, value) {this[key] = value;}
@@ -78,7 +79,7 @@ class Element {
 }
 globalThis.document = {body: new Element('body'), createElement: tag => new Element(tag),
   createElementNS: (namespace, tag) => new Element(tag)};
-globalThis.window = {location: {hash: ''}};
+globalThis.window = {location: {hash: ''},innerWidth:1000,innerHeight:800,addEventListener(){},removeEventListener(){}};
 const alignParent=new Element('div');let alignment='center';
 alignmentPicker('Horizontal Alignment',alignParent,'horizontal',alignment,value=>alignment=value);
 const alignButtons=alignParent.children[0].children[1].children;

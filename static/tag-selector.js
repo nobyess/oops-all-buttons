@@ -3,6 +3,7 @@ import {displayValue} from './value-format.js';
 import {mountSheetGrid} from './sheet-ui.js';
 import {refreshPolicy} from './refresh-policy.js';
 import {closeIcon} from './close-icon.js';
+import {makeDialogMovable} from './movable-dialog.js';
 // Reusable tag picker. This module has no dependency on the page editor.
 // Cancel returns null and leaves the caller's selection unchanged.
 function element(tag, text, parent, attributes = {}) {
@@ -31,9 +32,13 @@ function pickerState(){try{return JSON.parse(localStorage.getItem(pickerStateKey
 function rememberPicker(state){try{localStorage.setItem(pickerStateKey,JSON.stringify(state));}catch{/* Storage may be disabled. */}}
 export function openTagSelector({value = '', getSources, getTags, getValues, onInterest, getSheet, onSheetInterest, ensureSheetTag}) {
   return new Promise(resolve => {
+    const previousFocus=document.activeElement;let stopMoving=()=>{};
     const remembered=pickerState(),sheetCells={...remembered.sheetCells};
     const modal = element('dialog', null, document.body, {className: 'tag-selector designer-dialog'});
-    element('h2', 'Select Tag', modal);
+    modal.setAttribute('aria-label','Select Tag');
+    const caption=element('div',null,modal,{className:'tag-selector-heading floating-window-caption'});
+    element('h2','Select Tag',caption);
+    const closeButton=element('button',null,caption,{type:'button',className:'asset-close'});closeButton.setAttribute('aria-label','Close');closeButton.append(closeIcon());
     const sheetSources=getSources().filter(source=>source.kind==='sheet');
     const filterLabel = element('label', null, modal);
     const filter = element('input', null, filterLabel, {type: 'search', placeholder: 'Filter tags: Name, address, or source...'});
@@ -99,6 +104,7 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
         : sample?.quality === 'good' ? `Current value: ${displayValue(sample.value)}`
         : 'Current value: unavailable';
       confirm.disabled = !tag;
+      stopMoving.reposition?.();
     }
     function renderTags() {
       sheetGrid?.close();sheetGrid=null;activeSheet=null;pendingCell=null;sheetPanel.replaceChildren();
@@ -133,10 +139,10 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
       const scroll=sheetPanel.querySelector('.sheet-scroll');
       rememberPicker({source:sources.value,filter:filter.value,selected,sheetsOpen:Boolean(sheetGroup?.open),sheetCells,
         sourceScroll:sourceList.scrollTop,tagScroll:tags.scrollTop,sheetScroll:scroll?{source:sources.value,left:scroll.scrollLeft,top:scroll.scrollTop}:remembered.sheetScroll});
-      finished = true;sheetGrid?.close();
+      finished = true;stopMoving();sheetGrid?.close();
       onInterest?.('');
       clearInterval(timer);
-      modal.close(); modal.remove(); resolve(result);
+      modal.close(); modal.remove();if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});resolve(result);
     }
     filter.oninput = renderTags;
     tags.onchange = () => {pendingCell=null;selected = tags.value; onInterest?.(selected); refreshFooter();};
@@ -148,10 +154,11 @@ export function openTagSelector({value = '', getSources, getTags, getValues, onI
     };
     modal.onclose=()=>finish(null);
     cancel.onclick = () => finish(null);
+    closeButton.onclick=()=>finish(null);
     modal.oncancel = event => {event.preventDefault(); finish(null);};
     const timer = setInterval(poll, refreshPolicy.tagSelector);
     onInterest?.(initialSource?.kind==='sheet'?'':selected);
-    renderTags(); modal.showModal(); filter.focus();
+    renderTags(); modal.showModal();stopMoving=makeDialogMovable(modal,caption);filter.focus();
     sourceList.scrollTop=Number(remembered.sourceScroll)||0;tags.scrollTop=Number(remembered.tagScroll)||0;
     const scroll=sheetPanel.querySelector('.sheet-scroll');
     if(scroll && remembered.sheetScroll?.source===sources.value){scroll.scrollLeft=Number(remembered.sheetScroll.left)||0;scroll.scrollTop=Number(remembered.sheetScroll.top)||0;}

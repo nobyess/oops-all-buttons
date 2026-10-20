@@ -2,6 +2,8 @@ import {parseInlineToken,inlineToken} from './inline-format.js';
 import {fonts} from './controls.js';
 import {alignmentPicker} from './alignment-picker.js';
 import {colorPicker} from './color-picker.js';
+import {closeIcon} from './close-icon.js';
+import {makeDialogMovable} from './movable-dialog.js';
 export const textFields=['text','fontFamily','fontSize','bold','italic','textHorizontalAlignment','textVerticalAlignment','backColor','foreColor','blink'];
 function el(tag,text,parent,attributes={}) {
   const node=document.createElement(tag);if(text!==null)node.textContent=text;Object.assign(node,attributes);parent?.append(node);return node;
@@ -12,20 +14,19 @@ export function seedContentEvent(event,control){
   event.contentStyle=Object.fromEntries(textFields.filter(key=>key!=='text' && control[key]!==undefined).map(key=>[key,structuredClone(control[key])]));
   if(control.textRefs)event.contentRefs=structuredClone(control.textRefs);
 }
-export function openTextEditor(control, {onInsertTag,onPickText,previewBackground='#ffffff'} = {}) {
+export function openTextEditor(control, {onInsertTag,previewBackground='#ffffff'} = {}) {
   return new Promise(resolve=>{
+    const previousFocus=document.activeElement;let done=false,stopMoving=()=>{};
     const draft={text:control.text || '',fontFamily:control.fontFamily || 'default',fontSize:control.fontSize ?? 16,
       bold:Boolean(control.bold),italic:Boolean(control.italic),blink:Boolean(control.blink),textHorizontalAlignment:control.textHorizontalAlignment || 'center',
       textVerticalAlignment:control.textVerticalAlignment || 'center',backColor:control.backColor || '#ffffff',foreColor:control.foreColor || '#243247'};
     const modal=el('dialog',null,document.body,{className:'text-editor designer-dialog'});modal.setAttribute('aria-label','Text Editor');
-    const form=el('form',null,modal),header=el('div',null,form,{className:'text-editor-header'});el('h2','Text Editor',header);
+    const caption=el('div',null,modal,{className:'text-editor-caption floating-window-caption'});el('h2','Text Editor',caption);
+    const close=el('button',null,caption,{type:'button',className:'asset-close'});close.setAttribute('aria-label','Close');close.append(closeIcon());
+    const form=el('form',null,modal),header=el('div',null,form,{className:'text-editor-header',hidden:!onInsertTag});
     const insert=onInsertTag?el('button','Insert Tag',header,{type:'button'}):null;
     const previewSurface=el('div',null,form,{className:'text-editor-preview'});previewSurface.style.backgroundColor=previewBackground;
     const text=el('textarea',null,previewSurface,{value:draft.text,rows:8,className:'text-editor-input'});text.setAttribute('aria-label','Text');
-    if(onPickText){
-      const pick=el('button','Insert Text Asset…',header,{type:'button'});
-      pick.onclick=async()=>{const start=text.selectionStart,end=text.selectionEnd;pick.disabled=true;try{const value=await onPickText();if(value!==null&&value!==undefined&&modal.isConnected){text.value=text.value.slice(0,start)+value+text.value.slice(end);text.focus();text.selectionStart=text.selectionEnd=start+value.length;}}catch(error){let message=modal.querySelector('.text-asset-error');if(!message)message=el('p','',form,{className:'bad text-asset-error'});message.textContent=error.message;}finally{pick.disabled=false;}};
-    }
     if(insert) {
       insert.onclick=async()=>{
         let start=text.selectionStart ?? text.value.length,end=text.selectionEnd ?? start;
@@ -66,9 +67,9 @@ export function openTextEditor(control, {onInsertTag,onPickText,previewBackgroun
     size.oninput=()=>{const value=Number(size.value);if(Number.isFinite(value)&&value>=1){draft.fontSize=value;preview();}};
     const footer=el('div',null,form,{className:'row dialog-footer'}),cancel=el('button','Cancel',footer,{type:'button'});
     el('button','Save',footer,{type:'submit'});
-    function finish(value){modal.close();modal.remove();resolve(value);}
-    cancel.onclick=()=>finish(null);modal.oncancel=event=>{event.preventDefault();finish(null);};
+    function finish(value){if(done)return;done=true;stopMoving();modal.close();modal.remove();if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});resolve(value);}
+    cancel.onclick=close.onclick=()=>finish(null);modal.oncancel=event=>{event.preventDefault();finish(null);};modal.onclose=()=>finish(null);
     form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;draft.text=text.value;draft.fontSize=Number(size.value);finish({...draft});};
-    preview();modal.showModal();text.focus();
+    preview();modal.showModal();stopMoving=makeDialogMovable(modal,caption);text.focus();
   });
 }

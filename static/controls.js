@@ -4,6 +4,7 @@ import {levelDefinition} from './level-indicator.js';
 import {trendDefinition} from './live-trend.js';
 import {listboxDefinition} from './listbox.js';
 import {dropdownDefinition} from './dropdown.js';
+import {updateButtonContent} from './button-content.js';
 import {shapeDefinitions} from './shapes.js';
 import {numericDisplayValue} from './value-format.js';
 // Copy a definition to add a control. The editor builds its property panel from props.
@@ -72,8 +73,8 @@ export const controls = {
     render(el,c,ctx) {el.textContent=numericDisplayValue(ctx.bindingValue,c.displayDigits ?? 2,c.unitText);}
   },
   button: {
-    label:'Button', props:common,
-    defaults:{text:'Press', width:140, height:48},
+    label:'Button', props:{text:common.text,buttonDisplay:{label:'Display',type:'select',default:'text',options:[['text','Text only'],['icon','Icon only'],['both','Icon and text']]},icon:{label:'Icon',type:'icon',visibleWhen:c=>c.buttonDisplay==='icon'||c.buttonDisplay==='both'},iconSize:{label:'Icon Size',type:'number',min:12,max:128,visibleWhen:c=>c.buttonDisplay==='icon'||c.buttonDisplay==='both'},iconPosition:{label:'Icon Position',type:'select',default:'before',options:[['before','Before text'],['after','After text'],['above','Above text'],['below','Below text']],visibleWhen:c=>c.buttonDisplay==='both'},iconColor:{label:'Icon Color',type:'color',visibleWhen:c=>(c.buttonDisplay==='icon'||c.buttonDisplay==='both')&&c.buttonArtworkKind!=='image'},...common},
+    defaults:{text:'Press', width:140, height:48,buttonDisplay:'text',icon:'',iconSize:24,iconPosition:'before'},
     render(el, c, ctx) {
       const button = document.createElement('button');
       const text = document.createElement('span');
@@ -82,12 +83,14 @@ export const controls = {
       button.append(text);
       button.disabled = ctx.editing;
       el.append(button);
+      updateButtonContent(button,c,ctx);
     },
     // Live updates must retain the button DOM node between mouse-down and mouse-up.
     update(el, c, ctx) {
       const button = el.querySelector('button');
       button.querySelector('.button-text').textContent = c.contentOverride ?? c.text;
       button.disabled = ctx.editing;
+      updateButtonContent(button,c,ctx);
     }
   },
   // Example custom control: no editor changes needed.

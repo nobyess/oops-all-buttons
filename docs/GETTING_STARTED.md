@@ -124,8 +124,9 @@ In an Image or Symbol control's Content section, choose **Select Content**.
 The picker only shows the appropriate type. Search by name or choose a category,
 then double-click an asset or choose **Use Asset**. **Choose File** imports a new
 asset for reuse. Built-in symbols remain available in the Symbol picker.
-The Site login logo uses the same image picker. In the Text Editor,
-**Insert Text Asset** inserts editable text copied from a saved text file.
+The Site login logo uses the same image picker.
+The Text Editor supports typed text and **Insert Tag**. Drag its title bar to
+move it; the close X cancels without saving.
 Movies are managed and previewed in Asset Center and can be served through their
 signed-in address; there is no dedicated movie control yet.
 

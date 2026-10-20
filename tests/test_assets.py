@@ -66,6 +66,24 @@ class AssetTests(unittest.TestCase):
         self.assertEqual(self.service.assets.image(legacy['id'])['data'], legacy['data'])
         self.assertEqual(asset_identity(catalog[0]['url']), legacy['id'])
 
+    def test_button_artwork_references_replacement_and_page_roundtrip(self):
+        for kind in ('image','symbol'):
+            with self.subTest(kind=kind):
+                asset=self.save(kind=kind)
+                page=self.service.pages()[0]
+                page['controls']=[{'id':'art-button','type':'button','text':'Start','buttonDisplay':'both','buttonArtworkKind':kind,'image':asset['url'],'imageName':asset['name']}]
+                self.service.save_page(page)
+                self.assertTrue(self.service.assets.references(asset['id']))
+                with self.assertRaises(ValueError):self.service.assets.remove(asset['id'])
+                self.service.assets.save({'id':asset['id'],'name':'Updated','category':'Equipment'})
+                saved=self.service.pages()[0]
+                self.assertEqual(saved['controls'][0]['imageName'],'Updated')
+                exported=export_page(self.service,{'id':saved['id']})
+                imported=import_page(self.service,{'page':exported,'name':'Imported '+kind})
+                control=next(p for p in self.service.pages() if p['id']==imported['id'])['controls'][0]
+                self.assertEqual(control['buttonArtworkKind'],kind)
+                if kind=='symbol':self.assertIsNotNone(self.service.store.get('image:'+asset_identity(control['image'])).get('symbol'))
+
     def test_replacement_preserves_identity_updates_references_and_prevents_delete(self):
         asset = self.save('symbol')
         self.service.store.set('pages', [{'id': 'main', 'name': 'Main', 'controls': [{'id': 'valve', 'name': 'Valve', 'type': 'symbol', 'image': asset['url']}]}])

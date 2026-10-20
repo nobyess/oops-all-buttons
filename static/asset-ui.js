@@ -2,6 +2,7 @@ import {imageFileData} from './clipboard-image.js';
 import {trimSymbolData} from './symbol-import.js';
 import {buildSymbol,styleSymbol} from './symbol.js';
 import {loadSymbolPreview} from './symbol-preview.js';
+import {buttonIcon} from './button-icons.js';
 export const assetKinds={image:'Images',movie:'Movies',symbol:'Symbols',text:'Text'};
 export const assetAccept={image:'.svg,.png,.jpg,.jpeg,.gif,.webp,.bmp',symbol:'.svg,.dxf',movie:'.mp4,.m4v,.webm',text:'.txt,.md,.csv,.json'};
 export function assetNode(tag,text,parent,attrs={}){const el=document.createElement(tag);if(text!==null)el.textContent=text;Object.assign(el,attrs);parent?.append(el);return el;}
@@ -19,7 +20,8 @@ export function assetPreview(host,item,{thumbnail=false}={}){
  host.replaceChildren();const abort=new AbortController();let video,alive=true;
  const valid=()=>alive&&host.isConnected;
  if(!item)return ()=>{};
- if(item.kind==='image')assetNode('img',null,host,{src:item.url,alt:item.name,loading:'lazy',draggable:false});
+ if(item.kind==='icon'){const icon=buttonIcon(item.id);if(icon)host.append(icon);}
+ else if(item.kind==='image')assetNode('img',null,host,{src:item.url,alt:item.name,loading:'lazy',draggable:false});
  else if(item.kind==='symbol'){
   const promise=item.builtin?loadSymbolPreview(item.url):(()=>{
    if(!symbolTrees.has(item.url))symbolTrees.set(item.url,fetch(item.url.replace('/images/','/symbols/')).then(async response=>{if(!response.ok)throw Error('Symbol unavailable');return response.json();}).catch(error=>{symbolTrees.delete(item.url);throw error;}));
