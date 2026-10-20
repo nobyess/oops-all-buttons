@@ -112,3 +112,32 @@ To stop the portable server, choose **Exit** from its tray menu. Closing the bro
 - For Modbus, check Unit ID, area, offset, data type, and byte/word order.
 - For source installations, install the driver’s requirements file and restart.
 - Open **Administration → Server Status → Error Log** for details.
+
+## Reuse images, symbols and other files
+
+Open **Administration → Asset Center**, choose **Add Asset**, select a type and
+file, and give it a name and category. You can preview files, replace artwork,
+and inspect **References** before removing an asset. Replacing a file preserves
+saved page references. Full project backups include these assets.
+
+In an Image or Symbol control's Content section, choose **Select Content**.
+The picker only shows the appropriate type. Search by name or choose a category,
+then double-click an asset or choose **Use Asset**. **Choose File** imports a new
+asset for reuse. Built-in symbols remain available in the Symbol picker.
+The Site login logo uses the same image picker. In the Text Editor,
+**Insert Text Asset** inserts editable text copied from a saved text file.
+Movies are managed and previewed in Asset Center and can be served through their
+signed-in address; there is no dedicated movie control yet.
+
+### Make an asset a built-in default
+
+When running from source, select an asset in **Administration → Asset Center**
+and choose **Make Built-in**. Enter its name/category and choose **Create new
+built-in**, or select an existing built-in of the same type to update it. Your
+project copy and its page references remain intact. Commit the resulting files
+under `static/assets/` (or `static/symbols/` for an updated older symbol) to ship
+them with future pulls and releases. This authoring command is unavailable in
+portable builds; their normal asset editing and content selection still work.
+
+Category fields accept new text. Use the arrow next to the field to choose an
+existing category; selecting one replaces the current text.

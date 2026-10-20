@@ -7,19 +7,23 @@ Portable distributions include a `third-party` directory containing:
 - `inventory.json`: the exact versions selected by PyInstaller, license metadata, project links, and paths to copied license texts.
 - `licenses`: upstream license, copyright, author, and notice files, including notices for vendored components when present in the installed package.
 - `runtime-licenses`: Python's full Windows license and additional native-runtime notices. Python's notice includes conditions specific to Microsoft runtime code; those conditions apply to that code, not to the MIT application source.
-- `upstream-references.json`: versioned upstream download references retained for review; the referenced archives are not included.
+- `upstream-references.json`: versioned upstream download references and SHA-256 hashes used for source verification.
 - `license-supplements`: retained license texts missing from some wheels, plus a clearly labeled BACpypes3 declaration supplement.
 - `build-versions.txt`: exact bundled dependency versions.
 
-**Source-distribution review is pending.** At the maintainer’s request, source archives and the source companion download have been removed while the distribution requirements are checked. Keeping notices alone does not establish that all source-availability or library-replacement obligations are met.
+- `sources`: corresponding source archives for BAC0, pystray, formulas, schedula and tqdm, under their respective licenses.
+- `application-source.zip`: matching original application source and build scripts.
+- `REBUILD.md`: instructions for modifying a library and rebuilding the application.
+
+Source materials accompany the portable executable in the same ZIP. Download caches and generated source snapshots are excluded from Git, while the manifest, notices and build scripts remain tracked.
 
 ## Components needing special handling
 
 | Components | Upstream terms | Distribution handling |
 | --- | --- | --- |
-| BAC0 and pystray | LGPL v3 | Include LGPL/GPL texts and the corresponding library source. Permit replacement/modification and debugging of those modifications as required by its license; the distribution method remains under review. |
+| BAC0 and pystray | LGPL v3 | Include LGPL/GPL texts and the corresponding library source. Permit replacement/modification and debugging of those modifications as required by its license; the source and rebuilding instructions accompany the executable. |
 | formulas and schedula | EUPL 1.1 or later | Retain their licenses and notices, and supply their corresponding source under their own licenses. The independent application source is separately MIT. |
-| tqdm | MPL 2.0 and MIT, applying to different portions | Retain both sets of notices and make MPL-covered source available as required; the distribution method remains under review. |
+| tqdm | MPL 2.0 and MIT, applying to different portions | Retain both sets of notices and make MPL-covered source available as required; the source and rebuilding instructions accompany the executable. |
 | Paho MQTT | EPL 2.0 or BSD 3-Clause | Use the offered BSD 3-Clause alternative; retain its copyright and license text. |
 | Other Python dependencies | Primarily MIT, BSD, Apache, PSF, and component-specific terms | See the inventory and full license files rather than relying on this summary. NumPy, SciPy, Pillow, and fonttools include additional third-party notices. |
 | Python and native runtime libraries | PSF and component/vendor-specific terms | Retain Python's Windows license, including Microsoft conditions, and native notices. These components are not relicensed as MIT. |
@@ -29,9 +33,9 @@ The packaged third-party libraries are used without project-specific source modi
 
 ## Source and replacement requirements
 
-The application’s source and build instructions are in the project repository. Third-party source is not bundled at present. Upstream references are recorded to support further review, but links and an MIT license on the application are not a substitute for meeting each dependency’s redistribution conditions.
+The matching application source, reviewed library source archives and [rebuilding instructions](third-party/REBUILD.md) accompany the portable executable. The collector checks installed Python source against the pinned archives and rejects unreviewed reciprocal dependencies or source mismatches.
 
-The MIT application license imposes no prohibition on modification or reverse engineering. Users may modify LGPL-covered libraries and reverse engineer the combined application to debug such modifications. The maintainer still needs to confirm an appropriate source/rebuild or replacement arrangement for binary distributions.
+Users may modify LGPL-covered libraries and reverse engineer the combined application to debug such modifications. Rebuild with modified libraries using the provided application source and PyInstaller specification; no signing restriction prevents running the result. Each library's source remains under its own license; the independent application files remain MIT.
 
 ## Maintainer review
 

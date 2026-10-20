@@ -95,10 +95,26 @@ class AccessTests(unittest.TestCase):
  def test_listbox_role_reference_and_administrator_bypass(self):
   role=self.access.save_role({'name':'Select Index'})
   page=self.service.pages()[0];page['controls']=[{'id':'list','type':'listbox','touchable':True,'elements':['One','Two'],'binding':{'tag':'t'},'requiredRoles':[role['id']]}];self.service.store.set('pages',[page])
-  data={'page':page['id'],'control':'list','value':2}
+  data={'page':page['id'],'control':'list','value':1}
   with self.assertRaises(PermissionError):self.access.listbox_action({'administrator':False,'roles':[]},data)
-  self.assertEqual(self.access.listbox_action({'administrator':True,'roles':[]},data)['value'],2)
+  self.assertEqual(self.access.listbox_action({'administrator':True,'roles':[]},data)['value'],1)
   with self.assertRaises(ValueError):self.access.remove_role(role['id'])
+ def test_dropdown_permissions_and_index_validation(self):
+  role=self.access.save_role({'name':'Select mode'})
+  page=self.service.pages()[0];page['controls']=[{'id':'mode','type':'dropdown','elements':['Off','Auto'],'binding':{'tag':'t'},'requiredRoles':[role['id']]}];self.service.store.set('pages',[page])
+  data={'page':page['id'],'control':'mode','value':1}
+  with self.assertRaises(PermissionError):self.access.listbox_action({'administrator':False,'roles':[]},data)
+  self.assertEqual(self.access.listbox_action({'administrator':False,'roles':[role['id']]},data)['value'],1)
+  self.assertEqual(self.access.listbox_action({'administrator':True,'roles':[]},data)['value'],1)
+  for value in [-1,2,1.5,'1']:
+   with self.assertRaises(PermissionError):self.access.listbox_action({'administrator':True,'roles':[]},{**data,'value':value})
+  with self.assertRaises(ValueError):self.access.remove_role(role['id'])
+  with self.assertRaisesRegex(ValueError,'text lines'):self.service.validate_controls([{**page['controls'][0],'binding':{},'elements':[1]}])
+  for kind in ('listbox','dropdown'):
+   page['controls'][0].update(type=kind);self.service.store.set('pages',[page])
+   self.assertEqual(self.access.listbox_action({'administrator':True,'roles':[]},{**data,'value':0})['value'],0)
+   for value in (-1,2,True):
+    with self.assertRaises(PermissionError):self.access.listbox_action({'administrator':True,'roles':[]},{**data,'value':value})
  def test_http_viewer_cannot_bypass_permissions(self):
   handler=make_handler(self.service)
   def request(path,data=None,cookie='',csrf=''):
@@ -139,11 +155,11 @@ class AccessTests(unittest.TestCase):
   user=next(u for u in self.access.users() if u['username']=='Viewer');self.access.save_user({'id':user['id'],'username':'Viewer','roles':[role['id']]})
   self.assertEqual(request('/api/action',data,cookie,csrf)[1]['value'],7)
   page['controls']=[{'id':'list','type':'listbox','touchable':True,'binding':{'tag':'t'},'elements':['One','Two'],'requiredRoles':[role['id']]}];self.service.store.set('pages',[page])
-  list_request={'page':page['id'],'control':'list','value':2,'requiredRoles':[]}
-  self.assertEqual(request('/api/actions/listbox',list_request,cookie,csrf)[1]['value'],2)
+  list_request={'page':page['id'],'control':'list','value':1,'requiredRoles':[]}
+  self.assertEqual(request('/api/actions/listbox',list_request,cookie,csrf)[1]['value'],1)
   self.access.save_user({'id':user['id'],'username':'Viewer','roles':[]})
   self.assertEqual(request('/api/actions/listbox',{**list_request,'value':1},cookie,csrf)[0],403)
-  self.assertEqual(request('/api/values',cookie=cookie)[1]['t']['value'],2)
+  self.assertEqual(request('/api/values',cookie=cookie)[1]['t']['value'],1)
   self.access.remove_user(user['id'],self.access.login('Admin','test-password-123'));self.assertEqual(request('/api/tags',cookie=cookie)[0],401)
   self.access.save_user({'username':'KioskAdmin','password':'kiosk-password-123','administrator':True,'kiosk':True,'starting_page':page['id']})
   cookie,csrf=login('KioskAdmin','kiosk-password-123')

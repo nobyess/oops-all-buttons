@@ -2,6 +2,22 @@
 
 A browser-based HMI for building operator screens, connecting device tags, and watching live equipment data. Built with Python and plain HTML, CSS, and JavaScript.
 
+Connect to equipment through these drivers:
+
+| Driver | Example devices or data |
+| --- | --- |
+| PyComm3 / EtherNet/IP | Allen-Bradley ControlLogix and CompactLogix PLCs; Ethernet-accessible SLC 500 and MicroLogix controllers through SLC mode; configured CIP objects through CIP mode. |
+| BACnet/IP | BACnet/IP air-handler controllers, thermostats, VAV controllers, and building-automation devices. |
+| Modbus TCP | Ethernet PLCs, remote I/O, energy meters, and variable-frequency drives with Modbus TCP enabled. |
+| Modbus RTU | Serial/RS-485 temperature controllers, meters, drives, and remote I/O through a suitable serial adapter. |
+| MQTT | MQTT-enabled sensors and ESP32/Arduino projects publishing supported values through a broker. |
+| System | Built-in memory tags, date/time, uptime, heartbeat, and connection status; no hardware required. |
+| SQLite Database | Persistent named tags stored in an app-managed SQLite file. |
+| Simulation | Built-in Air Handler with temperatures, blower, heating, cooling, and writable setpoints. |
+| Sheets | Calculated values derived from tags and spreadsheet formulas. |
+
+These are protocol/device examples, not a list of hardware verified with this project. Check your device's protocol support and the testing notes below. Protocol references: [PyComm3](https://github.com/ottowayi/pycomm3), [BACnet](https://bacnet.org/about/), [Modbus](https://www.modbus.org/introduction-to-modbus), [MQTT](https://mqtt.org/).
+
 **[Getting started guide](docs/GETTING_STARTED.md)** — from first launch to connecting a device, adding tags, and building a live page.
 
 ## Get started

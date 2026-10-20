@@ -3,6 +3,7 @@ import {symbolDefinition} from './symbol.js';
 import {levelDefinition} from './level-indicator.js';
 import {trendDefinition} from './live-trend.js';
 import {listboxDefinition} from './listbox.js';
+import {dropdownDefinition} from './dropdown.js';
 import {shapeDefinitions} from './shapes.js';
 import {numericDisplayValue} from './value-format.js';
 // Copy a definition to add a control. The editor builds its property panel from props.
@@ -34,6 +35,7 @@ const common = {
 export const controls = {
   ...shapeDefinitions(common),
   listbox:listboxDefinition(common),
+  dropdown:dropdownDefinition(common),
   level:levelDefinition(common),
   trend:trendDefinition(common),
   symbol:symbolDefinition(common),

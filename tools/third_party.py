@@ -1,7 +1,6 @@
 """Collect licenses for distributions actually selected by PyInstaller.
 
-Collect notices and inventory only. Source-distribution requirements remain
-pending maintainer review; no source archives are downloaded or bundled.
+Collect notices, verified corresponding library source, and application source.
 """
 import ast
 import importlib.metadata as metadata
@@ -10,6 +9,10 @@ import re
 import shutil
 import sys
 from pathlib import Path
+if __package__:
+    from .release_sources import REQUIRED, checked_source, verify_library_source, application_source
+else:
+    from release_sources import REQUIRED, checked_source, verify_library_source, application_source
 
 
 def canonical(name):
@@ -62,6 +65,15 @@ def include_licenses(bundle, root, analysis):
         classification = distribution.metadata.get('License-Expression') or '; '.join(
             c for c in distribution.metadata.get_all('Classifier', []) if 'License ::' in c) or license_name.splitlines()[0]
         reciprocal = identity != 'pyinstaller' and any(key in classification.lower() for key in ('gpl', 'eupl', 'mpl'))
+        source_info = None
+        if reciprocal:
+            if identity not in REQUIRED: raise ValueError('Review source/rebuild obligations for '+identity)
+            archive = checked_source(root, identity, distribution.version, source)
+            verified = verify_library_source(distribution, archive)
+            output = target/'sources'/archive.name
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(archive, output)
+            source_info = dict(source, path='sources/'+archive.name, verified_python_files=verified)
         destination = target/'licenses'/identity
         copied = []
         for relative in files:
@@ -79,14 +91,17 @@ def include_licenses(bundle, root, analysis):
             copied = [p.relative_to(target).as_posix() for p in supplement.iterdir() if p.is_file()]
         if not copied: raise ValueError('Review missing license texts: '+name)
         inventory.append({'name': name, 'version': distribution.version, 'license_metadata': license_name,
-                          'license_files': copied, 'upstream_reference': source, 'source_distribution_review_pending': reciprocal,
+                          'license_files': copied, 'upstream_reference': source, 'corresponding_source': source_info,
                           'project_urls': distribution.metadata.get_all('Project-URL', [])})
     python_license = Path(sys.base_prefix)/'LICENSE.txt'
     if not python_license.is_file(): raise ValueError('Python runtime license is missing')
     shutil.copy2(python_license, target/'runtime-licenses'/'Python-LICENSE.txt')
     build_tools = {name: metadata.version(name) for name in ('pyinstaller', 'pyinstaller-hooks-contrib')
                    if any(canonical(d.metadata['Name']) == name for d in metadata.distributions())}
-    (target/'inventory.json').write_text(json.dumps({'python': sys.version, 'packages': inventory, 'build_tools': build_tools, 'source_distribution_status': 'Pending maintainer review; source archives are not included'}, indent=2)+'\n', encoding='utf-8')
-    constraints = '\n'.join(f"{p['name']}=={p['version']}" for p in inventory)
+    app_hash = application_source(root, target/'application-source.zip')
+    (target/'inventory.json').write_text(json.dumps({'python': sys.version, 'packages': inventory, 'build_tools': build_tools, 'source_distribution_status': 'Corresponding source included for reviewed reciprocal libraries', 'application_source_sha256': app_hash}, indent=2)+'\n', encoding='utf-8')
+    versions = {p['name']:p['version'] for p in inventory}
+    versions.update(build_tools)
+    constraints = '\n'.join(f'{name}=={version}' for name,version in sorted(versions.items()))
     (target/'build-versions.txt').write_text(constraints+'\n', encoding='utf-8')
     return inventory

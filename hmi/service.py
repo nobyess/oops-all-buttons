@@ -2,6 +2,7 @@ from .simulation import SimulationDriver, simulation_settings, simulation_tags, 
 from .alarms import Alarms
 from .local_drivers import SYSTEM_SOURCE, system_tags, connection_tags, DatabaseDriver, database_settings
 """Application operations shared by HTTP handlers and future automation workers."""
+from .assets import AssetCenter, asset_identity
 from .error_log import ErrorLog
 from .mqtt import mqtt_settings, topic_name
 from .modbus import modbus_settings, canonical_address
@@ -27,6 +28,7 @@ class Service:
     def __init__(self, store):
         self.store = store
         self.lock = threading.RLock()
+        self.assets = AssetCenter(self)
         self.drivers = {}
         self.source_errors = {}
         self.connection_tags = []
@@ -486,10 +488,13 @@ class Service:
             if writable and tags[name].get('builtin') and not simulation_writable(tags[name]):raise ValueError('Built-in tags are read only')
             if writable and tags[name].get('data_type', '') in ('STRING', 'STRINGN') and not any(s['id']==tags[name]['source'] and s['kind']=='bacnet' for s in self.sources()):
                 raise ValueError('Numeric actions cannot write string tags')
+        asset_map={item['id']:item for item in self.assets.records()} if strict_bindings else {}
         for control in controls:
             if not isinstance(control, dict) or not control.get('id') or control['id'] in ids:
                 raise ValueError('Control IDs must be present and unique')
             ids.add(control['id'])
+            asset=asset_map.get(asset_identity(control.get('image','')))
+            if asset and control.get('type') in ('symbol','image') and asset['kind']!=control['type']:raise ValueError('Content type does not match the control')
             if strict_bindings and control.get('binding', {}).get('tag'):
                 reference(control['binding']['tag'])
             for key in ('left', 'top', 'width', 'height', 'fontSize', 'strokeWidth', 'edgeDiameter', 'displayDigits'):
@@ -527,9 +532,9 @@ class Service:
                     raise ValueError('Level Indicator maximum must be greater than its minimum')
                 if control.get('fillDirection', 'bottom_up') not in ('bottom_up', 'top_down', 'left_right', 'right_left'):
                     raise ValueError('Invalid Level Indicator fill direction')
-            if control.get('type') == 'listbox' and (not isinstance(control.get('requiredRoles',[]),list) or any(not isinstance(role,str) for role in control.get('requiredRoles',[]))):
+            if control.get('type') in ('listbox','dropdown') and (not isinstance(control.get('requiredRoles',[]),list) or any(not isinstance(role,str) for role in control.get('requiredRoles',[]))):
                 raise ValueError('Listbox access roles must be a list of role IDs')
-            if control.get('type') == 'listbox' and (not isinstance(control.get('elements', []), list) or any(not isinstance(line, str) for line in control.get('elements', []))):
+            if control.get('type') in ('listbox','dropdown') and (not isinstance(control.get('elements', []), list) or any(not isinstance(line, str) for line in control.get('elements', []))):
                 raise ValueError('Listbox elements must be text lines')
             if control.get('type') == 'polyline' and 'points' in control:
                 points = control['points']

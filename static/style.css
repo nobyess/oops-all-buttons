@@ -401,6 +401,13 @@ dialog::backdrop { background: #0f172a66; }
 
 .control .listbox-control { width:100%; height:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:0; padding:0; font:inherit; color:inherit; background:transparent; text-align:var(--text-align,center); touch-action:pan-y; }
 .control .listbox-control { overflow:auto; }
+.control .dropdown-control {width:100%;height:100%;min-width:0;min-height:0;margin:0;padding:4px 8px;border:1px solid var(--ui-border);border-radius:6px;font:inherit;color:inherit;background:transparent;text-align:var(--text-align,center)}
+.control .dropdown-control {color:transparent;appearance:none}
+.control .dropdown-control option {font:inherit;background:var(--control-back-color,var(--ui-panel));color:var(--dropdown-foreground,var(--ui-text))}
+.control .dropdown-live-value {font:inherit}
+.control .dropdown-live-value {position:absolute;inset:1px;display:flex;align-items:center;justify-content:var(--text-horizontal,center);padding:4px 28px 4px 8px;pointer-events:none;color:var(--dropdown-foreground,var(--ui-text));overflow:hidden;white-space:nowrap}
+.control .dropdown-live-value::after {content:'';position:absolute;right:10px;top:calc(50% - 4px);width:6px;height:6px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg)}
+.control .dropdown-control:disabled {opacity:1}
 .control .listbox-element { padding:5px 8px; white-space:pre-wrap; overflow-wrap:anywhere; cursor:default; }
 .control .listbox-element[aria-selected="true"] { background:color-mix(in srgb, var(--control-back-color, #ffffff) 75%, #0284c7 25%); }
 .control .listbox-element:focus-visible { outline:1px dotted currentColor; outline-offset:-2px; }
@@ -1242,7 +1249,8 @@ body {background:var(--app-background,var(--ui-background))}
 .symbol-library-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .editor > .sidebar .symbol-library-tile {display:flex;flex-direction:column;align-items:center;gap:6px;margin:0;padding:8px;min-width:0;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-subtle);color:var(--ui-text)}
 .editor > .sidebar .symbol-library-tile:hover {border-color:var(--ui-link);background:var(--ui-hover)}
-.symbol-library-tile img {width:100%;height:64px;object-fit:contain;background:white;border-radius:4px;padding:4px;box-sizing:border-box}
+.symbol-library-artwork {width:100%;height:64px;display:flex;align-items:center;justify-content:center;background:var(--ui-panel);color:var(--ui-muted);border-radius:4px;padding:4px;box-sizing:border-box;overflow:hidden}
+.symbol-library-artwork svg {position:static;width:100%;height:100%;display:block}
 .symbol-library-tile span {font-size:12px;line-height:18px;overflow-wrap:anywhere}
 
 .simulation-settings {max-width: 960px;}
@@ -1268,3 +1276,71 @@ body {background:var(--app-background,var(--ui-background))}
 .tag-picker-field > .tag-picker-box {display:block;flex:1 1 0;min-width:0;width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
 .tag-picker-field > .tag-picker-clear {display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;min-width:30px;min-height:36px;padding:0;line-height:1;}
 .tag-picker-clear > svg {display:block;flex:none;pointer-events:none;}
+.asset-columns {display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,1fr);gap:16px;min-height:580px}
+.asset-left,.asset-right {display:flex;flex-direction:column;min-width:0}
+.asset-filters {display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,.55fr);gap:8px;margin:0 0 12px}
+.asset-filters :is(input,select) {width:100%;min-height:36px;margin:0;background:var(--ui-panel);color:var(--ui-text);border-radius:6px}
+.asset-manager-list {flex:1;min-height:280px;max-height:560px;overflow:auto;border:1px solid var(--ui-border);padding:4px;border-radius:6px;background:var(--ui-panel)}
+.asset-manager-row {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:32px;border:0;margin:0;padding:6px 8px;border-radius:4px;text-align:left;background:transparent;color:var(--ui-text);font-size:14px;line-height:20px}
+.asset-manager-row>span {min-width:0;overflow-wrap:anywhere}
+.asset-manager-row small {display:block;color:var(--ui-muted);font-size:12px;line-height:18px}
+.asset-manager-row[aria-selected="true"],.asset-tile[aria-selected="true"] {background:var(--designer-list-selection);color:var(--designer-list-selected-text)}
+.asset-manager-row[aria-selected="true"] small,.asset-tile[aria-selected="true"] small {color:inherit}
+.asset-commands {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.asset-detail-commands {justify-content:flex-end;margin-top:auto;padding-top:16px}
+.asset-field {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);margin:0 0 12px;gap:6px;min-width:0}
+.asset-field input {width:100%;min-width:0;background:var(--ui-panel);color:var(--ui-text);min-height:36px}
+.asset-detail-preview {display:flex;align-items:center;justify-content:center;height:168px;margin-bottom:16px;padding:12px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel);overflow:hidden}
+.asset-detail-preview :is(img,video,svg) {max-width:100%;max-height:100%;object-fit:contain}
+.asset-detail-preview pre {margin:0;max-height:100%;width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/18px ui-monospace,monospace;color:var(--ui-text)}
+.asset-right>div>a {display:block;padding:8px 0;overflow-wrap:anywhere}
+.asset-status {text-align:center;min-height:20px;margin:12px 0 0;color:var(--ui-muted);overflow-wrap:anywhere}
+.content-picker.designer-dialog {width:min(720px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto}
+.content-picker-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.content-picker-heading h2 {margin:0}
+.asset-close {display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;padding:0}
+.asset-close svg {display:block;width:16px;height:16px}
+.asset-picker-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:360px;overflow:auto;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-panel)}
+.asset-tile {display:flex;align-items:center;flex-direction:column;gap:6px;min-width:0;margin:0;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-subtle);color:var(--ui-text);overflow-wrap:anywhere}
+.asset-tile small {font-size:12px;line-height:18px;color:var(--ui-muted)}
+.asset-artwork {display:flex;align-items:center;justify-content:center;width:100%;height:72px;padding:6px;background:var(--ui-panel);border-radius:4px;color:var(--ui-text);overflow:hidden}
+.asset-artwork :is(svg,img) {width:100%;height:100%;object-fit:contain}
+.asset-file-icon {font-size:20px;color:var(--ui-muted)}
+.asset-picker-selection {display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--ui-divider);margin-top:12px;padding-top:12px;overflow-wrap:anywhere}
+.asset-picker-selection .hint {text-align:center;margin:0}
+.asset-upload-dialog {width:min(480px,calc(100vw - 32px))}
+.content-picker .tabs {display:flex;border-bottom:1px solid var(--ui-border);margin:0 0 16px}
+.content-picker .tabs button {flex:1;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);padding:8px 12px;min-height:40px}
+.content-picker .tabs button.active {color:var(--ui-link);border-bottom-color:var(--ui-link)}
+.text-editor-header {flex-wrap:wrap}
+@media(max-width:650px){.asset-columns {grid-template-columns:minmax(0,1fr)}.asset-manager-list {max-height:280px}.asset-filters {grid-template-columns:minmax(0,1fr)}.asset-picker-grid {grid-template-columns:repeat(3,minmax(0,1fr))}.asset-tile {padding:6px}}
+
+/* Asset surfaces follow the same flat tabs and compact dialog footer rules. */
+.asset-right .tabs,.content-picker.designer-dialog .tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px}
+.asset-right .tabs button,.content-picker.designer-dialog .tabs button {flex:1;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);margin:0;padding:8px 12px;min-height:40px}
+.asset-center .asset-right .tabs button.active,.content-picker.designer-dialog .tabs button.active {background:transparent;color:var(--ui-link);border-bottom-color:var(--ui-link)}
+.asset-status:empty {display:none}
+.content-picker.designer-dialog .dialog-footer {margin-top:16px}
+
+.category-combo {position:relative;min-width:0}
+.asset-field .category-combo input {display:block;width:100%;min-width:0;padding-right:42px;border-radius:6px}
+.asset-field .category-combo select {position:absolute;top:1px;right:1px;bottom:1px;width:36px;min-width:36px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:5px;background-color:transparent;color:var(--ui-text);font:inherit}
+.asset-field .category-combo select option {background:var(--ui-panel);color:var(--ui-text)}
+
+/* Asset management uses the shared management-page and popup rhythm. */
+.asset-center {font-size:14px;line-height:20px}
+.asset-left>h3 {font-size:14px;line-height:20px;margin:0 0 8px}
+.asset-center button {min-height:36px;border-radius:6px;margin-bottom:0}
+.asset-center .asset-manager-row {min-height:32px;border-radius:4px}
+.asset-field {display:flex;flex-direction:column;line-height:20px}
+.asset-field:focus-within,.asset-manager-list:focus-within,.asset-picker-grid:focus-within {border-color:var(--ui-link)}
+.asset-center .hint {font-size:12px;line-height:18px;text-align:center;color:var(--ui-muted);margin:8px 0}
+.asset-file-commands {display:flex;flex-wrap:wrap;gap:8px}
+.asset-center .asset-detail-commands {margin-top:auto}
+.asset-upload-dialog [role="status"]:empty {display:none}
+.asset-upload-dialog form>.asset-field {margin:12px 0}
+.asset-picker-selection {gap:12px}
+.asset-picker-selection>strong {text-align:center}
+@media(forced-colors:active){
+ .asset-manager-row[aria-selected="true"],.asset-tile[aria-selected="true"] {background:Highlight;color:HighlightText;forced-color-adjust:none}
+}

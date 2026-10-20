@@ -1,5 +1,23 @@
 # Extending the framework
 
+## Dropdown control
+
+Dropdown shares the Listbox's Content settings: one text line per option,
+Index tag, Touchable, and Access Roles. Dropdown and Listbox always use
+zero-based indexing: the first option is 0, the second is 1, and so on.
+There is no index-base setting or compatibility mode. This also applies to
+existing test pages; tag values are not rewritten. Two options map Boolean
+false/true to the first/second option. A user selection writes the
+index through the same server-authorized selection endpoint, then executes
+User Changed actions. Displayed selection follows tag readback; bad quality or
+an out-of-range index leaves it blank. Its native select preserves keyboard and
+touch behavior, uses control typography/colors, and stays disabled in Designer.
+Runtime updates retain the select node and only rebuild options when lines change.
+The field paints live readback in a pointer-transparent text layer independently
+of the native popup highlight. Do not reapply native selection during option
+browsing; synchronize it on selection, Escape, or blur. The Elements editor includes a centered hint that
+the first element is 0, the second is 1, and so on.
+
 ## Add a control
 
 In `static/controls.js`, add an entry to the exported `controls` object. It automatically appears in the toolbox. Its `props` automatically populate the property inspector. Defaults are saved on creation.
@@ -386,3 +404,117 @@ New dropdowns select the first available option, including a first placeholder w
 Plain `@{Source\Tag}` tokens keep their existing behavior. Optional per-occurrence formatting uses `@{Source\Tag|dp=2;min=3;zeros=1}`: `dp` is `raw` or 0–15, `min` is 1–15 integer digits, and `zeros` controls fixed trailing zeros. Only numeric values are formatted; cached/native values are unchanged. The popup produces this syntax and can reopen an occurrence under the Text Editor caret. It uses a one-time value preview request when a tag is selected, with no added periodic timer.
 
 Keep the strict parser in `static/inline-format.js` and `hmi/inline_text.py` synchronized. Reference maps remain keyed by the full token body and point to stable tag IDs. Polling, usage references, Set Content events, and page-parameter instantiation/rename must understand formatted tokens as the same underlying tag. Invalid formatting suffixes remain literal tag paths rather than being evaluated.
+
+### DXF symbol paint and stacking
+
+Solid hatches, SOLID and TRACE geometry use the symbol foreground color.
+Patterned hatches are imported as solid background-color regions; their pattern
+lines are not rendered. Gradient hatches remain unsupported. Closed outlines
+remain unfilled. Layer names sort case-sensitively from back to front, matching
+LibreCAD name sorting; use padded prefixes such as `00-Body`, `10-Details`,
+`20-Outline`. Fills precede outlines within each layer, preserving file order
+within each role. Layer-zero geometry in blocks inherits its insertion layer.
+The former FORECOLOR layer convention no longer controls new DXF imports.
+Previously imported SVG/library assets retain their saved colors and ordering;
+replace their artwork from DXF to apply the new convention. Library thumbnails
+use theme foreground/panel colors without modifying stored artwork or controls.
+
+### Asset Center and content picker
+
+Administration → Asset Center manages project images, SVG/DXF symbols, MP4/WebM
+movies and UTF-8 TXT/MD/CSV/JSON files. Asset records are metadata-only in SQLite;
+immutable hash-named files live in `data/assets/`, with saved symbol geometry
+stored separately. Replacement retains the logical asset ID and updates saved
+control URLs with a new revision. Catalog/reference indexing reads pages once.
+The data folder and generated blobs are already excluded from Git.
+
+The content picker receives a required kind from its caller. Symbol and Image
+controls only see their own kind, including a fixed upload accept list. The
+filter row has a search field and a category dropdown, never a type dropdown.
+Built-in symbols are available alongside project symbols; selecting one copies
+it into project assets. Login logos use the image picker. Text Editor's Insert
+Text Asset command inserts a copy into editable content (not a live file link).
+Movies can be uploaded, previewed and served; no new movie control is introduced.
+
+Images/symbols/text are limited to 5 MiB per file; movies to 25 MiB. Authenticated
+file requests support byte ranges for movies, and text is always served as
+inert plain text. Writes/listing require an administrator outside Kiosk Mode.
+Saved references protect assets from removal; unsaved external clients do not
+create references. Full backup/restore includes asset files and checks blobs;
+page exports embed referenced image/symbol bytes. Existing backup size limits
+still apply. Tests use temporary data, not the operator's project.
+
+### Built-in asset authoring
+
+Source installations expose **Make Built-in** in Asset Center. It copies a
+project asset into the version-controlled `static/assets/files/` catalog,
+retaining the project copy and references. The popup supports creating or
+updating a built-in of the same kind; unchanged identical files are reused.
+Existing `static/symbols/` entries can be updated as well. Both catalogs are
+available in the typed picker, and selecting a built-in imports a project copy.
+Commit the changed catalog and asset files to distribute defaults. Source
+snapshots and portable builds already include the complete static directory.
+
+`hmi.builtin_assets.authoring_enabled()` returns false for PyInstaller's
+`sys.frozen` builds. The administrator capability response hides the command,
+and the promotion endpoint independently rejects writes in portable mode.
+No user preference can enable authoring in a frozen build.
+Category fields in asset editing, uploads, the content picker and promotion
+retain free text with an adjacent native dropdown of all existing categories.
+Choosing one replaces the input value and emits its normal input event.
+The category chooser arrow sits inside the full-width text input's right edge,
+with reserved text padding and no separate surrounding button border.
+
+### Asset Center styling
+
+Asset Center follows the management-page spacing: 16px between columns,
+6px/8px list-row padding, 32px minimum rows, 4px viewport padding, and an 8px
+gap between the list and its commands. Preserve the shared high-contrast
+selection pair, including metadata and forced-color system selections.
+Fields use 8px padding, 6px corners, 12px separation, and a link-colored
+focus-within border. File commands share a wrapping row with 8px gaps;
+Save/Revert remain bottom-aligned with the left commands. Secondary hints
+are centered at 12px/18px. Filters remain unboxed. Add Asset, Make Built-in,
+and the typed content picker use the shared popup padding and footer rules.
+
+### Editable dropdown text fields
+
+Use the shared `categoryInput` pattern when a field accepts new text and also
+offers existing values. Present one full-width text input with a dropdown arrow
+inside its right edge, rather than two visibly separate controls. Keep the
+standard subtle field surface: 8px padding, 1px neutral border, 6px corners,
+6px label gap, and 12px between fields. The input uses the panel background,
+theme text color, and a minimum 36px height. Reserve 42px of right text padding
+for the 36px-wide native dropdown, inset 1px within the input border.
+
+The dropdown has no separate visible border or fill. Retain native keyboard
+access and focus indicators for both input and dropdown; focus within the
+outer field uses the link-colored border. Options use theme-aware panel/text
+colors. Give the input and chooser distinct accessible names.
+
+Keep every existing choice available regardless of the current text. Trim,
+deduplicate and sort the choices; selecting one replaces the entire input,
+resets the chooser, emits the normal input event for dirty tracking, and returns
+focus to the editable text. Typing a new value remains supported. Refreshing
+the available choices must not overwrite the user's draft. Reuse this pattern
+in Asset Center, Add Asset, Make Built-in and Choose File category fields.
+
+### Compact asset popups
+
+Add Asset and Make Built-in use the shared `designer-dialog` styling with a
+maximum width of 480px, constrained to the viewport with 16px side clearance.
+Use 24px padding on every edge, 8px dialog corners, a 20px/28px semibold title,
+and 16px separation below the title. Body text is 14px/20px. Fields follow the
+standard surfaces above; explanatory hints are centered at 12px/18px.
+
+Keep Cancel and the confirmation action together at the bottom right, with
+8px between buttons and 16px above the footer. Buttons are at least 36px tall;
+empty status messages and trailing margins must not create extra bottom space.
+The larger content picker may use its existing 720px width for the image grid,
+while retaining the same padding, field, hint and footer rules. Its header
+close button uses the shared centered close icon.
+
+Enter submits the default confirmation after validation; Escape cancels.
+Native dropdown navigation takes precedence while its options are open.
+Use native modal focus handling, restore focus to the opener when it remains
+available, show errors inline, and prevent duplicate submissions while saving.

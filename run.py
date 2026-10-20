@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import re
 import sys
 import threading
 import time
@@ -14,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as BaseThrea
 from pathlib import Path
 from urllib.parse import urlsplit
 from hmi.system_stats import system_memory
+from hmi.builtin_assets import authoring_enabled
 from hmi.access import Access
 from hmi.session_settings import session_settings, session_valid
 from hmi.network import local_interfaces
@@ -106,10 +108,41 @@ def make_handler(service, request_log=None):
 
         def do_GET(self):
             path = urlsplit(self.path).path
+            if path.startswith('/api/assets/') and path.endswith('/content'):
+                if not self.session():return self.reply(401, {'error':'Please sign in'})
+                identity=path.split('/')[3]
+                item=service.assets.get(identity)
+                if not item:return self.reply(404, {'error':'Asset not found'})
+                file=service.assets.blob_path(item)
+                if not file.is_file():return self.reply(404, {'error':'Asset file missing'})
+                size=file.stat().st_size;start,end=0,size-1
+                requested=self.headers.get('Range')
+                if requested:
+                    match=re.fullmatch(r'bytes=(\d*)-(\d*)',requested)
+                    if not match or len(requested)>100 or not any(match.groups()):
+                        self.send_response(416);self.send_header('Content-Range',f'bytes */{size}');self.send_header('Content-Length','0');self.end_headers();return
+                    if match[1]:start=int(match[1]);end=min(end,int(match[2])) if match[2] else end
+                    else:start=max(0,size-int(match[2]))
+                    if start>end or start>=size:
+                        self.send_response(416);self.send_header('Content-Range',f'bytes */{size}');self.send_header('Content-Length','0');self.end_headers();return
+                self.send_response(206 if requested else 200)
+                self.send_header('Content-Type',item['mime']);self.send_header('Content-Length',str(end-start+1));self.send_header('Accept-Ranges','bytes')
+                self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('Content-Security-Policy',"sandbox; default-src 'none'")
+                if requested:self.send_header('Content-Range',f'bytes {start}-{end}/{size}')
+                self.end_headers()
+                try:
+                    with file.open('rb') as stream:
+                        stream.seek(start);left=end-start+1
+                        while left:
+                            chunk=stream.read(min(left,65536))
+                            if not chunk:break
+                            self.wfile.write(chunk);left-=len(chunk)
+                except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):pass
+                return
             if path.startswith('/api/symbols/'):
                 if not self.session():
                     return self.reply(401, {'error': 'Please sign in'})
-                asset = service.store.get('image:' + path.rsplit('/', 1)[-1])
+                asset = service.assets.image(path.rsplit('/', 1)[-1])
                 if not asset:
                     return self.reply(404, {'error': 'Symbol not found'})
                 from hmi.symbols import prepare_symbol
@@ -122,7 +155,7 @@ def make_handler(service, request_log=None):
                 if path != '/api/site/logo' and not self.session():
                     return self.reply(401, {'error': 'Please sign in'})
                 import base64
-                asset = service.store.get('site_logo') if path == '/api/site/logo' else service.store.get('image:' + path.rsplit('/', 1)[-1])
+                asset = (service.assets.image(service.store.get('site_logo_asset')) if service.store.get('site_logo_asset') else service.store.get('site_logo')) if path == '/api/site/logo' else service.assets.image(path.rsplit('/', 1)[-1])
                 if not asset and path == '/api/site/logo':
                     default_logo = ROOT / 'static' / 'images' / 'default-logo.png'
                     if default_logo.is_file():
@@ -141,7 +174,7 @@ def make_handler(service, request_log=None):
             if path == '/api/status':
                 record = self.session()
                 return self.reply(200, {'setup': not access.users(),
-                                       'site_logo':bool(service.store.get('site_logo')) or (ROOT/'static'/'images'/'default-logo.png').is_file(),
+                                       'site_logo':bool(service.store.get('site_logo_asset') or service.store.get('site_logo')) or (ROOT/'static'/'images'/'default-logo.png').is_file(),
                                        'authenticated': bool(record), 'csrf': record['csrf'] if record else None,
                                        'username': record['user']['username'] if record else None,
                                        'user': record['user'] if record else None})
@@ -150,17 +183,19 @@ def make_handler(service, request_log=None):
                 if not record:
                     return self.reply(401, {'error': 'Please sign in'})
                 user=record['user']
-                if (not user['administrator'] or user['kiosk']) and (path.startswith('/api/admin/') or path in ('/api/network/interfaces','/api/sources/status','/api/database/files')):
+                if (not user['administrator'] or user['kiosk']) and (path.startswith('/api/admin/') or path in ('/api/assets','/api/network/interfaces','/api/sources/status','/api/database/files')):
                     return self.reply(403, {'error':'Administrator access required'})
                 if user['kiosk'] and path not in {'/api/pages','/api/sources','/api/tags','/api/catalog','/api/access/roles','/api/values','/api/control-state','/api/events/status','/api/alarms/attention'}:
                     return self.reply(403, {'error':'Kiosk Mode allows live views only'})
                 routes = {
+                    '/api/assets': lambda: service.assets.catalog(builtins=True),
+                    '/api/admin/assets/capabilities': lambda: {'can_promote':authoring_enabled(),'builtins':[item for item in service.assets.catalog(True,True) if item.get('builtin')] if authoring_enabled() else []},
                     '/api/access/roles': access.roles,
                     '/api/alarms': lambda: service.alarm_snapshot(user),
                     '/api/alarms/attention': lambda: service.alarm_attention(user),
                     '/api/admin/users': lambda: [access.public(u) for u in access.users()],
                     '/api/admin/backup/status': lambda: {'pending':pending_path(Path(service.store.path).parent).exists()},
-                    '/api/admin/site': lambda: {'logo_name':(service.store.get('site_logo') or {}).get('name',''), 'default_logo':(ROOT/'static'/'images'/'default-logo.png').is_file()},
+                    '/api/admin/site': lambda: {'logo_name':((service.assets.get(service.store.get('site_logo_asset')) or {}) if service.store.get('site_logo_asset') else (service.store.get('site_logo') or {})).get('name',''), 'default_logo':(ROOT/'static'/'images'/'default-logo.png').is_file()},
                     '/api/admin/session-settings': lambda: session_settings(service.store.get('session_settings', {})),
                     '/api/admin/status': lambda: {
                         'uptime': time.monotonic() - started, 'cpu_seconds': time.process_time(),
@@ -198,7 +233,7 @@ def make_handler(service, request_log=None):
             file = (ROOT / 'static' / relative).resolve()
             if not file.is_relative_to((ROOT / 'static').resolve()) or not file.is_file():
                 return self.reply(404, {'error': 'Not found'})
-            types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png':'image/png'}
+            types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png':'image/png','.jpg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.bmp':'image/bmp','.mp4':'video/mp4','.webm':'video/webm','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8','.csv':'text/plain; charset=utf-8','.json':'application/json'}
             body = file.read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', types.get(file.suffix, 'application/octet-stream'))
@@ -215,7 +250,7 @@ def make_handler(service, request_log=None):
                 if origin and origin != 'http://' + self.headers.get('Host', ''):
                     return self.reply(403, {'error': 'Origin rejected'})
                 length = int(self.headers.get('Content-Length', 0))
-                limit = 90_000_000 if urlsplit(self.path).path in ('/api/admin/restore','/api/setup/restore') else 16_000_000 if urlsplit(self.path).path == '/api/pages/import' else 7_100_000 if urlsplit(self.path).path in ('/api/images','/api/admin/site') else 1_000_000
+                limit = 36_000_000 if urlsplit(self.path).path == '/api/assets/save' else 90_000_000 if urlsplit(self.path).path in ('/api/admin/restore','/api/setup/restore') else 16_000_000 if urlsplit(self.path).path == '/api/pages/import' else 7_100_000 if urlsplit(self.path).path in ('/api/images','/api/admin/site') else 1_000_000
                 if not 0 < length <= limit:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(length))
@@ -250,15 +285,27 @@ def make_handler(service, request_log=None):
                 allowed.add('/api/alarms/history')
                 if (not user['administrator'] or user['kiosk']) and (path not in allowed or (user['kiosk'] and path=='/api/sheets/get')):
                     return self.reply(403, {'error':'Administrator access required'})
+                if path == '/api/assets/promote':
+                    if not authoring_enabled():return self.reply(403,{'error':'Built-in authoring is disabled in portable builds'})
+                    try:return self.reply(200,service.assets.promote(data))
+                    except OSError as error:raise ValueError('Could not write built-in files: '+str(error)) from error
+                if path == '/api/assets/save':return self.reply(200,service.assets.save(data))
+                if path == '/api/assets/remove':return self.reply(200,service.assets.remove(data.get('id')))
+                if path == '/api/assets/import-builtin':return self.reply(200,service.assets.import_builtin(data.get('id')))
                 if path == '/api/admin/simulation':
                     return self.reply(200,service.configure_simulation(data))
                 if path == '/api/admin/backup':
                     return self.reply(200,export_backup(service))
                 if path == '/api/admin/site':
                     from hmi.images import prepare_image
+                    if 'asset_id' in data:
+                        item=service.assets.get(data['asset_id'])
+                        if not item or item['kind']!='image':raise ValueError('Choose an image asset')
+                        service.store.set('site_logo_asset',item['id'])
+                        return self.reply(200,{'logo_name':item['name']})
                     if 'logo' not in data:raise ValueError('Choose a logo image')
                     asset=prepare_image(data['logo']) if data['logo'] is not None else None
-                    service.store.set('site_logo',asset)
+                    service.store.set_many({'site_logo':asset,'site_logo_asset':None})
                     return self.reply(200,{'logo_name':asset['name'] if asset else ''})
                 if path == '/api/admin/restore':
                     with auth_lock:

@@ -103,7 +103,7 @@ class Access:
     def remove_role(self,identity):
         with self.lock:
             if any(identity in u['roles'] for u in self.users()):raise ValueError('This role is assigned to a user')
-            if any(c.get('type')=='listbox' and identity in c.get('requiredRoles',[]) for p in self.service.pages() for c in p.get('controls',[])):raise ValueError('This role is required by a saved listbox')
+            if any(c.get('type') in ('listbox','dropdown') and identity in c.get('requiredRoles',[]) for p in self.service.pages() for c in p.get('controls',[])):raise ValueError('This role is required by a saved listbox')
             if any(identity in a.get('requiredRoles',[]) for p in self.service.pages() for c in [p,*p.get('controls',[])] for a in c.get('actions',[])):raise ValueError('This role is required by a saved action')
             if any(identity in alarm.get('requiredRoles',[]) for alarm in self.service.alarms.items):raise ValueError('This role is required to silence a saved alarm')
             self.store.set('access_roles',[r for r in self.roles() if r['id']!=identity])
@@ -125,9 +125,9 @@ class Access:
 
     def listbox_action(self,user,data):
         page=next((p for p in self.service.pages() if p['id']==data.get('page')),None)
-        control=next((c for c in (page or {}).get('controls',[]) if c['id']==data.get('control') and c['type']=='listbox'),None)
+        control=next((c for c in (page or {}).get('controls',[]) if c['id']==data.get('control') and c['type'] in ('listbox','dropdown')),None)
         index=data.get('value')
-        if not control or not control.get('touchable',True) or not isinstance(index,int) or not 1<=index<=len(control.get('elements',[])):raise PermissionError('Listbox interaction is unavailable')
+        if not control or not control.get('touchable',True) or isinstance(index,bool) or not isinstance(index,int) or not 0<=index<len(control.get('elements',[])):raise PermissionError('Listbox interaction is unavailable')
         required=control.get('requiredRoles',[])
         if not isinstance(required,list) or (not user['administrator'] and not set(required).issubset(user['roles'])):raise PermissionError('You do not have the required access roles to change this listbox')
         tag=control.get('binding',{}).get('tag','')

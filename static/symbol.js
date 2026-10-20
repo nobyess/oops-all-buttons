@@ -3,7 +3,7 @@ import {fitSymbolGeometry} from './symbol-geometry.js';
 import {randomId} from './uuid.js';
 const cache=new Map();
 function load(url){
- if(!/^\/api\/images\/[a-f0-9]{64}$/.test(url))return Promise.reject(new Error('Choose an uploaded SVG symbol'));
+ if(!/^\/api\/images\/[a-f0-9]{64}(?:\?v=\d+)?$/.test(url))return Promise.reject(new Error('Choose an uploaded SVG symbol'));
  if(!cache.has(url))cache.set(url,fetch(url.replace('/images/','/symbols/')).then(async response=>{const tree=await response.json();if(!response.ok)throw new Error(tree.error || 'Could not load symbol');return tree;}).catch(error=>{cache.delete(url);throw error;}));
  return cache.get(url);
 }

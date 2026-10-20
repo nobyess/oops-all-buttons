@@ -1,4 +1,8 @@
 import json
+import hashlib
+import io
+import tarfile
+from zipfile import ZipFile
 import tempfile
 import unittest
 from email.message import Message
@@ -39,21 +43,53 @@ class LicensePackagingTests(unittest.TestCase):
         self.assertEqual(inventory[0]['name'], 'demo')
         self.assertEqual((self.bundle/'third-party/licenses/demo/demo/LICENSE').read_text(), 'Upstream notice')
         self.assertEqual((self.bundle/'LICENSE').read_text(), 'Notice')
-        self.assertFalse((self.bundle/'third-party/application-source.zip').exists())
+        self.assertTrue((self.bundle/'third-party/application-source.zip').exists())
+        with ZipFile(self.bundle/'third-party/application-source.zip') as source:
+            self.assertNotIn('python-hmi/data/secret.txt', source.namelist())
+            self.assertNotIn('python-hmi/symbol_library_manager.py', source.namelist())
         self.assertFalse((self.bundle/'data').exists())
         self.assertEqual(json.loads((self.bundle/'third-party/inventory.json').read_text())['packages'][0]['version'], '1.0')
 
-    def test_reciprocal_source_review_is_pending_without_archives(self):
+    def prepare_reciprocal(self):
+        self.dist.metadata.replace_header('Name', 'pystray')
         self.dist.metadata.replace_header('License-Expression', 'LGPL-3.0-only')
+        archive=self.root/'third-party/sources/demo.tar.gz'
+        with tarfile.open(archive,'w:gz') as source:
+            content=b'value=1';info=tarfile.TarInfo('upstream/demo/__init__.py');info.size=len(content)
+            source.addfile(info,io.BytesIO(content))
+        reference={'version':'1.0','filename':'demo.tar.gz','url':'https://files.pythonhosted.org/demo.tar.gz','sha256':hashlib.sha256(archive.read_bytes()).hexdigest()}
+        (self.root/'third-party/upstream-references.json').write_text(json.dumps({'pystray':reference}))
+        return archive
+
+    def test_reciprocal_source_is_verified_and_packaged(self):
+        self.prepare_reciprocal()
         inventory=self.collect()
-        self.assertTrue(inventory[0]['source_distribution_review_pending'])
-        self.assertFalse((self.bundle/'third-party/sources').exists())
+        self.assertEqual(inventory[0]['corresponding_source']['verified_python_files'],1)
+        self.assertTrue((self.bundle/'third-party/sources/demo.tar.gz').exists())
+
+    def test_missing_source_pin_stops_packaging(self):
+        self.dist.metadata.replace_header('License-Expression', 'LGPL-3.0-only')
+        self.dist.metadata.replace_header('Name', 'pystray')
+        with self.assertRaisesRegex(ValueError,'pin corresponding source'):self.collect()
+
+    def test_modified_installed_library_stops_packaging(self):
+        self.prepare_reciprocal()
+        (self.base/'site-packages/demo/__init__.py').write_text('value=2')
+        with self.assertRaisesRegex(ValueError,'Modified library'):self.collect()
+
+    def test_tampered_archive_stops_packaging(self):
+        archive=self.prepare_reciprocal();archive.write_bytes(b'wrong source')
+        with self.assertRaisesRegex(ValueError,'checksum mismatch'):self.collect()
+
+    def test_unreviewed_reciprocal_stops_packaging(self):
+        self.dist.metadata.replace_header('License-Expression','GPL-3.0-only')
+        with self.assertRaisesRegex(ValueError,'Review source/rebuild'):self.collect()
 
     def test_missing_license_stops_packaging(self):
         self.dist.files = [Path('demo/__init__.py')]
         with self.assertRaisesRegex(ValueError, 'missing license texts'): self.collect()
 
-    def test_source_archives_are_not_copied(self):
+    def test_unselected_archives_are_not_copied(self):
         (self.root/'third-party/sources/demo.tar.gz').write_bytes(b'archive')
         self.collect()
         self.assertFalse((self.bundle/'third-party/sources').exists())

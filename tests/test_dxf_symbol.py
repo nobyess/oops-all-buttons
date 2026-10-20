@@ -16,7 +16,7 @@ class DXFSymbolTests(unittest.TestCase):
   doc=self.drawing('R12');doc.modelspace().add_polyline2d([(0,0),(10,0),(10,10)],close=True);paths=self.paths(doc);self.assertEqual(len(paths),1);self.assertTrue(paths[0]['attributes']['d'].endswith('Z'))
  def test_hatch_hole_and_outline(self):
   doc=self.drawing();m=doc.modelspace();h=m.add_hatch();h.paths.add_polyline_path([(0,0),(100,0),(100,100),(0,100)],flags=1);h.paths.add_polyline_path([(20,20),(80,20),(80,80),(20,80)],flags=0);m.add_lwpolyline([(0,0),(100,0),(100,100)],close=True)
-  paths=self.paths(doc);self.assertEqual(paths[0]['paint'],{'fill':True,'stroke':False});self.assertEqual(paths[0]['attributes']['fill-rule'],'evenodd');self.assertEqual(paths[0]['attributes']['d'].count('M'),2);self.assertEqual(paths[1]['paint'],{'fill':False,'stroke':True})
+  paths=self.paths(doc);self.assertEqual(paths[0]['paint'],{'fill':True,'stroke':False,'fillColor':'fore'});self.assertEqual(paths[0]['attributes']['fill-rule'],'evenodd');self.assertEqual(paths[0]['attributes']['d'].count('M'),2);self.assertEqual(paths[1]['paint'],{'fill':False,'stroke':True})
  def test_hatch_style_and_solid(self):
   doc=self.drawing();m=doc.modelspace();h=m.add_hatch();h.dxf.hatch_style=2;h.paths.add_polyline_path([(0,0),(100,0),(100,100)],flags=1);h.paths.add_polyline_path([(20,20),(30,20),(30,30)],flags=0);m.add_solid([(0,0),(10,0),(0,10),(10,10)])
   paths=self.paths(doc);self.assertEqual(paths[0]['attributes']['d'].count('M'),1);self.assertTrue(all(p['paint']['fill'] for p in paths))
@@ -28,8 +28,8 @@ class DXFSymbolTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'TEXT'):self.paths(doc)
   doc=self.drawing();doc.modelspace().add_line((0,0,0),(10,10,10))
   with self.assertRaisesRegex(ValueError,'2D'):self.paths(doc)
-  doc=self.drawing();h=doc.modelspace().add_hatch();h.set_pattern_fill('ANSI31');h.paths.add_polyline_path([(0,0),(10,0),(10,10)])
-  with self.assertRaisesRegex(ValueError,'solid hatch'):self.paths(doc)
+  doc=self.drawing('R2004');h=doc.modelspace().add_hatch();h.set_gradient();h.paths.add_polyline_path([(0,0),(10,0),(10,10)])
+  with self.assertRaisesRegex(ValueError,'gradient'):self.paths(doc)
  def test_invalid_and_limits(self):
   for raw in [b'AutoCAD Binary DXF',b'not a DXF']:
    with self.assertRaises(ValueError):prepare_symbol({'name':'test.dxf','data':base64.b64encode(raw).decode()})
@@ -55,7 +55,7 @@ class DXFSymbolTests(unittest.TestCase):
   asset=prepare_symbol(self.data(doc));paths=asset['symbol']['children']
   self.assertEqual(paths[1]['paint'],{'fill':True,'stroke':False,'fillColor':'fore'})
   self.assertEqual(paths[1]['attributes']['data-symbol-fill-color'],'fore')
-  self.assertEqual(paths[0]['paint'],{'fill':True,'stroke':False})
+  self.assertEqual(paths[0]['paint'],{'fill':True,'stroke':False,'fillColor':'fore'})
   self.assertEqual(prepare_symbol(asset)['symbol'],asset['symbol'])
 
  def test_forecolor_block_layer_zero(self):
@@ -64,15 +64,33 @@ class DXFSymbolTests(unittest.TestCase):
   doc.modelspace().add_blockref('Filled',(0,0),dxfattribs={'layer':'FORECOLOR'})
   self.assertEqual(self.paths(doc)[0]['paint']['fillColor'],'fore')
 
- def test_foreground_fills_cover_background_regardless_of_creation_order(self):
+ def test_later_layers_cover_earlier_layers(self):
   doc=self.drawing();doc.layers.new('FORECOLOR');m=doc.modelspace()
-  # Foreground circle is drawn first, followed by the white valve body fills.
+  # Later-named foreground layer covers the earlier layer, even if created first.
   h=m.add_hatch(dxfattribs={'layer':'FORECOLOR'})
   h.paths.add_edge_path().add_arc((50,50),20,0,360)
   m.add_line((0,0),(100,100))
-  m.add_solid([(0,0),(50,50),(0,100)])
-  m.add_solid([(100,0),(50,50),(100,100)])
+  background=m.add_hatch();background.set_pattern_fill('ANSI31');background.paths.add_polyline_path([(0,0),(50,50),(0,100)])
+  background=m.add_hatch();background.set_pattern_fill('ANSI31');background.paths.add_polyline_path([(100,0),(50,50),(100,100)])
   asset=prepare_symbol(self.data(doc));paths=asset['symbol']['children']
-  self.assertEqual([p['paint'].get('fillColor','back') for p in paths[:3]],['back','back','fore'])
-  self.assertEqual(paths[-1]['paint'],{'fill':False,'stroke':True})
+  self.assertEqual([p['paint'].get('fillColor','back') for p in [paths[0],paths[1],paths[3]]],['back','back','fore'])
+  self.assertEqual(paths[2]['paint'],{'fill':False,'stroke':True})
   self.assertEqual(prepare_symbol(asset)['symbol'],asset['symbol'])
+
+ def test_hatch_type_and_layer_order_override_old_layer_names(self):
+  doc=self.drawing();doc.layers.new('20-Top');doc.layers.new('10-Bottom');doc.layers.new('FORECOLOR');m=doc.modelspace()
+  top=m.add_hatch(dxfattribs={'layer':'20-Top'});top.set_pattern_fill('ANSI31');top.paths.add_polyline_path([(20,0),(30,0),(30,10)])
+  m.add_line((10,0),(20,0),dxfattribs={'layer':'10-Bottom'})
+  bottom=m.add_hatch(dxfattribs={'layer':'10-Bottom'});bottom.paths.add_polyline_path([(10,0),(20,0),(20,10)])
+  special=m.add_hatch(dxfattribs={'layer':'FORECOLOR'});special.set_pattern_fill('ANSI31');special.paths.add_polyline_path([(40,0),(50,0),(50,10)])
+  paths=self.paths(doc)
+  self.assertEqual([p['paint'] for p in paths],[{'fill':True,'stroke':False,'fillColor':'fore'},{'fill':False,'stroke':True},{'fill':True,'stroke':False},{'fill':True,'stroke':False}])
+  self.assertTrue(paths[0]['attributes']['d'].startswith('M10 '))
+  self.assertTrue(paths[2]['attributes']['d'].startswith('M20 '))
+
+ def test_block_inherits_layer_for_stacking(self):
+  doc=self.drawing();doc.layers.new('10-Bottom');doc.layers.new('20-Top');m=doc.modelspace()
+  b=doc.blocks.new('Fill');h=b.add_hatch();h.paths.add_polyline_path([(0,0),(10,0),(10,10)])
+  m.add_blockref('Fill',(20,0),dxfattribs={'layer':'20-Top'})
+  m.add_line((0,0),(10,0),dxfattribs={'layer':'10-Bottom'})
+  paths=self.paths(doc);self.assertTrue(paths[0]['paint']['stroke']);self.assertTrue(paths[1]['paint']['fill'])

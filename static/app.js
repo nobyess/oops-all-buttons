@@ -1,3 +1,4 @@
+import {openContentPicker} from './content-picker.js';
 import {openInlineTagDialog} from './inline-tag-dialog.js';
 import {firstSelection,newRule} from './selection-defaults.js';
 import {rotateArtwork} from './artwork-rotation.js';
@@ -217,6 +218,11 @@ function sessionExpired(reason='expired') {
   button('OK',footer,()=>modal.close());
   modal.onclose=()=>{modal.remove();if(connectionNotice===modal)connectionNotice=null;};
   modal.showModal();
+}
+async function pickTextAsset(){
+ const asset=await openContentPicker({api,kind:'text'});if(!asset)return null;
+ const response=await fetch(asset.url);if(!response.ok)throw Error('Could not load text asset');
+ const text=await response.text();if(text.length>10000)throw Error('Text editor content is limited to 10,000 characters.');return text;
 }
 async function api(path,data) {
   if(!csrf && !['status','setup','setup/restore','login'].includes(path))throw new Error('Please log in again.');
@@ -457,7 +463,7 @@ function route() {
     routedHash=location.hash;
   }
   if(name==='alarms')closeLibrary=mountAlarms(app,{node,button,api,canManage:currentUser.administrator,tagSelect,getTags:()=>tags,getRoles:()=>accessRoles,initialId:id});
-  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api,onSimulationChanged:reloadLists});
+  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api,onSimulationChanged:reloadLists,onAssetsChanged:async()=>{pages=(await api('pages')).map(normalize);page=pages.find(p=>p.id===page?.id)||pages[0];}});
   else if(name==='pages')safe(showPages);
   else if(name==='tags')showSources();
   else if(name==='sheets')showSheets();
@@ -1412,7 +1418,7 @@ function paint(el, c, owner=page, isEditing=editing) {
     }
   };
   // Keep stored trigger names while supporting mouse, touch, and pen equally.
-  bindControlActions(el,{enabled:!isEditing && c.type!=='listbox',execute:(trigger,point)=>context.execute(c,trigger,point)});
+  bindControlActions(el,{enabled:!isEditing && !['listbox','dropdown'].includes(c.type),execute:(trigger,point)=>context.execute(c,trigger,point)});
   const definition = controls[c.type];
   if (definition?.update && content.dataset.rendered) definition.update(content, effective, context);
   else {
@@ -1563,7 +1569,7 @@ function showInspector(panel) {
         node('h3', sections[key], panel);
       }
       if(key==='text'){
-        const edit=button('Edit',panel,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
+        const edit=button('Edit',panel,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag,onPickText:pickTextAsset,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
         edit.setAttribute('aria-label','Edit text');continue;
       }
       if (key === 'backColor') colorRow = node('div', null, panel, {className: 'color-picker-row'});
@@ -1609,6 +1615,7 @@ function showInspector(panel) {
         const label=node('label',prop.label,propertyParent);
         const input=node('textarea',null,label,{rows:8,value:(c.elements || []).join('\n')});
         input.onchange=()=>{c.elements=input.value===''?[]:input.value.split(/\r?\n/);markChanged();refreshEditedControl(c);};
+        node('p','First element = 0, second = 1, and so on.',propertyParent,{className:'hint'});
         continue;
       }
       if(prop.type==='binding') {
@@ -1628,32 +1635,12 @@ function showInspector(panel) {
       if(prop.type==='image' || prop.type==='symbol') {
         const symbol=prop.type==='symbol';
         node('h3',symbol?'Content':'Image',propertyParent);
-        if(symbol){
-          mountSymbolContent(propertyParent,{control:c,safe,
-            rotate:()=>{rotateArtwork(c);markChanged();refreshEditedControl(c,true);},
-            importSymbol:async(name,data)=>{
-              const prepared=await api('images',{name,data,symbol:true,prepare_only:true});
-              data=await trimSymbolData(prepared.symbol,c);
-              const asset=await api('images',{name,data,symbol:true});
-              c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);
-            },
-            clear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}
-          });
-          continue;
-        }
-        node('p',c.imageName || 'No image selected',propertyParent,{className:'hint'});
-        const upload=field(symbol?'Choose SVG or DXF':'Choose SVG or raster',propertyParent,'file');
-        upload.accept=symbol?'.svg,.dxf':'.svg,.png,.jpg,.jpeg,.gif,.webp,.bmp';
-        if(symbol)node('p','DXF: basic 2D geometry. Use solid hatches for fill; closed outlines remain unfilled.',propertyParent,{className:'hint'});
-        upload.onchange=()=>safe(async()=> {
-          const file=upload.files[0];if(!file)return;
-          if(file.size>5*1024*1024)throw new Error('Images must be 5 MB or smaller');
-          let data=await imageFileData(file);
-          if(symbol){const prepared=await api('images',{name:file.name,data,symbol:true,prepare_only:true});data=await trimSymbolData(prepared.symbol,c);}
-          const asset=await api('images',{name:file.name,data,symbol});
-          c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);
-        });
-        if(c.image)button('Clear image',propertyParent,()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);});
+        node('p',c.imageName || 'No content selected',propertyParent,{className:'hint'});
+        button('Select Content…',propertyParent,()=>safe(async()=>{
+          const asset=await openContentPicker({api,kind:symbol?'symbol':'image',value:c.image || ''});
+          if(asset){c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);}
+        }));
+        if(c.image)button('Clear content',propertyParent,()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);});
         button('Rotate 90°',propertyParent,()=>{rotateArtwork(c);markChanged();refreshEditedControl(c,true);});
         continue;
       }
@@ -1702,7 +1689,7 @@ function showInspector(panel) {
     return;
   }
   const isEvent = tab === 'Events';
-  if (isEvent && !['numeric','listbox','level','trend'].includes(c.type) && (controls[c.type]?.bindable || c.binding?.tag)) {
+  if (isEvent && !['numeric','listbox','dropdown','level','trend'].includes(c.type) && (controls[c.type]?.bindable || c.binding?.tag)) {
     node('h3', 'Display binding (optional)', panel);
     tagSelect('Display Source Tag', panel, c.binding?.tag || '', value => {
       c.binding = {tag: value}; markChanged();
@@ -1729,7 +1716,7 @@ function showInspector(panel) {
   list.onchange = () => {ruleId = list.value; showInspector(panel);};
   const row = node('div', null, panel, {className: 'row compact'});
   button('+', row, () => {
-    const item=newRule({id:randomId(),isEvent,isPage,isListbox:c.type==='listbox',actions:catalog.actions,visualActions:actionLabels});
+    const item=newRule({id:randomId(),isEvent,isPage,isListbox:['listbox','dropdown'].includes(c.type),actions:catalog.actions,visualActions:actionLabels});
     items.push(item); ruleId = item.id; markChanged(); showInspector(panel);
   });
   button('−', row, () => {
@@ -1776,7 +1763,7 @@ function showInspector(panel) {
     rolesButton.title='All selected roles are required. Administrators can run any action.';
     rolesButton.classList.add('action-access-button');
     const trigger = select(isPage?'Page event':'Mouse event', panel,
-      isPage?[['page_open','Page Open'],['page_close','Page Close']]:c.type==='listbox'?[['user_changed','User Changed']]:[['mouse_down', 'Mouse Down'], ['mouse_up', 'Mouse Up'], ['click', 'Click']], item.trigger);
+      isPage?[['page_open','Page Open'],['page_close','Page Close']]:['listbox','dropdown'].includes(c.type)?[['user_changed','User Changed']]:[['mouse_down', 'Mouse Down'], ['mouse_up', 'Mouse Up'], ['click', 'Click']], item.trigger);
     trigger.onchange = () => change('trigger', trigger.value);
     const pageActionUnavailable=isPage && ['navigate','popup'].includes(item.action);
     const actionGroup=node('div',null,panel,{className:'event-condition-group event-action-group',role:'group','aria-label':'Action details'});
@@ -1862,7 +1849,7 @@ function showInspector(panel) {
   } else if (item.action === 'set_content') {
     button('Edit Content', panel, async () => {
       const draft = {...c, ...item.contentStyle, text: item.content ?? c.text ?? ''};
-      const changed = await openTextEditor(draft, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});
+      const changed = await openTextEditor(draft, {onInsertTag:pickInlineTag,onPickText:pickTextAsset,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});
       if (changed) {
         const {text, ...style} = changed;
         item.contentStyle = style;

@@ -12,7 +12,7 @@ export function seedContentEvent(event,control){
   event.contentStyle=Object.fromEntries(textFields.filter(key=>key!=='text' && control[key]!==undefined).map(key=>[key,structuredClone(control[key])]));
   if(control.textRefs)event.contentRefs=structuredClone(control.textRefs);
 }
-export function openTextEditor(control, {onInsertTag,previewBackground='#ffffff'} = {}) {
+export function openTextEditor(control, {onInsertTag,onPickText,previewBackground='#ffffff'} = {}) {
   return new Promise(resolve=>{
     const draft={text:control.text || '',fontFamily:control.fontFamily || 'default',fontSize:control.fontSize ?? 16,
       bold:Boolean(control.bold),italic:Boolean(control.italic),blink:Boolean(control.blink),textHorizontalAlignment:control.textHorizontalAlignment || 'center',
@@ -22,6 +22,10 @@ export function openTextEditor(control, {onInsertTag,previewBackground='#ffffff'
     const insert=onInsertTag?el('button','Insert Tag',header,{type:'button'}):null;
     const previewSurface=el('div',null,form,{className:'text-editor-preview'});previewSurface.style.backgroundColor=previewBackground;
     const text=el('textarea',null,previewSurface,{value:draft.text,rows:8,className:'text-editor-input'});text.setAttribute('aria-label','Text');
+    if(onPickText){
+      const pick=el('button','Insert Text Asset…',header,{type:'button'});
+      pick.onclick=async()=>{const start=text.selectionStart,end=text.selectionEnd;pick.disabled=true;try{const value=await onPickText();if(value!==null&&value!==undefined&&modal.isConnected){text.value=text.value.slice(0,start)+value+text.value.slice(end);text.focus();text.selectionStart=text.selectionEnd=start+value.length;}}catch(error){let message=modal.querySelector('.text-asset-error');if(!message)message=el('p','',form,{className:'bad text-asset-error'});message.textContent=error.message;}finally{pick.disabled=false;}};
+    }
     if(insert) {
       insert.onclick=async()=>{
         let start=text.selectionStart ?? text.value.length,end=text.selectionEnd ?? start;

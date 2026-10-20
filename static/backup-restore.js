@@ -4,7 +4,7 @@ export function mountBackupRestore(parent,{node,button,api,firstRun=false,onRest
  const section=node('section',null,parent,{className:'backup-restore'});
  if(!firstRun){
   const backup=node('section',null,section,{className:'backup-section'});node('h3','Back Up',backup);
-  node('p','Download pages, sources, tags, sheets, images, users and access roles, alarm history, and persistent SQLite tag values.',backup);
+  node('p','Download pages, sources, tags, sheets, assets, images, users and access roles, alarm history, and persistent SQLite tag values.',backup);
   node('p','Backups contain account password hashes and driver credentials. Store them securely. System Memory values are temporary and are not included.',backup,{className:'hint'});
   const save=button('Download Backup',backup,async()=>{save.disabled=true;show('Creating backup…');try{
    const result=await api('admin/backup',{});if(closed)return;const bytes=Uint8Array.from(atob(result.data),c=>c.charCodeAt(0));

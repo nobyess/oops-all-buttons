@@ -1,10 +1,12 @@
 """Portable page files: saved layouts plus named external bindings and images."""
 import copy
 import uuid
+from .assets import asset_identity
 from .tag_paths import tag_path
 from .pages import validate_page
 from .inline_text import bind_inline_text
 from .images import prepare_image
+from .symbols import prepare_symbol
 
 
 def references(page):
@@ -46,7 +48,7 @@ def export_page(service, data):
         for control in page['controls']:
             image = control.get('image', '')
             if image.startswith('/api/images/'):
-                asset = service.store.get('image:' + image.rsplit('/', 1)[-1])
+                asset = service.assets.image(asset_identity(image))
                 if asset is None:
                     raise ValueError('Page image is missing')
                 images[image] = {'name': asset.get('name', 'Image'), 'data': asset['data']}
@@ -136,7 +138,7 @@ def import_page(service, data):
                 raw = payload.get('images', {}).get(image)
                 if not isinstance(raw, dict):
                     raise ValueError('Missing embedded page image')
-                asset = prepare_image(raw)
+                asset = (prepare_symbol if control.get('type')=='symbol' else prepare_image)(raw)
                 assets[asset['id']] = asset
                 control['image'] = '/api/images/' + asset['id']
         for identity, asset in assets.items():

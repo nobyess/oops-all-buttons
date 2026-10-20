@@ -1,4 +1,4 @@
-// Indexes are one-based. Values outside the element range select nothing.
+// Indexes are zero-based. Values outside the element range select nothing.
 export function listboxDefinition(common) {
  function update(el,c,ctx) {
   const list=el.querySelector('[role="listbox"]');
@@ -15,11 +15,11 @@ export function listboxDefinition(common) {
   const index=sample?.quality==='good'?Number(sample.value):NaN;
   const rows=[...list.children];
   rows.forEach((row,offset)=>{
-   const selected=Number.isInteger(index) && index===offset+1;
+   const selected=Number.isInteger(index) && index===offset;
    // Only read feedback controls selection. Clicks never change this attribute.
    row.setAttribute('aria-selected',String(selected));
    row.tabIndex=disabled?-1:0;
-   const choose=()=>{if(!disabled && offset+1!==index)ctx.changeIndex(offset+1);};
+   const choose=()=>{if(!disabled && offset!==index)ctx.changeIndex(offset);};
    row.onclick=choose;
    row.onkeydown=event=>{
     if(disabled)return;

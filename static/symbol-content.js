@@ -1,5 +1,6 @@
 // Symbol inspector Content only. Library choices use the normal embedded-image import.
 import {imageFileData} from './clipboard-image.js';
+import {loadSymbolPreview} from './symbol-preview.js';
 const states=new WeakMap();
 export function libraryAssetURL(file){
   if(typeof file!=='string' || !/^assets\/[A-Za-z0-9_-]+\.svg$/.test(file))throw new Error('Invalid library symbol path');
@@ -35,7 +36,9 @@ export function mountSymbolContent(parent,{control,importSymbol,clear,rotate,saf
     for(const item of matching){
       if(category!==item.category){category=item.category;add('h4',category,viewport);grid=add('div',null,viewport,'symbol-library-grid');}
       const b=add('button',null,grid,'symbol-library-tile');b.type='button';b.title=item.name;b.setAttribute('aria-label','Use '+item.name);b.disabled=busy;
-      const image=add('img',null,b);image.src=libraryAssetURL(item.file);image.alt='';image.loading='lazy';add('span',item.name,b);
+      const image=add('div',null,b,'symbol-library-artwork');image.setAttribute('aria-hidden','true');
+      loadSymbolPreview(libraryAssetURL(item.file)).then(svg=>{if(image.isConnected)image.replaceChildren(svg);}).catch(()=>{if(image.isConnected)image.textContent='Preview unavailable';});
+      add('span',item.name,b);
       b.onclick=()=>safe(async()=>{
         if(busy)return;busy=true;for(const tile of viewport.querySelectorAll('button'))tile.disabled=true;
         status.hidden=false;status.textContent='Importing '+item.name+'…';
@@ -58,7 +61,7 @@ export function mountSymbolContent(parent,{control,importSymbol,clear,rotate,saf
   }
   filter.oninput=()=>{state.query=filter.value;render();};categories.onchange=()=>{state.category=categories.value;render();};
   const label=add('label','Choose SVG or DXF',filePanel);const upload=add('input',null,label);upload.type='file';upload.accept='.svg,.dxf';
-  add('p','DXF: solid hatches on a FORECOLOR layer use Fore Color; other fills use Back Color. Closed outlines remain unfilled.',filePanel,'hint');
+  add('p','DXF: solid hatches use Fore Color; patterned hatches become solid Back Color fills. Layers draw in name order, with later names on top (00-Body, 10-Details). Closed outlines remain unfilled.',filePanel,'hint');
   upload.onchange=()=>safe(async()=>{const file=upload.files[0];if(!file)return;if(file.size>5*1024*1024)throw new Error('Symbols must be 5 MB or smaller');upload.disabled=true;try{await importSymbol(file.name,await imageFileData(file));}finally{upload.disabled=false;upload.value='';}});
   if(control.image){const b=add('button','Clear image',root);b.type='button';b.onclick=clear;}
   const rotateButton=add('button','Rotate 90°',root);rotateButton.type='button';rotateButton.onclick=rotate;

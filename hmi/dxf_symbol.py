@@ -29,7 +29,7 @@ def dxf_to_svg(data):
         except (UnicodeDecodeError,LookupError):raise ValueError('Could not decode DXF; export an ASCII DXF from LibreCAD') from None
     try:doc=ezdxf.read(io.StringIO(text,newline=None))
     except Exception as error:raise ValueError('Could not read DXF; export a valid ASCII DXF from LibreCAD') from error
-    fills=[];outlines=[];points=[];entities=0;commands=0
+    drawings=[];points=[];entities=0;commands=0
     unsupported=set()
     def coordinates(point):
         x,y,z=point
@@ -80,7 +80,7 @@ def dxf_to_svg(data):
             return
         if kind=='POLYLINE' and not entity.is_2d_polyline:raise ValueError('Only 2D DXF polylines are supported')
         if kind=='HATCH':
-            if not entity.dxf.solid_fill or entity.gradient is not None:raise ValueError('Use a solid hatch for DXF fills; patterned and gradient hatches are not supported')
+            if entity.gradient is not None:raise ValueError('DXF gradient hatches are not supported; use solid or patterned hatches')
             hatch=entity.copy();hatch.paths.paths=list(entity.paths.rendering_paths(entity.dxf.hatch_style))
             parts=[svg_path(p,True) for p in path.from_hatch(hatch)]
             drawing=' '.join(part for part in parts if part)
@@ -92,24 +92,24 @@ def dxf_to_svg(data):
             attrs={'d':drawing,'fill':'black' if filled else 'none','stroke':'none' if filled else 'black'}
             if filled:
                 attrs['fill-rule']='evenodd'
-                if layer.strip().casefold()=='forecolor':attrs['data-symbol-fill-color']='fore'
+                if kind!='HATCH' or entity.dxf.solid_fill:attrs['data-symbol-fill-color']='fore'
             else:attrs.update({'stroke-width':'2','stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'})
-            (fills if filled else outlines).append(attrs)
+            drawings.append((layer,filled,attrs))
     try:
         for entity in doc.modelspace():visit(entity)
     except ValueError:raise
     except Exception as error:raise ValueError('Could not convert DXF geometry; use basic 2D entities or explode complex blocks') from error
     if unsupported:raise ValueError('Unsupported DXF entities: '+', '.join(sorted(unsupported))+'. Remove these or explode them into basic 2D geometry before export')
-    if not points or not (fills or outlines):raise ValueError('DXF contains no supported visible model-space geometry')
+    if not points or not drawings:raise ValueError('DXF contains no supported visible model-space geometry')
     x=min(p[0] for p in points);y=min(p[1] for p in points)
     width=max(p[0] for p in points)-x;height=max(p[1] for p in points)-y
     if width==0:x-=.5;width=1
     if height==0:y-=.5;height=1
     root=ET.Element('svg',{'xmlns':'http://www.w3.org/2000/svg','viewBox':f'{x:.15g} {y:.15g} {width:.15g} {height:.15g}'})
-    # Keep CAD creation order within each role, but foreground fills must cover
-    # background fills even when those were drawn later in LibreCAD.
-    fills.sort(key=lambda attrs:attrs.get('data-symbol-fill-color')=='fore')
-    for attrs in fills+outlines:ET.SubElement(root,'path',attrs)
+    # LibreCAD sorts layer names; later names paint above earlier names.
+    # Stable sorting keeps CAD entity order within each layer/paint role.
+    drawings.sort(key=lambda item:(item[0],not item[1]))
+    for _,_,attrs in drawings:ET.SubElement(root,'path',attrs)
     svg=ET.tostring(root,encoding='utf-8')
     if len(svg)>MAX_IMAGE_BYTES:raise ValueError('Converted DXF is too large; simplify the drawing')
     return {'name':str(data.get('name','Drawing.dxf'))[:200],'data':base64.b64encode(svg).decode('ascii')}

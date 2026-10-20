@@ -20,7 +20,7 @@ release/
   OopsAllButtons-0.1.0-windows-x64.zip.sha256
 ```
 
-The ZIP contains a complete `OopsAllButtons` folder. Extract the whole folder and double-click `OopsAllButtons.exe`. It opens the browser and runs in the tray. Choose **Stop Server** in the tray to quit. Python is not required on the destination PC.
+The ZIP contains a complete `OopsAllButtons` folder. Extract the whole folder and double-click `OopsAllButtons.exe`. It opens the browser and runs in the tray. Choose **Exit** in the tray to quit. Python is not required on the destination PC.
 
 Project data stays in a writable `data` folder beside the executable; bundled application resources stay in `files`. Do not install this portable folder under a location that blocks writes. Startup output and errors are saved in `data/server.log`; startup failures also show a message box.
 
@@ -28,9 +28,11 @@ The executable is unsigned. No signing certificate or signing service is configu
 
 ## Third-party licenses and source
 
-The build includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and a `third-party` folder with a dependency inventory and license notices. Source archives are intentionally not downloaded, required by the build, or bundled while the maintainer reviews source-distribution requirements. See [the license review](docs/LICENSE_REVIEW.md). This notices-only packaging is not a determination that all dependency-license obligations are satisfied.
+The portable ZIP includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, the exact dependency inventory, license texts, reviewed corresponding library source archives, a matching application source snapshot, and [rebuilding instructions](third-party/REBUILD.md). Source archives are downloaded from pinned upstream URLs and verified by SHA-256. Installed Python modules are checked against that source before packaging.
 
-The collector reads PyInstaller’s actual dependency lists and stops if a selected package has no license text or version-specific supplement. Review licenses when upgrading dependencies, including source-availability and replacement requirements; those obligations are not checked automatically by this notices-only collector.
+The downloaded cache (`third-party/sources/`) and generated materials are Git-ignored. Keep the manifest, notices, supplements and scripts tracked: a clean checkout regenerates the release materials. Builds require network access if the pinned cache is missing. The complete ZIP carries the source, so no extra source asset needs uploading to Releases.
+
+The collector stops for missing notices, unreviewed reciprocal dependencies, version mismatches, changed Python library source or bad archive hashes. Dependency/interpreter upgrades still need a fresh license review, especially native runtime notices. See [the review](docs/LICENSE_REVIEW.md).
 
 ## Verify a build
 

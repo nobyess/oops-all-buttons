@@ -27,7 +27,7 @@ const picker=root.children[0],tabs=picker.children[0],library=picker.children[1]
 assert.equal(library.hidden,false);assert.equal(files.hidden,true);
 tabs.children[1].click();assert.equal(library.hidden,true);assert.equal(files.hidden,false);
 tabs.children[0].click();
-assert.deepEqual(requests,['/symbols/index.json']);
+assert.deepEqual(requests,['/symbols/index.json','/symbols/assets/a.svg','/symbols/assets/b.svg']);
 const viewport=library.children[2];
 assert.equal(viewport.querySelectorAll('button').length,2);
 assert.equal(library.children[3].hidden,true,'Hide routine count/status when symbols are available');

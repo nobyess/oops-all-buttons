@@ -8,6 +8,7 @@ import shutil
 import sqlite3
 import tempfile
 import uuid
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
@@ -28,9 +29,10 @@ def export_backup(service):
     with service.lock, service.sheet_lock, tempfile.TemporaryDirectory() as temp:
         files = {'hmi.sqlite3': Path(temp)/'hmi.sqlite3'}
         _snapshot(service.store.path, files['hmi.sqlite3'])
-        for folder in ('sheets', 'databases'):
+        for folder in ('sheets', 'databases', 'assets'):
             for source in sorted((directory/folder).glob('*')):
                 if not source.is_file() or source.is_symlink():continue
+                if folder == 'assets' and not re.fullmatch(r'[a-f0-9]{64}',source.name):continue
                 if folder == 'databases' and source.suffix.lower() not in ('.sqlite', '.sqlite3', '.db'):continue
                 name = folder+'/'+source.name
                 target = Path(temp)/folder/source.name
@@ -65,7 +67,7 @@ def _validate(raw, destination):
             if not isinstance(files,dict) or 'hmi.sqlite3' not in files or set(names)!=set(files)|{'manifest.json'}:raise ValueError('Incomplete backup')
             for name,digest in files.items():
                 parts=name.split('/')
-                if name!='hmi.sqlite3' and not (len(parts)==2 and parts[0] in ('sheets','databases')):raise ValueError('Invalid backup file path')
+                if name!='hmi.sqlite3' and not (len(parts)==2 and parts[0] in ('sheets','databases','assets')):raise ValueError('Invalid backup file path')
                 if any(p in ('','.','..') or any(c in p for c in '\\:') for p in parts):raise ValueError('Invalid backup file path')
                 content=archive.read(name)
                 if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('Backup checksum failed')
@@ -79,6 +81,9 @@ def _validate(raw, destination):
             if not isinstance(users,list) or not any(u.get('administrator') and not u.get('kiosk',False) for u in users):raise ValueError('Backup requires an administrator account outside Kiosk Mode')
             for key in ('pages','sources','tags'):
                 if not isinstance(config.get(key),list):raise ValueError('Invalid backup configuration')
+            for item in config.get('assets',[]):
+                blob=item.get('blob','')
+                if not re.fullmatch(r'[a-f0-9]{64}',blob) or 'assets/'+blob not in files or hashlib.sha256((destination/'assets'/blob).read_bytes()).hexdigest()!=blob:raise ValueError('Missing or invalid asset data')
             return manifest
     except (BadZipFile,KeyError,TypeError,AttributeError,sqlite3.Error,UnicodeError,RuntimeError) as error:
         raise ValueError('Invalid or damaged backup file') from error

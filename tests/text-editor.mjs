@@ -62,3 +62,12 @@ modal=document.body.children[0];nodes=all(modal);const tokenInput=nodes.find(el=
 await nodes.find(el=>el.textContent==='Insert Tag').onclick();assert.equal(tokenInput.value,String.raw`@{Memory\Test|dp=1;min=1;zeros=1}`);
 nodes.find(el=>el.tagName==='form').onsubmit({preventDefault(){}});await editingToken;
 console.log('Insert Tag reopens and replaces the occurrence under the caret, retaining its saved tag reference.');
+
+const assetText=openTextEditor({text:'Start end'},{onPickText:async()=> 'asset notes'});
+modal=document.body.children[0];modal.isConnected=true;nodes=all(modal);
+const assetInput=nodes.find(node=>node.tagName==='textarea');assetInput.selectionStart=6;assetInput.selectionEnd=6;
+await nodes.find(node=>node.textContent==='Insert Text Asset…').onclick();
+assert.equal(assetInput.value,'Start asset notesend');
+nodes.find(node=>node.tagName==='form').onsubmit({preventDefault(){}});
+assert.equal((await assetText).text,'Start asset notesend');
+console.log('Text assets insert an editable copy at the current selection.');

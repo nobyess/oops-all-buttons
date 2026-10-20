@@ -21,3 +21,11 @@ release/
 /requirements-symbol-manager.txt
 /hmi/symbol_library.py
 /tests/test_symbol_library.py
+
+# Downloaded/generated release license materials (included in release ZIPs).
+/third-party/sources/
+/third-party/application-source.zip
+/third-party/inventory.json
+/third-party/build-versions.txt
+/third-party/licenses/
+/third-party/source-manifest.json
