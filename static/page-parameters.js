@@ -1,3 +1,4 @@
+import {parseInlineToken,inlineToken} from './inline-format.js';
 // Page parameters are symbolic tag references, resolved separately for each live instance.
 export const PARAMETER_SOURCE='@parameters';
 export const isParameter=id=>typeof id==='string' && id.startsWith('parameter:');
@@ -8,9 +9,9 @@ export function renameParameterText(page,previous){
   for(const control of [page,...page.controls || [],...page.groups || []])for(const [owner,field,refsKey] of [[control,'text','textRefs'],...(control.events || []).filter(e=>e.action==='set_content').map(e=>[e,'content','contentRefs'])]){
     const refs=owner[refsKey] || {},nextRefs={...refs};
     owner[field]=String(owner[field] ?? '').replace(/@\{([^{}\r\n]+)\}/g,(token,path)=>{
-      const id=refs[path] || oldByPath.get(path),next=names.get(id);
+      const parsed=parseInlineToken(path),id=refs[path] || refs[parsed.path] || oldByPath.get(parsed.path),next=names.get(id);
       if(!next)return token;
-      delete nextRefs[path];nextRefs[next]=id;return '@{'+next+'}';
+      const replacement=inlineToken(next,parsed.format || {});delete nextRefs[path];nextRefs[replacement.slice(2,-1)]=id;return replacement;
     });
     if(Object.keys(nextRefs).length)owner[refsKey]=nextRefs;
   }
@@ -33,7 +34,7 @@ export function instantiatePage(template,connections={}){
     }
     for(const [owner,field,refsKey] of [[control,'text','textRefs'],...(control.events || []).filter(e=>e.action==='set_content').map(e=>[e,'content','contentRefs'])]){
       const refs={...owner[refsKey]};
-      for(const match of String(owner[field] ?? '').matchAll(/@\{([^{}\r\n]+)\}/g))if(paths.has(match[1]) && !refs[match[1]])refs[match[1]]=paths.get(match[1]);
+      for(const match of String(owner[field] ?? '').matchAll(/@\{([^{}\r\n]+)\}/g))if(paths.has(parseInlineToken(match[1]).path) && !refs[match[1]])refs[match[1]]=paths.get(parseInlineToken(match[1]).path);
       owner[refsKey]=Object.fromEntries(Object.entries(refs).map(([path,id])=>[path,resolve(id)]));
     }
   }

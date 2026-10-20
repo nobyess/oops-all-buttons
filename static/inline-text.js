@@ -1,7 +1,10 @@
-import {displayValue} from './value-format.js';
+import {parseInlineToken,formatInlineValue} from './inline-format.js';
 const tokens=text=>[...String(text ?? '').matchAll(/@\{([^{}\r\n]+)\}/g)];
 function identity(path,refs,tags) {
   if(Object.hasOwn(refs || {},path))return refs[path] || undefined;
+  const base=parseInlineToken(path).path;
+  if(Object.hasOwn(refs || {},base))return refs[base] || undefined;
+  path=base;
   return tags.find(tag=>`${tag.source_name || tag.source}\\${tag.folder?tag.folder+'\\':''}${tag.name || tag.address || tag.id}`.toLowerCase()===path.toLowerCase())?.id;
 }
 export function inlineTagIds(text,refs={},tags=[]) {
@@ -15,6 +18,6 @@ export function controlInlineTagIds(control,tags=[]) {
 export function renderInlineText(text,refs={},tags=[],values={}) {
   return String(text ?? '').replace(/@\{([^{}\r\n]+)\}/g,(_,path)=>{
     const sample=values[identity(path,refs,tags)];
-    return sample?.quality==='good'?displayValue(sample.value):'—';
+    return sample?.quality==='good'?formatInlineValue(sample.value,parseInlineToken(path).format):'—';
   });
 }

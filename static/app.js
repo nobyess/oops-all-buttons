@@ -1,3 +1,4 @@
+import {openInlineTagDialog} from './inline-tag-dialog.js';
 import {firstSelection,newRule} from './selection-defaults.js';
 import {rotateArtwork} from './artwork-rotation.js';
 import {mountSymbolContent} from './symbol-content.js';
@@ -1362,10 +1363,10 @@ function geometry(el,c) {
   });
   if(controls[c.type]?.category==='shapes' || ['level','symbol'].includes(c.type))el.style.background='transparent';
 }
-async function pickInlineTag() {
-  const id=await openTagSelector(pickerProviders());
-  const tag=pickerTags().find(tag=>tag.id===id);
-  return tag?tagPath(tag):null;
+async function pickInlineTag(initial={}) {
+  const tag=pickerTags().find(tag=>tag.id===initial.tag || tagPath(tag).toLowerCase()===String(initial.path || '').toLowerCase());
+  return openInlineTagDialog(pickerProviders(),{initial:{...initial,tag:tag?.id || ''},
+    getSample:async id=>isParameter(id)?null:(await api('values/batch',{tags:[id],pages:[]})).values[id]});
 }
 function paint(el, c, owner=page, isEditing=editing) {
   const appearance = isEditing ? {} : (controlStates[owner?.instanceId || owner?.id]?.[c.id] || {});

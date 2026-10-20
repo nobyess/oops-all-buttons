@@ -380,3 +380,9 @@ Keep existing DOM nodes during periodic refreshes. Update changed values in plac
 Every view-owned interval, timeout, observer, global event listener, and temporary object URL needs an explicit cleanup path. Dialog cleanup must run for the close event as well as Cancel/Confirm; invalidate pending responses so closed views cannot restart requests or timers. App-wide listeners and clocks are installed once. Repeated open/close tests should return active resource counts to their starting values.
 
 New dropdowns select the first available option, including a first placeholder when one is present. Retain valid saved choices. Actions/Events lists select their first rule when no selection exists; new rules use the first choices in their menus (Mouse Down, Toggle, Equals, and the first available visual event action).
+
+### Inserted tag number formatting
+
+Plain `@{Source\Tag}` tokens keep their existing behavior. Optional per-occurrence formatting uses `@{Source\Tag|dp=2;min=3;zeros=1}`: `dp` is `raw` or 0–15, `min` is 1–15 integer digits, and `zeros` controls fixed trailing zeros. Only numeric values are formatted; cached/native values are unchanged. The popup produces this syntax and can reopen an occurrence under the Text Editor caret. It uses a one-time value preview request when a tag is selected, with no added periodic timer.
+
+Keep the strict parser in `static/inline-format.js` and `hmi/inline_text.py` synchronized. Reference maps remain keyed by the full token body and point to stable tag IDs. Polling, usage references, Set Content events, and page-parameter instantiation/rename must understand formatted tokens as the same underlying tag. Invalid formatting suffixes remain literal tag paths rather than being evaluated.

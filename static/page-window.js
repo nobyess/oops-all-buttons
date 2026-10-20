@@ -1,3 +1,4 @@
+import {closeIcon} from './close-icon.js';
 // Non-modal runtime page windows. Positions are clamped to the visible viewport.
 const windows = new Set();
 
@@ -23,11 +24,7 @@ export function openPageWindow({page, position = 'centered', point, render}) {
   const title = document.createElement('strong'); title.textContent = page.name;
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
-  const closeIcon=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  closeIcon.setAttribute('viewBox','0 0 16 16');closeIcon.setAttribute('width','16');closeIcon.setAttribute('height','16');closeIcon.setAttribute('aria-hidden','true');
-  const closePath=document.createElementNS('http://www.w3.org/2000/svg','path');
-  closePath.setAttribute('d','M4 4L12 12M12 4L4 12');closePath.setAttribute('fill','none');closePath.setAttribute('stroke','currentColor');closePath.setAttribute('stroke-width','1.6');closePath.setAttribute('stroke-linecap','round');
-  closeIcon.append(closePath);closeButton.append(closeIcon);
+  closeButton.append(closeIcon());
   closeButton.setAttribute('aria-label', 'Close ' + page.name);
   caption.append(title, closeButton); frame.append(caption);
   const body = document.createElement('div'); body.className = 'runtime page-window-body';

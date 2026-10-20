@@ -2,6 +2,7 @@ import {contextMenu} from './context-menu.js';
 import {displayValue} from './value-format.js';
 import {mountSheetGrid} from './sheet-ui.js';
 import {refreshPolicy} from './refresh-policy.js';
+import {closeIcon} from './close-icon.js';
 // Reusable tag picker. This module has no dependency on the page editor.
 // Cancel returns null and leaves the caller's selection unchanged.
 function element(tag, text, parent, attributes = {}) {
@@ -165,7 +166,8 @@ export function tagPicker(parent, {label, value = '', onChange, hideLabel=false,
   const box = element('button', display(value), row, {type: 'button', className: 'tag-picker-box'});
   box.setAttribute('aria-haspopup', 'dialog');
   if(hideLabel)box.setAttribute('aria-label',label);
-  const clear = element('button', '×', row, {type: 'button', title: 'Clear tag selection'});
+  const clear = element('button', null, row, {type: 'button', title: 'Clear tag selection',className:'tag-picker-clear'});
+  clear.append(closeIcon());
   clear.setAttribute('aria-label', 'Clear ' + label);
   function setValue(next) {value = next; box.textContent = display(value); onChange?.(value);}
   box.onclick = async () => {

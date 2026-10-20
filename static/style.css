@@ -1253,3 +1253,18 @@ body {background:var(--app-background,var(--ui-background))}
 
 .administration .simulation-settings label.simulation-check {flex-direction:row;text-align:left;min-height:38px;}
 .administration .simulation-settings label.simulation-check input[type=checkbox] {width:auto;margin:0;align-self:auto;flex-shrink:0;}
+
+.inline-tag-dialog {width:min(430px,calc(100vw - 32px));}
+.inline-tag-dialog label {display:flex;flex-direction:column;}
+.inline-tag-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.inline-tag-dialog .inline-tag-fields > label {margin:0;}
+.inline-tag-dialog :is(input:not([type=checkbox]),select) {width:100%;min-height:36px;}
+.inline-tag-preview {display:grid;gap:8px;padding:12px 8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);text-align:center;}
+.inline-tag-preview > span {font-size:12px;color:var(--ui-muted);}
+.inline-tag-preview > strong {font-size:24px;line-height:32px;overflow-wrap:anywhere;}
+
+/* Tag pickers fill the field surface; clear uses the shared centered close icon. */
+.tag-picker-field {width:100%;min-width:0;align-items:stretch;}
+.tag-picker-field > .tag-picker-box {display:block;flex:1 1 0;min-width:0;width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
+.tag-picker-field > .tag-picker-clear {display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;min-width:30px;min-height:36px;padding:0;line-height:1;}
+.tag-picker-clear > svg {display:block;flex:none;pointer-events:none;}

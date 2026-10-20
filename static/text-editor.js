@@ -1,3 +1,4 @@
+import {parseInlineToken,inlineToken} from './inline-format.js';
 import {fonts} from './controls.js';
 import {alignmentPicker} from './alignment-picker.js';
 import {colorPicker} from './color-picker.js';
@@ -23,12 +24,14 @@ export function openTextEditor(control, {onInsertTag,previewBackground='#ffffff'
     const text=el('textarea',null,previewSurface,{value:draft.text,rows:8,className:'text-editor-input'});text.setAttribute('aria-label','Text');
     if(insert) {
       insert.onclick=async()=>{
-        const start=text.selectionStart ?? text.value.length,end=text.selectionEnd ?? start;
+        let start=text.selectionStart ?? text.value.length,end=text.selectionEnd ?? start;
+        const existing=[...text.value.matchAll(/@\{([^{}\r\n]+)\}/g)].find(match=>start>=match.index && start<match.index+match[0].length && end<=match.index+match[0].length);
+        let initial={};if(existing){const raw=existing[1];initial={...parseInlineToken(raw),tag:control.textRefs?.[raw]};start=existing.index;end=start+existing[0].length;}
         insert.disabled=true;
         try {
-          const path=await onInsertTag();
-          if(path) {
-            const token='@{'+path+'}';
+          const result=await onInsertTag(initial);
+          if(result) {
+            const token=typeof result==='string'?inlineToken(result):inlineToken(result.path,result.format);
             text.value=text.value.slice(0,start)+token+text.value.slice(end);
             text.setSelectionRange(start+token.length,start+token.length);
           }

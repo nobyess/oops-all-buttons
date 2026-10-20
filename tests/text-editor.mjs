@@ -55,3 +55,10 @@ const seeded={};seedContentEvent(seeded,base);assert.equal(seeded.content,'Runni
 base.textRefs['Source\\Tag']='changed';assert.equal(seeded.contentRefs['Source\\Tag'],'id');
 seeded.content='Custom';seedContentEvent(seeded,{text:'Other'});assert.equal(seeded.content,'Custom');
 console.log('Set Content snapshots the current text/formatting and preserves existing event edits.');
+
+const originalToken=String.raw`@{Memory\Test|dp=2;min=3;zeros=1}`;
+const editingToken=openTextEditor({text:originalToken,textRefs:{[originalToken.slice(2,-1)]:'id'}},{onInsertTag:async initial=>{assert.equal(initial.tag,'id');assert.equal(initial.format.digits,2);return {path:initial.path,format:{digits:1,minimumIntegerDigits:1,trailingZeros:true}};}});
+modal=document.body.children[0];nodes=all(modal);const tokenInput=nodes.find(el=>el.tagName==='textarea');tokenInput.selectionStart=4;tokenInput.selectionEnd=4;tokenInput.setSelectionRange=()=>{};
+await nodes.find(el=>el.textContent==='Insert Tag').onclick();assert.equal(tokenInput.value,String.raw`@{Memory\Test|dp=1;min=1;zeros=1}`);
+nodes.find(el=>el.tagName==='form').onsubmit({preventDefault(){}});await editingToken;
+console.log('Insert Tag reopens and replaces the occurrence under the caret, retaining its saved tag reference.');

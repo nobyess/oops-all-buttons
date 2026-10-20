@@ -12,7 +12,7 @@ class Element {
  remove(){this.parent.children=this.parent.children.filter(child=>child!==this);}
 }
 const descendants=root=>root.children.flatMap(child=>[child,...descendants(child)]);
-globalThis.document={body:new Element('body'),createElement:tag=>new Element(tag)};
+globalThis.document={body:new Element('body'),createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag)};
 const source={id:'sheet',name:'Sheet1',kind:'sheet',settings:{live:.5}};
 const interests=[],timers=[];let selected,requests=0;
 const realSetTimeout=globalThis.setTimeout,realClearTimeout=globalThis.clearTimeout;

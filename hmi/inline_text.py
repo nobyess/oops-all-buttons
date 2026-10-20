@@ -4,6 +4,13 @@ from .tag_paths import tag_path
 
 TOKENS = re.compile(r'@\{([^{}\r\n]+)\}')
 
+def inline_path(token):
+    match = re.fullmatch(r'(.*)\|dp=(raw|[0-9]{1,2});min=([0-9]{1,2});zeros=([01])', token)
+    if match and match[1] and 1 <= int(match[3]) <= 15 and (match[2] == 'raw' or int(match[2]) <= 15):
+        return match[1]
+    return token
+
+
 def bind_inline_text(controls, tags, sources, parameters=()):
     names = {s['id']: s.get('name', s['id']) for s in sources}
     paths = {tag_path(t, names.get(t['source'], t['source'])).casefold(): t['id'] for t in tags}
@@ -16,9 +23,9 @@ def bind_inline_text(controls, tags, sources, parameters=()):
             previous = owner.get(refs_key, {})
             refs = {}
             for path in TOKENS.findall(str(owner.get(field, ''))):
-                identity = previous.get(path)
+                identity = previous.get(path, previous.get(inline_path(path)))
                 if identity not in known:
-                    identity = paths.get(path.casefold())
+                    identity = paths.get(path.casefold(), paths.get(inline_path(path).casefold()))
                 if identity:
                     refs[path] = identity
             if refs:

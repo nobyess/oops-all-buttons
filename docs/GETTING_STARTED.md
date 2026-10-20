@@ -93,6 +93,12 @@ New actions default to Mouse Down and Toggle. Choose Click explicitly for this e
 
 **Actions** run commands, such as writing a tag. **Events** change appearance or content when a condition is true—for example, changing a color when a value exceeds a limit.
 
+### Insert a value into text
+
+In a Label or Button’s Text Editor, click **Insert Tag**. Choose a tag, decimal places (or **As received**), minimum integer digits for leading zeros, and whether to keep trailing zeros. The preview updates as you change these options. Formatting belongs to that occurrence only; the tag’s underlying value is unchanged. Text and boolean values keep their normal display.
+
+To change an existing insertion, put the caret inside its token in the Text Editor and click **Insert Tag** again. Save the Text Editor, then save the page.
+
 ## 6. Save a backup
 
 After saving your page, open **Administration → Backup/Restore** and download a backup. It lets you move or restore the project later. Keep it secure: backups include accounts and driver credentials.
