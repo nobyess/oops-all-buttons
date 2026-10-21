@@ -36,6 +36,36 @@ The portable release is for **64-bit Windows**. Python and the driver dependenci
 
 Your project is stored in the `data` folder beside the executable. The tray menu provides **Launch**, **Restart Server**, and **Exit**. Closing the browser does not stop the server; use **Exit** when you want to shut it down. See [Backups and updates](#backups-and-updates) before installing a newer release.
 
+### Run from source
+
+Use Python 3.11 or newer. From the project folder:
+
+```sh
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux: source .venv/bin/activate
+python -m pip install -r requirements.txt
+python run.py
+```
+
+On Linux, use `python3` to create the environment. The browser opens at **http://127.0.0.1:8080**. Use `--no-browser --no-tray` when running without a desktop.
+
+Install the additional dependencies for the features you need:
+
+| Feature | Requirements file |
+| --- | --- |
+| PyComm3 | `requirements-plc.txt` |
+| BACnet/IP | `requirements-bacnet.txt` |
+| Modbus TCP / RTU | `requirements-modbus.txt` |
+| MQTT | `requirements-mqtt.txt` |
+| Sheet formulas | `requirements-sheet.txt` |
+| DXF import | `requirements-dxf.txt` |
+
+For example: `python -m pip install -r requirements-modbus.txt`.
+
+For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
+
 ### Explore the examples
 
 Fresh projects include an editable **Start Page** with getting-started instructions and three demo tags directly under `System\Memory`: `DemoTankLevel`, `DemoPumpEnabled`, and `DemoMode`. Edit or delete it like any page; restarts and updates will not recreate it. Existing projects and restored backups keep their own pages.
@@ -77,36 +107,6 @@ A demonstration page built with ordinary controls and the built-in HVAC simulati
 ### Data Sources & Tags
 
 ![Built-in Air Handler tags with a live value and page references](docs/images/data-sources-tags.png)
-
-## Run from source
-
-Use Python 3.11 or newer. From the project folder:
-
-```sh
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux: source .venv/bin/activate
-python -m pip install -r requirements.txt
-python run.py
-```
-
-On Linux, use `python3` to create the environment. The browser opens at **http://127.0.0.1:8080**. Use `--no-browser --no-tray` when running without a desktop.
-
-Install the additional dependencies for the features you need:
-
-| Feature | Requirements file |
-| --- | --- |
-| PyComm3 | `requirements-plc.txt` |
-| BACnet/IP | `requirements-bacnet.txt` |
-| Modbus TCP / RTU | `requirements-modbus.txt` |
-| MQTT | `requirements-mqtt.txt` |
-| Sheet formulas | `requirements-sheet.txt` |
-| DXF import | `requirements-dxf.txt` |
-
-For example: `python -m pip install -r requirements-modbus.txt`.
-
-For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
 
 ## Backups and updates
 
