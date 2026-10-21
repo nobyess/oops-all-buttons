@@ -10,3 +10,15 @@ win.history.go(-1);nav.accept();assert.equal(win.location.hash,'#editor/one');wi
 win.history.go(1);nav.accept();push('#sheets');nav.cancel();assert.equal(win.location.hash,'#editor/one');assert.equal(nav.changed(),false);
 win.history.go(1);nav.accept();assert.equal(win.location.hash,'#sheets');
 console.log('Back/Forward cancellation preserves navigation entries.');
+
+const countBeforeReset=entries.length;nav.reset();assert.equal(nav.canBack(),false);
+const resetPosition=position;nav.back();assert.equal(position,resetPosition,'App Back stops at login boundary');
+assert.equal(entries.length,countBeforeReset,'Reset does not pretend to delete native browser history');
+push('#assets');nav.accept();assert.equal(nav.canBack(),true);
+nav.back();assert(nav.changed());nav.accept();assert.equal(win.location.hash,'#sheets');assert.equal(nav.canBack(),false);
+const reloaded=navigationHistory(win);assert.equal(reloaded.canBack(),false,'Boundary survives reload');
+// A browser-native Back can still reach old entries; new navigation then works normally.
+win.history.go(-1);assert(reloaded.changed());reloaded.accept();assert.equal(reloaded.canBack(),false);
+push('#alarms');reloaded.accept();assert.equal(reloaded.canBack(),true);
+reloaded.reset();assert.equal(reloaded.canBack(),false,'Every sign-in establishes a fresh boundary');
+console.log('Login resets app Back history; new navigation, reload and native Back remain usable.');

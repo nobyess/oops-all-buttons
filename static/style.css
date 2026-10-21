@@ -1152,7 +1152,7 @@ body {background:var(--app-background,var(--ui-background))}
 .backup-file-field {display:grid;gap:8px;padding:8px;background:var(--ui-field-bg,var(--ui-panel));border:1px solid var(--ui-divider);border-radius:6px;margin:12px 0}
 .backup-file-field input {width:100%;box-sizing:border-box}
 .backup-restore > p {margin:0;overflow-wrap:anywhere}
-.auth .login-logo {display:block;position:relative;left:50%;transform:translateX(-50%);width:min(784px,calc(100vw - 48px));max-width:none;max-height:280px;object-fit:contain;margin:0 0 24px}
+.auth .login-logo {display:block;position:relative;left:50%;transform:translateX(-50%);width:auto;height:auto;max-width:calc(100vw - 48px);max-height:none;object-fit:contain;margin:0 0 24px}
 .auth .login-credentials {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle)}
 .auth .login-credentials label {border:0;border-radius:0;background:transparent;padding:0;margin:0 0 12px}
 .auth .login-credentials label:last-child {margin-bottom:0}
@@ -1284,14 +1284,16 @@ body {background:var(--app-background,var(--ui-background))}
 .tag-picker-field > .tag-picker-box {display:block;flex:1 1 0;min-width:0;width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
 .tag-picker-field > .tag-picker-clear {display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;min-width:30px;min-height:36px;padding:0;line-height:1;}
 .tag-picker-clear > svg {display:block;flex:none;pointer-events:none;}
-.asset-columns {display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,1fr);gap:16px;min-height:580px}
+.asset-columns {display:grid;grid-template-columns:clamp(260px,30%,340px) minmax(0,1fr);gap:16px;min-height:580px}
 .asset-left,.asset-right {display:flex;flex-direction:column;min-width:0}
 .asset-filters {display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,.55fr);gap:8px;margin:0 0 12px}
+.asset-center .asset-filters {grid-template-columns:minmax(0,1fr) 110px}
 .asset-filters.asset-filters-with-type {grid-template-columns:minmax(0,1fr) minmax(90px,.45fr) minmax(110px,.6fr)}
 .asset-filters :is(input,select) {width:100%;min-height:36px;margin:0;background:var(--ui-panel);color:var(--ui-text);border-radius:6px}
 .asset-manager-list {flex:1;min-height:280px;max-height:560px;overflow:auto;border:1px solid var(--ui-border);padding:4px;border-radius:6px;background:var(--ui-panel)}
 .asset-manager-row {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:32px;border:0;margin:0;padding:6px 8px;border-radius:4px;text-align:left;background:transparent;color:var(--ui-text);font-size:14px;line-height:20px}
 .asset-manager-row>span {min-width:0;overflow-wrap:anywhere}
+.asset-manager-row>small {flex-shrink:0}
 .asset-manager-row small {display:block;color:var(--ui-muted);font-size:12px;line-height:18px}
 .asset-manager-row[aria-selected="true"],.asset-tile[aria-selected="true"] {background:var(--designer-list-selection);color:var(--designer-list-selected-text)}
 .asset-manager-row[aria-selected="true"] small,.asset-tile[aria-selected="true"] small {color:inherit}
@@ -1341,7 +1343,7 @@ body {background:var(--app-background,var(--ui-background))}
 .content-picker .tabs button {flex:1;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);padding:8px 12px;min-height:40px}
 .content-picker .tabs button.active {color:var(--ui-link);border-bottom-color:var(--ui-link)}
 .text-editor-header {flex-wrap:wrap}
-@media(max-width:650px){.asset-columns {grid-template-columns:minmax(0,1fr)}.asset-manager-list {max-height:280px}.asset-filters {grid-template-columns:minmax(0,1fr)}.asset-picker-grid {grid-template-columns:repeat(3,minmax(0,1fr))}.asset-tile {padding:6px}}
+@media(max-width:650px){.asset-center .asset-filters {grid-template-columns:minmax(0,1fr)}.asset-columns {grid-template-columns:minmax(0,1fr)}.asset-manager-list {max-height:280px}.asset-filters {grid-template-columns:minmax(0,1fr)}.asset-picker-grid {grid-template-columns:repeat(3,minmax(0,1fr))}.asset-tile {padding:6px}}
 
 /* Asset surfaces follow the same flat tabs and compact dialog footer rules. */
 .asset-right .tabs,.content-picker.designer-dialog .tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px}

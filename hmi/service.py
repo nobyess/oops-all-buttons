@@ -25,8 +25,13 @@ from .tag_paths import tag_path
 
 
 class Service:
-    def __init__(self, store):
+    def __init__(self, store, *, initialize_starter=False):
         self.store = store
+        # Only the application startup opts in. Existing/restored projects, even
+        # deliberately empty ones, never receive sample content during an upgrade.
+        if initialize_starter and self.store.get('starter_content_pending') is None:
+            pristine=all(self.store.get(key) is None for key in ('pages','page','sources','tags','users','account','starter_content_version'))
+            self.store.set('starter_content_pending',pristine)
         self.lock = threading.RLock()
         self.assets = AssetCenter(self)
         self.drivers = {}
@@ -62,6 +67,9 @@ class Service:
                                  'tags':stored_tags})
         self.test_receipts = {}
         self.action_locks = {}
+        if initialize_starter and self.store.get('starter_content_pending'):
+            from .starter_page import seed_start_page
+            seed_start_page(self)
         if self.store.get('pages') is None:
             old = self.store.get('page', {'controls': []})
             self.store.set('pages', [{'id': 'main', 'name': 'Main', **old}])
@@ -82,6 +90,14 @@ class Service:
             except Exception as exc:
                 self.source_errors[source['id']] = str(exc)
                 self.error_log.record('Driver: '+source.get('name',source['id']), str(exc))
+        # Memory values remain volatile; demo tags carry editable project
+        # metadata for their startup values rather than a recurring demo task.
+        system=self.drivers.get('system')
+        if system:
+            for tag in self.store.get('tags',[]):
+                value=tag.get('initial_value')
+                if tag.get('source')=='system' and str(tag.get('address','')).startswith('Memory/') and isinstance(value,(bool,int,float,str)):
+                    if not isinstance(value,float) or math.isfinite(value):system.write(tag['address'],value)
         self.configure_polling()
 
     def configure_polling(self):

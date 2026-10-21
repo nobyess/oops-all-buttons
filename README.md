@@ -26,6 +26,8 @@ These are protocol/device examples, not a list of hardware verified with this pr
 
 Create an administrator account on first run, or restore an existing backup. The tray menu provides **Launch**, **Restart Server**, and **Exit**. Keep the `files` folder beside the executable; your project is saved in `data`.
 
+Fresh projects include an editable **Start Page** with getting-started instructions and three demo tags directly under `System\Memory`: `DemoTankLevel`, `DemoPumpEnabled`, and `DemoMode`. Edit or delete it like any page; restarts and updates will not recreate it. Existing projects and restored backups keep their own pages.
+
 **Try it without a controller:** Open **Administration → Simulation**, enable the Air Handler, and save. Its tags appear under `Simulation\AirHandler`. Add controls to a page, bind them to those tags, and set `UnitEnableSignal` to `1` to start the model. Outdoor temperature, discharge setpoint, and room heat load are writable. Temperatures use °F.
 
 ## What’s included

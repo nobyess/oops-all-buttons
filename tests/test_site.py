@@ -58,11 +58,11 @@ class SiteTests(unittest.TestCase):
   self.assertEqual(self.request('/api/site/logo')[0],404)
 
  def test_bundled_default_custom_override_and_reset(self):
-  image=self.root/'static'/'images'/'default-logo.png';image.parent.mkdir(parents=True)
-  raw=b'\x89PNG\r\n\x1a\nDefault test image';image.write_bytes(raw)
+  image=self.root/'static'/'images'/'default-logo.webp';image.parent.mkdir(parents=True)
+  raw=b'RIFF\x18\x00\x00\x00WEBPDefault test image';image.write_bytes(raw)
   self.assertTrue(self.request('/api/status')[1]['site_logo'])
   status,content,headers=self.request('/api/site/logo');self.assertEqual(status,200)
-  self.assertEqual(content,raw);self.assertEqual(headers['Content-Type'],'image/png')
+  self.assertEqual(content,raw);self.assertEqual(headers['Content-Type'],'image/webp')
   admin,token=self.login('Admin')
   self.assertTrue(self.request('/api/admin/site',cookie=admin)[1]['default_logo'])
   self.request('/api/admin/site',{'logo':self.logo},admin,token)

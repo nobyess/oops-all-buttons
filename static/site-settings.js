@@ -17,7 +17,7 @@ export function mountSite(parent,{node,button,api}){
   if(url){URL.revokeObjectURL(url);url='';}
   const hasLogo=Boolean(selected || current && !removed || hasDefault);
   image.hidden=!hasLogo;empty.hidden=hasLogo;
-  if(selected){if(selected.url)image.src=selected.url;else{url=URL.createObjectURL(selected);image.src=url;}}else if(hasLogo)image.src=(current && !removed?'/api/site/logo':'/images/default-logo.png')+'?v='+Date.now();else image.removeAttribute('src');
+  if(selected){if(selected.url)image.src=selected.url;else{url=URL.createObjectURL(selected);image.src=url;}}else if(hasLogo)image.src=(current && !removed?'/api/site/logo':'/images/default-logo.webp')+'?v='+Date.now();else image.removeAttribute('src');
   remove.textContent=hasDefault?'Use Default Logo':'Remove Logo';remove.disabled=!(selected || current && !removed) || saving;save.disabled=revert.disabled=!dirty || saving;file.disabled=saving;
  }
  file.onchange=()=>{

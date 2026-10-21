@@ -349,8 +349,10 @@ async function start(afterLogin=false)  {
   } else {page=pages.find(p=>p.id===page?.id)||pages[0];dirty=false;}
   if(afterLogin || currentUser?.kiosk && !location.hash.startsWith('#runtime/')){
     page=pages.find(p=>p.id===currentUser?.starting_page)||pages[0];
-    if(page && (afterLogin || currentUser?.starting_page || currentUser?.kiosk))history.replaceState(null,'','#runtime/'+page.id);
+    if(page && (afterLogin || currentUser?.starting_page || currentUser?.kiosk))history.replaceState(history.state,'','#runtime/'+page.id);
+    else if(afterLogin)history.replaceState(history.state,'','#pages');
   }
+  if(afterLogin)navigation.reset();
   route();
   alarmAttention.setUser(currentUser);
 }
@@ -364,6 +366,7 @@ function auth(setup)  {
   document.querySelector('#exit-kiosk')?.remove();
   document.querySelector('#kiosk-home')?.remove();
   navigation.accept();
+  document.querySelector('#navigation-back').disabled=!navigation.canBack();
   closeContextMenu();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
@@ -448,6 +451,7 @@ function route() {
     return;
   }
   navigation.accept();
+  document.querySelector('#navigation-back').disabled=!navigation.canBack();
   closeContextMenu();
   closePageWindows();
   closeLibrary?.();closeLibrary=null;
@@ -1989,7 +1993,7 @@ async function managementRefresh() {
 
 }
 const navigation=navigationHistory(window);
-document.querySelector('#navigation-back').onclick=()=>window.history.back();
+document.querySelector('#navigation-back').onclick=()=>navigation.back();
 installDialogKeyboard(document);
 window.addEventListener('hashchange',()=>{if(navigation.changed())route();});
 window.addEventListener('beforeunload',e=> {

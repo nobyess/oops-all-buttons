@@ -157,9 +157,9 @@ def make_handler(service, request_log=None):
                 import base64
                 asset = (service.assets.image(service.store.get('site_logo_asset')) if service.store.get('site_logo_asset') else service.store.get('site_logo')) if path == '/api/site/logo' else service.assets.image(path.rsplit('/', 1)[-1])
                 if not asset and path == '/api/site/logo':
-                    default_logo = ROOT / 'static' / 'images' / 'default-logo.png'
+                    default_logo = ROOT / 'static' / 'images' / 'default-logo.webp'
                     if default_logo.is_file():
-                        asset = {'mime':'image/png','data':base64.b64encode(default_logo.read_bytes()).decode('ascii')}
+                        asset = {'mime':'image/webp','data':base64.b64encode(default_logo.read_bytes()).decode('ascii')}
                 if not asset:
                     return self.reply(404, {'error': 'Image not found'})
                 body = base64.b64decode(asset['data'])
@@ -174,7 +174,7 @@ def make_handler(service, request_log=None):
             if path == '/api/status':
                 record = self.session()
                 return self.reply(200, {'setup': not access.users(),
-                                       'site_logo':bool(service.store.get('site_logo_asset') or service.store.get('site_logo')) or (ROOT/'static'/'images'/'default-logo.png').is_file(),
+                                       'site_logo':bool(service.store.get('site_logo_asset') or service.store.get('site_logo')) or (ROOT/'static'/'images'/'default-logo.webp').is_file(),
                                        'authenticated': bool(record), 'csrf': record['csrf'] if record else None,
                                        'username': record['user']['username'] if record else None,
                                        'user': record['user'] if record else None})
@@ -195,7 +195,7 @@ def make_handler(service, request_log=None):
                     '/api/alarms/attention': lambda: service.alarm_attention(user),
                     '/api/admin/users': lambda: [access.public(u) for u in access.users()],
                     '/api/admin/backup/status': lambda: {'pending':pending_path(Path(service.store.path).parent).exists()},
-                    '/api/admin/site': lambda: {'logo_name':((service.assets.get(service.store.get('site_logo_asset')) or {}) if service.store.get('site_logo_asset') else (service.store.get('site_logo') or {})).get('name',''), 'default_logo':(ROOT/'static'/'images'/'default-logo.png').is_file()},
+                    '/api/admin/site': lambda: {'logo_name':((service.assets.get(service.store.get('site_logo_asset')) or {}) if service.store.get('site_logo_asset') else (service.store.get('site_logo') or {})).get('name',''), 'default_logo':(ROOT/'static'/'images'/'default-logo.webp').is_file()},
                     '/api/admin/session-settings': lambda: session_settings(service.store.get('session_settings', {})),
                     '/api/admin/status': lambda: {
                         'uptime': time.monotonic() - started, 'cpu_seconds': time.process_time(),
@@ -482,7 +482,7 @@ def main():
     args = parse_options()
     data_directory = application_directory() / 'data'
     apply_pending(data_directory)
-    service = Service(Store(data_directory / 'hmi.sqlite3'))
+    service = Service(Store(data_directory / 'hmi.sqlite3'), initialize_starter=True)
     request_log = RequestLog()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(service, request_log))
     stopped = threading.Event()
@@ -511,7 +511,7 @@ def main():
         from hmi.tray import run_tray
         def tray_worker():
             try:
-                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'app-icon.png', launch=launch, on_restart=request_restart)
+                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'tray.ico', launch=launch, on_restart=request_restart)
             except Exception:
                 import traceback
                 traceback.print_exc()

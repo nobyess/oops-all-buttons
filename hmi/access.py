@@ -49,7 +49,8 @@ class Access:
             if not isinstance(roles,list) or any(role not in {r['id'] for r in self.roles()} for role in roles):raise ValueError('Unknown access role')
             user={**(original or {}),'id':original['id'] if original else uuid.uuid4().hex,'username':name,'administrator':True if setup else data.get('administrator') is True,'roles':list(dict.fromkeys(roles)),'revision':original.get('revision',1) if original else 1}
             user['kiosk']=data.get('kiosk',original.get('kiosk',False) if original else False) is True
-            user['starting_page']=str(data.get('starting_page',original.get('starting_page','') if original else ''))
+            starter=next((page['id'] for page in self.service.pages() if page.get('starterPage') or page.get('name')=='Start Page'),'')
+            user['starting_page']=str(data.get('starting_page',original.get('starting_page','') if original else starter))
             if user['starting_page'] and not any(page['id']==user['starting_page'] for page in self.service.pages()):raise ValueError('Choose an existing starting page')
             user['theme']=data.get('theme',original.get('theme','system') if original else 'system')
             if user['theme'] not in ('light','dark','system'):raise ValueError('Choose Light, Dark, or System theme')

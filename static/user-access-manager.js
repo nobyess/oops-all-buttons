@@ -36,7 +36,7 @@ export function mountUserAccess(parent,{node,button,api,mode,onOpenRole}){
    const name=field('Username',panels.Account,item?.username || '');name.required=true;name.maxLength=100;
    const level=choice('Account Level',panels.Account,[['standard','Standard User'],['admin','Administrator']],item?.administrator?'admin':'standard');
    const password=field(item?'New Password (leave blank to keep current)':'Password (8+ characters)',panels.Account,'','password');password.autocomplete='new-password';password.required=!item;password.minLength=8;
-   const kiosk=check('Kiosk Mode',panels.Access,item?.kiosk),page=choice('Starting Page',panels.Access,[['','Default (first page)'],...pages.map(p=>[p.id,p.name])],item?.starting_page || '');
+   const kiosk=check('Kiosk Mode',panels.Access,item?.kiosk),page=choice('Starting Page',panels.Access,[['','Default (first page)'],...pages.map(p=>[p.id,p.name])],item ? item.starting_page || '' : pages.find(page=>page.starterPage || page.name==='Start Page')?.id || '');
    node('h3','Access Roles',panels.Access);const links=node('div',null,panels.Access,{className:'access-detail-links'});
    for(const role of roles.filter(role=>item?.roles.includes(role.id))){const link=button(role.name,links,async()=>{if(saving || !await allowed())return;dirty=false;state.role=role.id;await onOpenRole?.();});link.className='access-detail-link';}
    if(!links.children.length)node('p','No roles assigned.',links,{className:'hint'});
