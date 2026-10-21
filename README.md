@@ -6,11 +6,11 @@ Connect to equipment through these drivers:
 
 | Driver | Example devices or data |
 | --- | --- |
-| PyComm3 / EtherNet/IP | Allen-Bradley ControlLogix and CompactLogix PLCs; Ethernet-accessible SLC 500 and MicroLogix controllers through SLC mode; configured CIP objects through CIP mode. |
-| BACnet/IP | BACnet/IP air-handler controllers, thermostats, VAV controllers, and building-automation devices. |
-| Modbus TCP | Ethernet PLCs, remote I/O, energy meters, and variable-frequency drives with Modbus TCP enabled. |
-| Modbus RTU | Serial/RS-485 temperature controllers, meters, drives, and remote I/O through a suitable serial adapter. |
-| MQTT | MQTT-enabled sensors and ESP32/Arduino projects publishing supported values through a broker. |
+| EtherNet/IP via PyComm3 | Allen-Bradley ControlLogix and CompactLogix PLCs; Ethernet-accessible SLC 500 and MicroLogix controllers through SLC mode; configured CIP objects through CIP mode. |
+| BACnet/IP via BAC0 | BACnet/IP air-handler controllers, thermostats, VAV controllers, and building-automation devices. |
+| Modbus TCP via PyModbus | Ethernet PLCs, remote I/O, energy meters, and variable-frequency drives with Modbus TCP enabled. |
+| Modbus RTU via PyModbus | Serial/RS-485 temperature controllers, meters, drives, and remote I/O through a suitable serial adapter. |
+| MQTT via Eclipse Paho | MQTT-enabled sensors and ESP32/Arduino projects publishing supported values through a broker. |
 | System | Built-in memory tags, date/time, uptime, heartbeat, and connection status; no hardware required. |
 | SQLite Database | Persistent named tags stored in an app-managed SQLite file. |
 | Simulation | Built-in Air Handler with temperatures, blower, heating, cooling, and writable setpoints. |
