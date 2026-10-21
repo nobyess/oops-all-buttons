@@ -1989,6 +1989,7 @@ async function managementRefresh() {
 
 }
 const navigation=navigationHistory(window);
+document.querySelector('#navigation-back').onclick=()=>window.history.back();
 installDialogKeyboard(document);
 window.addEventListener('hashchange',()=>{if(navigation.changed())route();});
 window.addEventListener('beforeunload',e=> {

@@ -1421,3 +1421,10 @@ body {background:var(--app-background,var(--ui-background))}
 .text-viewer-document img {max-width:100%;height:auto}
 .text-viewer-document blockquote {margin:.7em 0;padding-left:12px;border-left:3px solid currentColor}
 .text-viewer-document pre {white-space:pre-wrap}.text-viewer-plain {white-space:pre-wrap}
+
+/* Persistent navigation uses the shared 40px buttons and 8px toolbar gaps. */
+#navigation-back {display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;min-height:40px;padding:8px;flex-shrink:0;border-radius:var(--header-control-radius)}
+#navigation-back svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.header-start>.toolbar-divider {margin:0}
+.header-start:not(:has(#page-menu:not(:empty)))>.page-command-divider {display:none}
+.kiosk-mode .header-start>.navigation-divider {display:none}
