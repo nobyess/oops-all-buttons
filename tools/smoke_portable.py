@@ -59,7 +59,7 @@ def smoke(bundle):
             assert request('/api/site/logo')[:4] == b'RIFF'
             assert b'textviewer' in request('/controls.js')
             assert b'Startup delay after opening port' in request('/app.js')
-            assert request('/images/tray.ico')[:4] == b'\x00\x00\x01\x00'
+            assert request('/images/tray-ok.ico')[:4] == b'\x00\x00\x01\x00'
             request('/api/setup', {'username': 'PortableTest', 'password': 'portable-test-123', 'safety_acknowledged': True})
             status = request('/api/status')
             token = status['csrf']

@@ -511,7 +511,7 @@ def main():
         from hmi.tray import run_tray
         def tray_worker():
             try:
-                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'tray.ico', launch=launch, on_restart=request_restart)
+                run_tray(url, on_exit=server.shutdown, icon_path=ROOT / 'static' / 'images' / 'tray-ok.ico', launch=launch, on_restart=request_restart)
             except Exception:
                 import traceback
                 traceback.print_exc()
