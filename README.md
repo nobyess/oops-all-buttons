@@ -2,6 +2,8 @@
 
 A browser-based HMI for building operator screens, connecting device tags, and watching live equipment data. Built with Python and plain HTML, CSS, and JavaScript.
 
+> **Pre-release software:** This project is still under active development and may contain bugs, incomplete features, or breaking changes. Back up your project before updating and test changes before using them with equipment. See the [safety and network warning](#safety-and-network-warning) below.
+
 Connect to equipment through these drivers:
 
 | Driver | Example devices or data |
@@ -22,9 +24,19 @@ These are protocol/device examples, not a list of hardware verified with this pr
 
 ## Get started
 
-**Windows:** Download the portable ZIP from **[Releases](../../releases)**, extract the entire folder, and run `OopsAllButtons.exe`. Python and the driver dependencies are included.
+### Windows portable installation
 
-Create an administrator account on first run, or restore an existing backup. The tray menu provides **Launch**, **Restart Server**, and **Exit**. Keep the `files` folder beside the executable; your project is saved in `data`.
+The portable release is for **64-bit Windows**. Python and the driver dependencies are included; no Python installation is needed.
+
+1. Open **[Releases](../../releases)** and download `OopsAllButtons-<version>-windows-x64.zip` from the release assets.
+2. Right-click the ZIP and choose **Extract All**. Extract the entire folder to a location you can write to; do not run the executable from inside the ZIP.
+3. Open the extracted `OopsAllButtons` folder and run **`OopsAllButtons.exe`**. Keep the `files` folder beside it.
+4. Your browser should open automatically. If needed, use **Launch** from the tray icon or open **http://127.0.0.1:8080**.
+5. Create an administrator account and acknowledge the first-run warning, or restore an existing backup.
+
+Your project is stored in the `data` folder beside the executable. The tray menu provides **Launch**, **Restart Server**, and **Exit**. Closing the browser does not stop the server; use **Exit** when you want to shut it down. See [Backups and updates](#backups-and-updates) before installing a newer release.
+
+### Explore the examples
 
 Fresh projects include an editable **Start Page** with getting-started instructions and three demo tags directly under `System\Memory`: `DemoTankLevel`, `DemoPumpEnabled`, and `DemoMode`. Edit or delete it like any page; restarts and updates will not recreate it. Existing projects and restored backups keep their own pages.
 
@@ -42,7 +54,7 @@ Fresh projects include an editable **Start Page** with getting-started instructi
 
 ## Testing status and continued work
 
-This is an early public release, and testing is still limited:
+This is pre-release software, and testing is still limited:
 
 - **Modbus RTU:** untested with physical adapters and devices. Automated simulations have been checked, but real hardware operation is unverified.
 - **BACnet/IP:** mostly untested; broader device and network testing is needed.

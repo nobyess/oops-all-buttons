@@ -56,9 +56,22 @@ def smoke(bundle):
             assert request('/api/status')['setup'] is True
             assert b'Oops! All Buttons' in request('/')
             assert b'bindControlActions' in request('/control-actions.js')
-            assert request('/api/site/logo')
+            assert request('/api/site/logo')[:4] == b'RIFF'
+            assert b'textviewer' in request('/controls.js')
+            assert b'Startup delay after opening port' in request('/app.js')
+            assert request('/images/tray.ico')[:4] == b'\x00\x00\x01\x00'
             request('/api/setup', {'username': 'PortableTest', 'password': 'portable-test-123', 'safety_acknowledged': True})
-            token = request('/api/status')['csrf']
+            status = request('/api/status')
+            token = status['csrf']
+            pages = request('/api/pages')
+            assert len(pages) == 1 and pages[0]['name'] == 'Start Page'
+            assert pages[0]['horizontalAlignment'] == 'center'
+            assert status['user']['starting_page'] == pages[0]['id']
+            demo_tags = {tag['name']: tag for tag in request('/api/tags') if tag['name'].startswith('Demo')}
+            assert set(demo_tags) == {'DemoTankLevel', 'DemoPumpEnabled', 'DemoMode'}
+            assert all(tag['source'] == 'system' and tag['folder'] == 'Memory' for tag in demo_tags.values())
+            assert {asset['name'] for asset in request('/api/assets') if not asset.get('builtin')} == {'Start Page Notes', 'Demo Pump'}
+            assert request('/api/admin/assets/capabilities')['can_promote'] is False
             catalog = request('/api/catalog')
             assert {'pycomm3', 'bacnet', 'mqtt', 'modbus', 'database'} <= set(catalog['drivers'])
             interfaces = request('/api/network/interfaces')
