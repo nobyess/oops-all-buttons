@@ -25,8 +25,10 @@ def serial_ports():
 
 class SerialBus:
     def __init__(self, settings, factory, clock):
-        self.signature = tuple(settings[key] for key in ('baudrate','parity','stopbits','timeout','handle_local_echo'))
+        self.signature = tuple(settings[key] for key in ('baudrate','parity','stopbits','timeout','handle_local_echo','startup_delay'))
         self.clock = clock
+        self.startup_delay = settings['startup_delay']
+        self.startup_until = 0
         self.condition = threading.Condition()
         self.queue = deque()
         self.active = False
@@ -38,6 +40,16 @@ class SerialBus:
         self.client = factory(port=settings['serial_port'], baudrate=settings['baudrate'], bytesize=8,
                               parity=settings['parity'], stopbits=settings['stopbits'], timeout=settings['timeout'],
                               handle_local_echo=settings['handle_local_echo'], retries=0)
+
+    def connect(self):
+        # Called only within this bus's FIFO turn; other serial ports keep running.
+        if self.client.connected:return
+        if not self.client.connect():raise ValueError('Unable to connect to Modbus device')
+        if self.startup_delay:
+            with self.condition:self.startup_until=self.clock()+self.startup_delay
+            try:time.sleep(self.startup_delay)
+            finally:
+                with self.condition:self.startup_until=0
 
     def _check_unit(self, unit):
         if self.closed:
@@ -93,17 +105,18 @@ class SerialBus:
             return {'serial_sources': self.references, 'bus_queued': len(self.queue), 'bus_busy': self.active,
                     'bus_requests': self.requests, 'bus_failures': self.timeouts,
                     'bus_last_duration_ms': self.last_duration_ms,
+                    'startup_remaining_seconds': round(max(0,self.startup_until-self.clock()),1),
                     'retry_after_seconds': round(max(0, failure.get('until',0)-self.clock()), 1)}
 
 
 def acquire_bus(settings, factory, clock=time.monotonic, replacing=None):
     key = port_key(settings['serial_port'])
-    signature = tuple(settings[field] for field in ('baudrate','parity','stopbits','timeout','handle_local_echo'))
+    signature = tuple(settings[field] for field in ('baudrate','parity','stopbits','timeout','handle_local_echo','startup_delay'))
     with _registry_lock:
         bus = _registry.get(key)
         if bus and bus.signature != signature:
             if bus is not replacing or bus.references != 1:
-                raise ValueError('Sources sharing a serial port must use the same baud rate, parity, stop bits, timeout and local echo settings. Remove other sources on this port before changing bus settings.')
+                raise ValueError('Sources sharing a serial port must use the same baud rate, parity, stop bits, timeout, local echo and startup delay settings. Remove other sources on this port before changing bus settings.')
             replacement = SerialBus(settings, factory, clock)
             with bus.condition:
                 while bus.active:bus.condition.wait()

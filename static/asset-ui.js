@@ -7,6 +7,7 @@ export const assetKinds={image:'Images',movie:'Movies',symbol:'Symbols',text:'Te
 export const assetAccept={image:'.svg,.png,.jpg,.jpeg,.gif,.webp,.bmp',symbol:'.svg,.dxf',movie:'.mp4,.m4v,.webm',text:'.txt,.md,.csv,.json'};
 export function assetNode(tag,text,parent,attrs={}){const el=document.createElement(tag);if(text!==null)el.textContent=text;Object.assign(el,attrs);parent?.append(el);return el;}
 export function filterAssets(items,query='',category='',kind=''){query=query.trim().toLocaleLowerCase();return items.filter(item=>(!kind||item.kind===kind)&&(!category||item.category===category)&&`${item.name} ${item.filename} ${item.category}`.toLocaleLowerCase().includes(query));}
+export function assetCategories(items,kind){return [...new Set(items.filter(item=>item.kind===kind).map(item=>item.category))];}
 export function assetSize(size){return size>=1048576?(size/1048576).toFixed(1)+' MiB':Math.max(1,Math.round(size/1024))+' KiB';}
 export async function saveAssetFile(api,file,kind,{id,name,category='General'}={}){
  const limit=(kind==='movie'?25:5)*1048576;

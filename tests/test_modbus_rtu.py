@@ -1,5 +1,6 @@
 import threading
 import unittest
+from unittest.mock import patch
 from hmi.modbus import ModbusTCPDriver,modbus_settings,ModbusDeviceError
 from hmi.modbus_serial import port_key
 
@@ -46,6 +47,53 @@ class RTUTests(unittest.TestCase):
         self.assertEqual(result['timeout'],.5);self.assertNotIn('host',result)
         for changes in [{'unit_id':0},{'unit_id':248},{'baudrate':1},{'baudrate':9600.5},{'parity':'x'},{'stopbits':1.5},{'offline_retry':0},{'serial_port':'socket://host:1'},{'serial_port':''}]:
             with self.subTest(changes=changes),self.assertRaises(ValueError):modbus_settings({'transport':'rtu','serial_port':'COM3',**changes})
+    def test_startup_delay_validation_and_default(self):
+        settings=modbus_settings({'transport':'rtu','serial_port':'COM3'})
+        self.assertEqual(settings['startup_delay'],0)
+        for value in (-1,61,float('nan'),float('inf'),'oops'):
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                modbus_settings({**settings,'startup_delay':value})
+        self.assertNotIn('startup_delay',modbus_settings({'host':'localhost','startup_delay':2}))
+
+    def test_delay_once_per_shared_port_open_and_again_after_reconnect(self):
+        one=self.driver(startup_delay=2);two=self.driver(2,startup_delay=2)
+        def settle(seconds):
+            self.assertEqual(one.client.calls,[])
+            self.assertEqual(one.status()['message'],'Starting: waiting for serial device startup')
+            self.clock[0]+=seconds
+        with patch('hmi.modbus_serial.time.sleep',side_effect=settle) as sleep:
+            self.assertEqual(one.read('holding:0:uint16:big:big'),0)
+            self.assertEqual(two.read('holding:1:uint16:big:big'),1)
+            one.test()
+            sleep.assert_called_once_with(2)
+        one.client.close()
+        with patch('hmi.modbus_serial.time.sleep') as sleep:
+            self.assertEqual(two.read('holding:2:uint16:big:big'),2)
+            sleep.assert_called_once_with(2)
+        with self.assertRaisesRegex(ValueError,'startup delay'):self.driver(3,startup_delay=0)
+
+    def test_default_does_not_sleep(self):
+        one=self.driver()
+        with patch('hmi.modbus_serial.time.sleep') as sleep:
+            self.assertEqual(one.read('holding:0:uint16:big:big'),0)
+            sleep.assert_not_called()
+
+    def test_waiting_port_does_not_block_other_ports_or_status(self):
+        one=self.driver(startup_delay=2)
+        other=ModbusTCPDriver({'transport':'rtu','serial_port':'COM902'},SerialClient)
+        self.drivers.append(other)
+        entered=threading.Event();release=threading.Event();output={}
+        def wait(seconds):entered.set();release.wait(2)
+        with patch('hmi.modbus_serial.time.sleep',side_effect=wait):
+            thread=threading.Thread(target=lambda:output.update(value=one.read('holding:0:uint16:big:big')))
+            thread.start()
+            try:
+                self.assertTrue(entered.wait(1))
+                self.assertEqual(other.read('holding:1:uint16:big:big'),1)
+                self.assertEqual(one.status()['startup_remaining_seconds'],2)
+            finally:release.set();thread.join(2)
+        self.assertEqual(output['value'],0)
+
     def test_replace_single_source_bus_settings_preserves_identity_workflow(self):
         one=self.driver();one.read('holding:0:uint16:big:big');old=one.client
         replacement=one.replacement({**one.settings,'baudrate':9600})

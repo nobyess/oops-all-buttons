@@ -15,12 +15,14 @@ globalThis.document={body:new Element('body'),createElement:tag=>new Element(tag
 globalThis.window={innerWidth:1000,innerHeight:800,addEventListener(){},removeEventListener(){}};
 const items=[{id:'image1',kind:'image',name:'Building',filename:'building.png',category:'Site',size:100,url:'/api/images/image1'},
  {id:'image2',kind:'image',name:'Pump photo',filename:'pump.png',category:'Equipment',size:100,url:'/api/images/image2'},
- {id:'symbol',kind:'symbol',name:'Pump symbol',filename:'pump.svg',category:'Equipment',size:100,url:'/api/images/symbol'}];
+ {id:'symbol',kind:'symbol',name:'Pump symbol',filename:'pump.svg',category:'Valves',size:100,url:'/api/images/symbol'}];
 assert.deepEqual(filterAssets(items,'pump','Equipment','image'),[items[1]]);
 const api=async()=>items;
 const result=openContentPicker({api,kind:'image'});await new Promise(resolve=>setImmediate(resolve));
 let modal=document.body.children[0],nodes=all(modal);
 assert.equal(nodes.filter(el=>el.tagName==='select').length,2,'Category filter plus the hidden upload category chooser; no type dropdown');
+const uploadCategory=nodes.find(el=>el.attributes['aria-label']==='Choose existing category');
+assert.deepEqual(uploadCategory.children.map(el=>el.value),['','Equipment','Site'],'Upload suggestions exclude categories belonging only to Symbols');
 const category=nodes.find(el=>el.tagName==='select');assert.equal(category.attributes['aria-label'],'Category');
 let options=nodes.filter(el=>el.attributes.role==='option');assert.equal(options.length,2);assert(!options.some(el=>all(el).some(child=>child.textContent==='Pump symbol')));
 category.value='Equipment';category.onchange();options=all(modal).filter(el=>el.attributes.role==='option');assert.equal(options.length,1);
@@ -37,6 +39,9 @@ let search=nodes.find(el=>el.type==='search');search.value='pump';search.oninput
 options[0].onclick();await all(modal).find(el=>el.textContent==='Use Icon').onclick();assert.equal((await mixed).id,'pump');assert.equal(imports,0);
 const mixedImages=openContentPicker({api,kind:'icon',kinds:['icon','image','symbol']});await new Promise(resolve=>setImmediate(resolve));modal=document.body.children[0];
 type=all(modal).find(el=>el.attributes['aria-label']==='Content type');type.value='image';type.onchange();
+assert.deepEqual(all(modal).find(el=>el.attributes['aria-label']==='Choose existing category').children.map(el=>el.value),['','Equipment','Site']);
+type.value='symbol';type.onchange();assert.deepEqual(all(modal).find(el=>el.attributes['aria-label']==='Choose existing category').children.map(el=>el.value),['','Valves']);
+type.value='image';type.onchange();
 options=all(modal).filter(el=>el.attributes.role==='option');assert.equal(options.length,2);
 options[0].onclick();await all(modal).find(el=>el.textContent==='Use Asset').onclick();assert.equal((await mixedImages).kind,'image');
 console.log('Typed content picker filters by control type and category, confirms selection, and cancels safely.');

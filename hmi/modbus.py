@@ -25,7 +25,7 @@ def modbus_settings(data):
         result['handle_local_echo']=echo is True or echo=='true'
     fields=[('unit_id',1,1 if transport=='rtu' else 0,247 if transport=='rtu' else 255),
             ('timeout',.5 if transport=='rtu' else 3,.1,60),('live',.5,.1,60),('background',20,.1,60)]
-    fields += [('port',502,1,65535)] if transport=='tcp' else [('baudrate',19200,300,1000000),('stopbits',1,1,2),('offline_retry',5,1,300)]
+    fields += [('port',502,1,65535)] if transport=='tcp' else [('baudrate',19200,300,1000000),('stopbits',1,1,2),('offline_retry',5,1,300),('startup_delay',0,0,60)]
     for key,default,low,high in fields:
         try:value=float(data.get(key,default))
         except (TypeError,ValueError):raise ValueError('Invalid Modbus '+key) from None
@@ -120,7 +120,8 @@ class ModbusTCPDriver:
 
     def _connect(self):
         if self.closed:raise ValueError('Modbus source is closed')
-        if not self.client.connected and not self.client.connect():raise ValueError('Unable to connect to Modbus device')
+        if self.bus:self.bus.connect()
+        elif not self.client.connected and not self.client.connect():raise ValueError('Unable to connect to Modbus device')
 
     @staticmethod
     def _check(response):
@@ -156,7 +157,9 @@ class ModbusTCPDriver:
     def status(self):
         # Health reads must not wait behind a serial timeout.
         result={'quality':self.quality,'message':self.message,'read_requests':self.read_requests,'write_requests':self.write_requests}
-        if self.bus:result.update(self.bus.diagnostics(self.settings['unit_id']))
+        if self.bus:
+            result.update(self.bus.diagnostics(self.settings['unit_id']))
+            if result['startup_remaining_seconds']>0:result.update(quality='idle',message='Starting: waiting for serial device startup')
         return result
 
     def read_many(self,addresses):

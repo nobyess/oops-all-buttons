@@ -1,4 +1,5 @@
 """Portable page files: saved layouts plus named external bindings and images."""
+import base64
 import copy
 import uuid
 from .assets import asset_identity
@@ -47,7 +48,11 @@ def export_page(service, data):
         images = {}
         for control in page['controls']:
             image = control.get('image', '')
-            if image.startswith('/api/images/'):
+            if control.get('type')=='textviewer' and image:
+                asset=service.assets.get(asset_identity(image))
+                if not asset or asset['kind']!='text':raise ValueError('Page text asset is missing')
+                images[image]={'kind':'text','name':asset['name'],'filename':asset['filename'],'category':asset['category'],'data':base64.b64encode(service.assets.blob_path(asset).read_bytes()).decode()}
+            elif image.startswith('/api/images/'):
                 asset = service.assets.image(asset_identity(image))
                 if asset is None:
                     raise ValueError('Page image is missing')
@@ -138,6 +143,12 @@ def import_page(service, data):
                 raw = payload.get('images', {}).get(image)
                 if not isinstance(raw, dict):
                     raise ValueError('Missing embedded page image')
+                if control.get('type')=='textviewer':
+                    if raw.get('kind')!='text':raise ValueError('Text Viewer requires a text asset')
+                    asset=service.assets.save(raw)
+                    control['image']=asset['url']
+                    control['textMarkdown']=asset['filename'].lower().endswith('.md')
+                    continue
                 asset = (prepare_symbol if control.get('type')=='symbol' or (control.get('type')=='button' and control.get('buttonArtworkKind')=='symbol') else prepare_image)(raw)
                 assets[asset['id']] = asset
                 control['image'] = '/api/images/' + asset['id']

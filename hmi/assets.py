@@ -180,6 +180,7 @@ class AssetCenter:
                 for control in page.get('controls', []):
                     if asset_identity(control.get('image', '')) == item['id']:
                         control.update(image=self.public(item)['url'], imageName=item['name'])
+                        if control.get('type')=='textviewer':control['textMarkdown']=item['filename'].lower().endswith('.md')
                         changed = True
             if changed:
                 changes['pages']=pages

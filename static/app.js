@@ -1,3 +1,5 @@
+import {disposeTextViewers} from './text-viewer.js';
+import {mountAssetCenter} from './asset-manager.js';
 import {openContentPicker} from './content-picker.js';
 import {contentField} from './content-field.js';
 import {buttonIcons,buttonIcon} from './button-icons.js';
@@ -369,6 +371,7 @@ function auth(setup)  {
   sourceManager=null;
   document.querySelector('#page-menu').replaceChildren();
   document.querySelector('#view-tools').replaceChildren();
+  disposeTextViewers();
   app.replaceChildren();
   if(setup)return mountFirstRun(app,{node,button,field,onCreate:async data=>{await api('setup',data);await start(true);},onRestore:data=>api('setup/restore',data)});
   const card=node('form',null,app, {
@@ -460,7 +463,11 @@ function route() {
     routedHash=location.hash;
   }
   if(name==='alarms')closeLibrary=mountAlarms(app,{node,button,api,canManage:currentUser.administrator,tagSelect,getTags:()=>tags,getRoles:()=>accessRoles,initialId:id});
-  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api,onSimulationChanged:reloadLists,onAssetsChanged:async()=>{pages=(await api('pages')).map(normalize);page=pages.find(p=>p.id===page?.id)||pages[0];}});
+  else if(name==='assets'){
+    const card=node('section',null,app,{className:'card assets-page'});node('h2','Assets',card);
+    closeLibrary=mountAssetCenter(card,{api,onChanged:async()=>{pages=(await api('pages')).map(normalize);page=pages.find(p=>p.id===page?.id)||pages[0];}});
+  }
+  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api,onSimulationChanged:reloadLists});
   else if(name==='pages')safe(showPages);
   else if(name==='tags')showSources();
   else if(name==='sheets')showSheets();
@@ -547,7 +554,7 @@ function sourceDialog(existing,sheetOnly=false) {
           inputs.host=field('Device host / IP address',rows,'text',saved.host || '');inputs.host.required=true;inputs.host.placeholder='192.168.1.10';
           inputs.port=field('TCP port',rows,'number',saved.port ?? 502);Object.assign(inputs.port,{min:1,max:65535,step:1,required:true});
         }
-        for(const [key,label,value,min,max,step] of [['unit_id','Unit ID',1,rtu?1:0,rtu?247:255,1],['timeout','Response timeout (seconds)',rtu?.5:3,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any'],['live','Live polling (seconds)',.5,.1,60,'any'],...(rtu?[['offline_retry','Offline retry delay (seconds)',5,1,300,'any']]:[])]){
+        for(const [key,label,value,min,max,step] of [['unit_id','Unit ID',1,rtu?1:0,rtu?247:255,1],['timeout','Response timeout (seconds)',rtu?.5:3,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any'],['live','Live polling (seconds)',.5,.1,60,'any'],...(rtu?[['startup_delay','Startup delay after opening port (seconds)',0,0,60,'any'],['offline_retry','Offline retry delay (seconds)',5,1,300,'any']]:[])]){
           const input=inputs[key]=field(label,key==='unit_id'?rows:polling,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
         }
         node('p',rtu?'One source per device Unit ID. Sources on the same serial port share one connection and take turns. Use identical baud rate, parity, stop bits, timeout and echo settings. Offline retry delays increase up to 60 seconds (or your initial delay if higher). Use an auto-direction RS-485 adapter; data bits are fixed at 8.':'Standard Modbus TCP. Tags use the register map supplied by the device manufacturer. Each source connects to one host and Unit ID.',settings,{className:'hint'});
@@ -673,6 +680,7 @@ function sourceDialog(existing,sheetOnly=false) {
         parity:['Match every device on this serial bus.'],
         stopbits:['Match every device on this serial bus.'],
         handle_local_echo:['Enable only if the adapter sends your own transmitted bytes back to the receiver.'],
+        startup_delay:['Wait once after the shared serial port opens or reopens. Leave at 0 for normal devices; try 2 seconds for an Arduino that resets on connection. Sources sharing a port must match.'],
         offline_retry:['Initial pause after a communication failure; repeated failures increase the delay.'],
         timeout:['Maximum time to wait for a device response, in seconds.'],
         live:[kind.value==='mqtt'?'Refresh interval while tags are in use; messages arrive by subscription.':'Polling interval while tags are actively used, in seconds.'],
@@ -1565,7 +1573,7 @@ function showInspector(panel) {
       if(c.type==='button'&&key==='text'&&c.buttonDisplay==='icon')continue;
       if (key === 'tag') continue;
       if(props.text && textFields.includes(key) && key!=='text' && !((controls[c.type]?.category==='shapes'||c.type==='button'&&c.buttonDisplay==='icon') && ['backColor','foreColor'].includes(key)))continue;
-      const sections = {trendSeries:'Content',valueTag:'Content',elements:'Elements',strokeWidth:'Shape',...(c.type==='button'?{buttonDisplay:'Content'}:{text:'Content'}), [props.visible?'visible':'left']: 'Layout', fontFamily: 'Font', [props.backColor?'backColor':'foreColor']: 'Colors'};
+      const sections = {textAsset:'Content',trendSeries:'Content',valueTag:'Content',elements:'Elements',strokeWidth:'Shape',...(c.type==='button'?{buttonDisplay:'Content'}:{text:'Content'}), [props.visible?'visible':'left']: 'Layout', fontFamily: 'Font', [props.backColor?'backColor':'foreColor']: 'Colors'};
       if (sections[key]) {
         if (key !== 'text' && propertyIndex>0) node('hr', null, panel, {className: 'sidebar-divider'});
         node('h3', sections[key], panel);
@@ -1636,6 +1644,12 @@ function showInspector(panel) {
           }else{prop.onClick(c);markChanged();refreshEditedControl(c,true);}
         });
         continue;
+      }
+      if(prop.type==='textAsset'){
+        contentField(propertyParent,{label:'Text',kind:'text',value:c.image||'',name:c.imageName||'',renderPreview:host=>{host.textContent='Aa';},onPick:()=>safe(async()=>{
+          const asset=await openContentPicker({api,kind:'text',value:c.image||''});
+          if(asset){c.image=asset.url;c.imageName=asset.name;c.textMarkdown=/\.md$/i.test(asset.filename);markChanged();refreshEditedControl(c,true);}
+        }),onClear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});continue;
       }
       if(prop.type==='image' || prop.type==='symbol') {
         const symbol=prop.type==='symbol';

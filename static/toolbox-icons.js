@@ -8,6 +8,7 @@ const paths={
  trend:'M3 3v18h18 M5 16l4-6 4 3 4-8 4 4',
  level:'M6 3h12v18H6z M6 12h12 M9 15v3 M12 15v3 M15 15v3',
  symbol:'M12 3l3 6 6 3-6 3-3 6-3-6-6-3 6-3z',
+ textviewer:'M5 3h10l4 4v14H5z M15 3v5h4 M8 11h8 M8 14h8 M8 17h6',
  image:'M3 3h18v18H3z M3 17l6-6 4 4 3-3 5 5 M15 7h2v2h-2z',
  square:'M4 4h16v16H4z',circle:'M21 12a9 7 0 1 1-18 0 9 7 0 1 1 18 0',
  polyline:'M4 18l5-12 6 10 5-10 M3 17h2v2H3z M8 5h2v2H8z M14 15h2v2h-2z M19 5h2v2h-2z'

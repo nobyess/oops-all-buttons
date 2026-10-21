@@ -84,6 +84,26 @@ class AssetTests(unittest.TestCase):
                 self.assertEqual(control['buttonArtworkKind'],kind)
                 if kind=='symbol':self.assertIsNotNone(self.service.store.get('image:'+asset_identity(control['image'])).get('symbol'))
 
+    def test_text_viewer_reference_type_and_page_transfer(self):
+        asset=self.save('text',b'# Instructions','notes.md')
+        page=self.service.pages()[0]
+        page['controls']=[{'id':'notes','type':'textviewer','image':asset['url'],'imageName':asset['name'],'textMarkdown':True}]
+        self.service.save_page(page)
+        self.assertTrue(self.service.assets.references(asset['id']))
+        with self.assertRaises(ValueError):self.service.assets.remove(asset['id'])
+        exported=export_page(self.service,{'id':page['id']})
+        imported=import_page(self.service,{'page':exported,'name':'Imported notes'})
+        control=next(p for p in self.service.pages() if p['id']==imported['id'])['controls'][0]
+        document=self.service.assets.get(asset_identity(control['image']))
+        self.assertEqual(document['kind'],'text')
+        self.assertEqual(self.service.assets.blob_path(document).read_bytes(),b'# Instructions')
+        image=self.save('image')
+        page['controls'][0]['image']=image['url']
+        with self.assertRaisesRegex(ValueError,'text asset'):self.service.validate_controls(page['controls'])
+        page['controls'][0]['image']=asset['url']
+        page['controls'][0]['events']=[{'id':'event','action':'set_content'}]
+        with self.assertRaisesRegex(ValueError,'Set Content'):self.service.validate_controls(page['controls'])
+
     def test_replacement_preserves_identity_updates_references_and_prevents_delete(self):
         asset = self.save('symbol')
         self.service.store.set('pages', [{'id': 'main', 'name': 'Main', 'controls': [{'id': 'valve', 'name': 'Valve', 'type': 'symbol', 'image': asset['url']}]}])

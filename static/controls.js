@@ -1,3 +1,4 @@
+import {textViewerDefinition} from './text-viewer.js';
 import {positionArtwork} from './artwork-rotation.js';
 import {symbolDefinition} from './symbol.js';
 import {levelDefinition} from './level-indicator.js';
@@ -40,6 +41,7 @@ export const controls = {
   level:levelDefinition(common),
   trend:trendDefinition(common),
   symbol:symbolDefinition(common),
+  textviewer:textViewerDefinition(common),
   image: {
     label:'Image',
     props:{image:{label:'Image',type:'image'},

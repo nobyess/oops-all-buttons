@@ -1,10 +1,9 @@
-import {mountAssetCenter} from './asset-manager.js';
 import {mountSimulation} from './simulation-settings.js';
 import {updateErrorLog} from './error-log-view.js';
 import {mountUserAccess} from './user-access-manager.js';
 import {mountBackupRestore} from './backup-restore.js';
 import {mountSite} from './site-settings.js';
-export function mountAdministration(parent,{node,button,api,onSimulationChanged,onAssetsChanged}) {
+export function mountAdministration(parent,{node,button,api,onSimulationChanged}) {
  const card=node('section',null,parent,{className:'card administration'});
  node('h2','Administration',card);
  const tabs=node('div',null,card,{className:'tabs'}),body=node('div',null,card);
@@ -13,7 +12,7 @@ export function mountAdministration(parent,{node,button,api,onSimulationChanged,
  const metrics=new WeakMap();
  const buttons=[];
 
- for(const title of ['Users','Access','Server Status','Backup/Restore','Site','Simulation','Asset Center'])buttons.push(button(title,tabs,async()=>{if(active===title)return;if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
+ for(const title of ['Users','Access','Server Status','Backup/Restore','Site','Simulation'])buttons.push(button(title,tabs,async()=>{if(active===title)return;if(closeAccess?.isDirty?.() && !await closeAccess.beforeLeave())return;active=title;render();}));
  const format=n=>Number(n || 0).toLocaleString();
  function row(parent,label,value){let entries=metrics.get(parent);if(!entries){entries=new Map();metrics.set(parent,entries);}let entry=entries.get(label);if(!entry){const item=node('div',null,parent,{className:'admin-stat'});node('span',label,item);entry={item,value:node('strong','',item)};entries.set(label,entry);}const text=String(value);if(entry.value.textContent!==text)entry.value.textContent=text;entry.seen=true;}
  function beginRows(parent){for(const entry of metrics.get(parent)?.values() || [])entry.seen=false;}
@@ -92,8 +91,7 @@ export function mountAdministration(parent,{node,button,api,onSimulationChanged,
  function render(){revision++;closeAccess?.();closeAccess=null;clearInterval(timer);previous=null;statusView=null;body.replaceChildren();buttons.forEach(b=>b.classList.toggle('active',b.textContent===active));
   if(active==='Users' || active==='Access'){closeAccess=mountUserAccess(body,{node,button,api,mode:active,onOpenRole:()=>{active='Access';render();}});}
   else if(active==='Backup/Restore'){closeAccess=mountBackupRestore(body,{node,button,api});}
-  else if(active==='Simulation'){closeAccess=mountSimulation(body,{node,button,api,onSimulationChanged,onAssetsChanged});}
-  else if(active==='Asset Center'){closeAccess=mountAssetCenter(body,{api,onChanged:onAssetsChanged});}
+  else if(active==='Simulation'){closeAccess=mountSimulation(body,{node,button,api,onSimulationChanged});}
   else if(active==='Site'){closeAccess=mountSite(body,{node,button,api});}
   else {node('p','Loading server status...',body);update();timer=setInterval(update,1000);}
  }

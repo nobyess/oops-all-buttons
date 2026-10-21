@@ -1,5 +1,5 @@
 import {categoryInput} from './category-input.js';
-import {assetNode as node,assetKinds,assetAccept,assetPreview,assetSize,filterAssets,saveAssetFile} from './asset-ui.js';
+import {assetNode as node,assetKinds,assetAccept,assetPreview,assetSize,assetCategories,filterAssets,saveAssetFile} from './asset-ui.js';
 import {closeIcon} from './close-icon.js';
 import {buttonIcons} from './button-icons.js';
 import {makeDialogMovable} from './movable-dialog.js';
@@ -35,6 +35,7 @@ export function openContentPicker({api,kind,value='',kinds}){
   function finish(result){if(finished)return;finished=true;stopMoving();tileCleanups.forEach(close=>close());previewCleanup();modal.close();modal.remove();if(previous?.isConnected)previous.focus({preventScroll:true});resolve(result);}
   function switchTab(title){tab=title;for(const key of Object.keys(panels)){panels[key].hidden=key!==title;tabButtons[key].classList.toggle('active',key===title);tabButtons[key].setAttribute('aria-selected',String(key===title));}use.textContent=tab==='Choose File'?'Use File':kind==='icon'?'Use Icon':'Use Asset';use.disabled=busy||(tab==='Choose File'?!file.files?.length:!selected);stopMoving.reposition?.();}
   function setupKind(){
+   newCategory.setCategories(assetCategories(items,kind));
    category.replaceChildren();node('option','All categories',category,{value:''});category.value='';
    for(const name of [...new Set(items.filter(item=>item.kind===kind).map(item=>item.category))].sort())node('option',name,category,{value:name});
    file.accept=assetAccept[kind]||'';file.value='';tabButtons['Choose File'].hidden=kind==='icon';
@@ -68,6 +69,6 @@ export function openContentPicker({api,kind,value='',kinds}){
   switchTab(tab);modal.showModal();stopMoving=makeDialogMovable(modal,heading);
   const icons=allowed.includes('icon')?buttonIcons.map(item=>({...item,kind:'icon',filename:'',builtin:true})):[];
   items=icons;setupKind();
-  api('assets').then(data=>{if(finished)return;newCategory.setCategories(data.map(item=>item.category));items=[...icons,...data.filter(item=>allowed.includes(item.kind))];selected=items.find(item=>item.kind===kind&&(item.url===value||item.id===value||item.id===value.split('/').at(-1)?.split('?')[0]))||null;status.textContent='';setupKind();}).catch(error=>{if(!finished)status.textContent=error.message;});
+  api('assets').then(data=>{if(finished)return;items=[...icons,...data.filter(item=>allowed.includes(item.kind))];selected=items.find(item=>item.kind===kind&&(item.url===value||item.id===value||item.id===value.split('/').at(-1)?.split('?')[0]))||null;status.textContent='';setupKind();}).catch(error=>{if(!finished)status.textContent=error.message;});
  });
 }
