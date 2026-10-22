@@ -1,4 +1,5 @@
-import {disposeTextViewers} from './text-viewer.js';
+import {openTextViewerEditor} from './text-viewer-editor.js';
+import {disposeTextViewers,textViewerAppearance} from './text-viewer.js';
 import {mountAssetCenter} from './asset-manager.js';
 import {openContentPicker} from './content-picker.js';
 import {contentField} from './content-field.js';
@@ -1395,6 +1396,7 @@ function geometry(el,c) {
     borderRadius:c.type==='label' && c.roundedCorners?'8px':''
   });
   if(controls[c.type]?.category==='shapes' || ['level','symbol'].includes(c.type))el.style.background='transparent';
+  if(c.type==='textviewer')Object.assign(el.style,textViewerAppearance(c));
 }
 async function pickInlineTag(initial={}) {
   const tag=pickerTags().find(tag=>tag.id===initial.tag || tagPath(tag).toLowerCase()===String(initial.path || '').toLowerCase());
@@ -1584,12 +1586,12 @@ function showInspector(panel) {
   if (tab === 'Properties') {
     let colorRow,layoutFields,iconSettings,iconGroup;
     const props=isGroup?{visible:{label:'Visible',type:'checkbox'}}:controls[c.type]?.props || {};
-    const entries=Object.entries(props).filter(([key])=>!['visible','roundedCorners'].includes(key));
+    const entries=Object.entries(props).filter(([key])=>!['visible','roundedCorners','showBorder','showBackground'].includes(key));
     if(c.type==='button'){
       const order=['buttonDisplay','icon','iconSize','iconColor','iconPosition','text'];
       entries.sort(([a],[b])=>(order.includes(a)?order.indexOf(a):order.length)-(order.includes(b)?order.indexOf(b):order.length));
     }
-    if(props.visible)entries.splice(Math.max(0,entries.findIndex(([key])=>key==='left')),0,['visible',props.visible],...(props.roundedCorners?[['roundedCorners',props.roundedCorners]]:[]));
+    if(props.visible)entries.splice(Math.max(0,entries.findIndex(([key])=>key==='left')),0,['visible',props.visible],...(props.roundedCorners?[['roundedCorners',props.roundedCorners]]:[]),...['showBorder','showBackground'].filter(key=>props[key]).map(key=>[key,props[key]]));
     for (const [propertyIndex, [key, prop]] of entries.entries()) {
       if(prop.visibleWhen && !prop.visibleWhen(c))continue;
       if(c.type==='button'&&key==='text'&&c.buttonDisplay==='icon')continue;
@@ -1668,10 +1670,10 @@ function showInspector(panel) {
         continue;
       }
       if(prop.type==='textAsset'){
-        contentField(propertyParent,{label:'Text',kind:'text',value:c.image||'',name:c.imageName||'',renderPreview:host=>{host.textContent='Aa';},onPick:()=>safe(async()=>{
-          const asset=await openContentPicker({api,kind:'text',value:c.image||''});
-          if(asset){c.image=asset.url;c.imageName=asset.name;c.textMarkdown=/\.md$/i.test(asset.filename);markChanged();refreshEditedControl(c,true);}
-        }),onClear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});continue;
+        const edit=button('Edit',propertyParent,()=>safe(async()=>{
+          const result=await openTextViewerEditor(c,{api});
+          if(result){Object.assign(c,result);markChanged();refreshEditedControl(c,true);}
+        }));edit.setAttribute('aria-label','Edit text viewer content');continue;
       }
       if(prop.type==='image' || prop.type==='symbol') {
         const symbol=prop.type==='symbol';
@@ -1715,7 +1717,7 @@ function showInspector(panel) {
       if(prop.step!==undefined)input.step=prop.step;
       if (key === 'fontFamily') input.setAttribute('aria-label', 'Font face');
       if (prop.type === 'checkbox') {
-        input.checked = key === 'visible' ? c[key] !== false : Boolean(c[key]);
+        input.checked = key === 'visible' ? c[key] !== false : Boolean(c[key] ?? prop.default);
         input.parentElement.classList.add('checkbox-row');
       }
       input.dataset.controlProperty=key;

@@ -654,3 +654,9 @@ names remain enforced by driver metadata on the server and selected-item state
 in the browser; removing the input does not enable aliases.
 
 LightYak saved bindings resolve by the original name fingerprint and scalar type, never by reference/order/revision. Require exactly one match, validate current writable permissions, and retain stable HMI tag IDs. Catalog revision only triggers refresh; missing or ambiguous matches surface a binding warning in the source manager row and details.
+
+Text Viewer Content uses `static/text-viewer-editor.js` with Markdown then Assets tabs. Reuse `markdownEditor` from the Asset Center. Store local Markdown as `markdownText` with `textSource=inline` on the control, never as a generated asset; legacy controls without a source retain asset behavior. Switching modes commits only on Save and inline mode clears the text-asset reference. Inline image references participate in asset deletion guards and page transfer. Runtime rendering caches unchanged Markdown and uses the existing safe renderer; do not add a Set Content event.
+
+The Text Viewer content dialog uses accessible flat Markdown/Assets tabs with the shared 40px strip, 3px selected underline, theme colors and keyboard navigation. Assets embeds `mountAssetSelection` (text only, search/category/grid) without upload controls or a nested content picker. Cancel/close disposes tile previews and ignores late catalog responses; switching tabs retains the unsaved Markdown draft and asset selection.
+
+Text Viewer places Show Border then Show Background directly after Visible under Layout, using shared checkbox rows. New viewers default to no border with background shown. Hiding the background preserves the chosen Back color and renders transparency; geometry applies both settings in designer and runtime without rebuilding the Markdown document.

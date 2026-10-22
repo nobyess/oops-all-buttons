@@ -2,7 +2,7 @@
 import base64
 import copy
 import uuid
-from .assets import asset_identity
+from .assets import asset_identity, inline_image_urls
 from .tag_paths import tag_path
 from .pages import validate_page
 from .inline_text import bind_inline_text
@@ -47,6 +47,10 @@ def export_page(service, data):
                      for p in service.pages() if p['id'] in destinations}
         images = {}
         for control in page['controls']:
+            for url in inline_image_urls(control):
+                inline_asset=service.assets.image(asset_identity(url))
+                if inline_asset is None:raise ValueError('Page Markdown image is missing')
+                images[url]={'name':inline_asset.get('name','Image'),'data':inline_asset['data']}
             image = control.get('image', '')
             if control.get('type')=='textviewer' and image:
                 asset=service.assets.get(asset_identity(image))
@@ -138,6 +142,11 @@ def import_page(service, data):
         service.validate_controls([{**c, 'actions': [], 'events': []} for c in page['controls']], strict_bindings=False)
         assets = {}
         for control in page['controls']:
+            for url in inline_image_urls(control):
+                raw=payload.get('images',{}).get(url)
+                if not isinstance(raw,dict):raise ValueError('Missing embedded Markdown image')
+                asset=prepare_image(raw);assets[asset['id']]=asset
+                control['markdownText']=control['markdownText'].replace(url,'/api/images/'+asset['id'])
             image = control.get('image', '')
             if image:
                 raw = payload.get('images', {}).get(image)

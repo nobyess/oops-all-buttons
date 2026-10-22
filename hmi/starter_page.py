@@ -13,8 +13,8 @@ Read a known tag value before configuring write actions. Check its address, data
 > Keep this application on a trusted network. Use care around PLCs and equipment that can move or create hazards.
 ---
 ## Make these notes yours
-This is an ordinary Markdown text asset. Open Assets, select Start Page Notes, and edit its text.
-The Text Viewer displays this file. Its content is loaded when you open the page.
+These notes are Markdown stored in this Text Viewer. Open Edit Page, select these notes, and choose Content → Edit to make them yours.
+The Markdown tab edits this control directly. The Assets tab can display a shared text asset instead.
 ## Demo controls
 Fill sets DemoTankLevel to 100%. Drain sets it to 0%. Click the numeric input to enter a level between 0 and 100%.
 Start / Stop toggles DemoPumpEnabled. The symbol spins and its status changes while enabled.
@@ -30,19 +30,18 @@ def seed_start_page(service):
     def asset(kind, name, filename, raw):
         return service.assets.save({'kind': kind, 'name': name, 'filename': filename,
                                     'category': 'Getting Started', 'data': base64.b64encode(raw).decode()})
-    notes = asset('text', 'Start Page Notes', 'start-page-notes.md', OPERATOR_NOTES.encode())
     pump = asset('symbol', 'Demo Pump', 'demo-pump.svg', PUMP_SVG)
     controls = []
     def control(kind, identity, x, y, width, height, **props):
         result = dict(id='start-'+identity, name=identity.replace('-', ' ').title(), type=kind,
-                      left=x, top=y, width=width, height=height, fontFamily='default', fontSize=16,
+                      left=round(x/10)*10, top=round(y/10)*10, width=max(10,round(width/10)*10), height=max(10,round(height/10)*10), fontFamily='default', fontSize=16,
                       backColor='#ffffff00', foreColor='#243247', visible=True, bold=False, italic=False,
                       textHorizontalAlignment='left', textVerticalAlignment='top', actions=[], events=[])
         result.update(props);controls.append(result);return result
     def label(identity, text, x, y, width, height, size=16, **props):
         return control('label', identity, x, y, width, height, text=text, fontSize=size, **props)
     def line(identity, y):
-        control('square', identity, 32, y, 936, 1, strokeWidth=0, backColor='#dce2e8')
+        control('polyline', identity, 30, y, 940, 10, points=[[0,.5],[1,.5]], strokeWidth=1, foreColor='#dce2e8')
     def panel(identity, x, y, width, height):
         control('square', identity, x, y, width, height, strokeWidth=1, edgeDiameter=12,
                 backColor='#f1f5f9', foreColor='#dce2e8')
@@ -120,7 +119,7 @@ def seed_start_page(service):
     control('polyline','example-polyline',300,2198,150,68,points=[[0,1],[.3,1],[.3,0],[.7,0],[.7,.65],[1,.65]],
             strokeWidth=2,fillWhenClosed=False,foreColor='#176985')
     label('shapes-hint','Select an object in the designer to explore its Content, Layout, Colors, Actions, and Events.',32,2300,440,90,14,foreColor='#64748b')
-    control('textviewer','operator-notes',512,2008,456,470,image=notes['url'],imageName=notes['name'],textMarkdown=True,
+    control('textviewer','operator-notes',512,2008,456,470,image='',imageName='',textSource='inline',markdownText=OPERATOR_NOTES,textMarkdown=True,showBorder=False,showBackground=True,
             backColor='#f1f5f9',fontSize=15)
     line('notes-divider',2510)
     label('tags-title','The tags behind the examples',32,2540,930,36,23,bold=True)
@@ -135,7 +134,7 @@ def seed_start_page(service):
     label('yours-description','Click Edit Page to inspect these connections. Try a different color, change a tag, or add a control. Save & View lets you try it; Back returns to editing.',32,2936,930,70)
     label('delete-description','When you no longer need this page, remove it from Pages like any other page. It will not be recreated after a restart or update. Demo tags and assets can be removed once their references are gone.',32,3028,930,80,15,foreColor='#64748b')
     page=page_defaults({'id':'main','name':'Start Page','starterPage':True,'width':1000,'height':3150,'backColor':'#ffffff',
-                        'showBorder':True,'showBackground':True,'horizontalAlignment':'center','controls':controls})
+                        'showBorder':True,'showBackground':True,'gridSize':10,'horizontalAlignment':'center','controls':controls})
     tags=[{'id':identity,'name':name,'source':'system','folder':'Memory','address':'Memory/'+identity,
            'writable':True,'data_type':kind,'initial_value':initial} for identity,name,kind,initial in DEMO_TAGS]
     bind_inline_text([page,*controls],tags,service.sources())

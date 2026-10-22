@@ -30,12 +30,13 @@ export function renderMarkdown(parent,text){
 }
 export function disposeTextViewers(){for(const state of active)state.abort.abort();active.clear();}
 function update(el,c,ctx){
- const previous=states.get(el),url=c.image||'';
- if(previous?.url===url)return;
+ const previous=states.get(el),inline=c.textSource==='inline',url=inline?'':c.image||'',text=inline?c.markdownText || '':'';
+ if(previous?.url===url && previous.inline===inline && previous.text===text && previous.markdown===Boolean(c.textMarkdown))return;
  previous?.abort.abort();if(previous)active.delete(previous);
- const state={url,abort:new AbortController()};states.set(el,state);
+ const state={url,inline,text,markdown:Boolean(c.textMarkdown),abort:new AbortController()};states.set(el,state);
  el.replaceChildren();const body=node('article',undefined,el);body.className='text-viewer-document';
- if(!url){body.textContent=ctx.editing?'Choose text asset':'';return;}
+ if(inline){renderMarkdown(body,text);return;}
+ if(!url){body.textContent=ctx.editing?'Set text content':'';return;}
  if(!/^\/api\/assets\/[a-f0-9]{64}\/content(?:\?v=\d+)?$/.test(url)){body.textContent='Choose a text asset from Asset Center.';return;}
  body.textContent='Loading text…';active.add(state);
  fetch(url,{signal:state.abort.signal}).then(response=>{if(!response.ok)throw Error('Unable to load text asset.');return response.text();}).then(text=>{
@@ -43,9 +44,10 @@ function update(el,c,ctx){
   if(c.textMarkdown)renderMarkdown(body,text);else {body.textContent=text;body.classList.add('text-viewer-plain');}
  }).catch(error=>{if(error.name!=='AbortError'&&el.isConnected&&states.get(el)===state)body.textContent=error.message;}).finally(()=>active.delete(state));
 }
+export function textViewerAppearance(control){return {fontWeight:'400',fontStyle:'normal',background:control.showBackground===false?'transparent':control.backColor || '#ffffff',border:control.showBorder===true?'1px solid #cbd5e1':control.showBorder===false?'none':''};}
 export function textViewerDefinition(common){return {
  label:'Text Viewer',
- props:{textAsset:{label:'Text',type:'textAsset'},...Object.fromEntries(Object.entries(common).filter(([key])=>!['text','textHorizontalAlignment','textVerticalAlignment'].includes(key)))},
- defaults:{width:420,height:280,image:'',imageName:'',textMarkdown:false},
+ props:{textAsset:{label:'Text',type:'textAsset'},showBorder:{label:'Show Border',type:'checkbox',default:false},showBackground:{label:'Show Background',type:'checkbox',default:true},...Object.fromEntries(Object.entries(common).filter(([key])=>!['text','textHorizontalAlignment','textVerticalAlignment','bold','italic'].includes(key)))},
+ defaults:{width:420,height:280,image:'',imageName:'',textMarkdown:true,textSource:'inline',markdownText:'',showBorder:false,showBackground:true},
  render:update,update
 };}

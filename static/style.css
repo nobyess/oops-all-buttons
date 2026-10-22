@@ -1444,3 +1444,17 @@ body {background:var(--app-background,var(--ui-background))}
 .lightyak-tag-summary {flex:1 1 180px;min-width:0;margin-right:auto;display:flex;flex-direction:column;gap:12px}
 .lightyak-tag-summary .plc-selected-tag {margin:0;font-size:14px;line-height:20px}
 .lightyak-tag-summary .lightyak-tag-value {margin:0;color:var(--ui-muted);font-size:14px;line-height:20px;overflow-wrap:anywhere}
+
+.text-viewer-editor {width:min(720px,calc(100vw - 32px));max-height:92dvh;overflow:auto}
+
+/* Text Viewer uses the shared flat tab strip and embedded asset grid. */
+.text-viewer-editor .tabs {display:flex;gap:0;border-bottom:1px solid var(--ui-border);margin:0 0 16px;overflow-x:auto}
+.text-viewer-editor .tabs button {flex:1;min-width:max-content;min-height:40px;margin:0;padding:8px 12px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--ui-muted);font-size:14px;line-height:20px;font-weight:600}
+.text-viewer-editor.designer-dialog .tabs button.active {background:transparent;color:var(--ui-link);border-bottom-color:var(--ui-link)}
+.text-viewer-editor .tabs button:hover {background:var(--ui-hover);color:var(--ui-link)}
+.text-viewer-editor [hidden] {display:none!important}
+.text-viewer-editor .dialog-footer {margin-bottom:0}
+.text-viewer-editor .asset-picker-grid {min-height:280px}
+@media (forced-colors:active){.text-viewer-editor .tabs button.active {background:Canvas;color:LinkText;border-bottom-color:LinkText}}
+
+.text-viewer-editor :is(.error,.asset-status):empty {display:none}

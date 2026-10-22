@@ -10,6 +10,11 @@ from .images import prepare_image, MAX_IMAGE_BYTES
 from .builtin_assets import BuiltinAssets, authoring_enabled, atomic_write
 from .symbols import prepare_symbol
 
+def inline_image_urls(control):
+    if control.get('type')!='textviewer' or control.get('textSource')!='inline':return []
+    return list(dict.fromkeys(re.findall(r'!\[[^\]]*\]\((/api/images/[a-f0-9]{64}(?:\?v=\d+)?)\)', control.get('markdownText',''))))
+
+
 KINDS = {'image', 'movie', 'symbol', 'text'}
 MAX_MOVIE_BYTES = 25 * 1024 * 1024
 ID = re.compile(r'[a-f0-9]{64}')
@@ -53,9 +58,9 @@ class AssetCenter:
         result = {}
         for page in self.service.pages():
             for control in page.get('controls', []):
-                identity = asset_identity(control.get('image', ''))
-                if identity:
-                    result.setdefault(identity, []).append({'page': page['id'], 'control': control['id'], 'name': page.get('name', page['id']) + '\\' + control.get('name', control['id'])})
+                identities={asset_identity(url) for url in [control.get('image',''), *inline_image_urls(control)]}
+                for identity in identities:
+                    if identity:result.setdefault(identity, []).append({'page': page['id'], 'control': control['id'], 'name': page.get('name', page['id']) + '\\' + control.get('name', control['id'])})
         logo = self.store.get('site_logo_asset')
         if logo:
             result.setdefault(logo, []).append({'name': 'Site\\Login Logo'})
@@ -178,6 +183,10 @@ class AssetCenter:
             changed = False
             for page in pages:
                 for control in page.get('controls', []):
+                    for url in inline_image_urls(control):
+                        if asset_identity(url)==item['id']:
+                            control['markdownText']=control['markdownText'].replace(url,self.public(item)['url'])
+                            changed=True
                     if asset_identity(control.get('image', '')) == item['id']:
                         control.update(image=self.public(item)['url'], imageName=item['name'])
                         if control.get('type')=='textviewer':control['textMarkdown']=item['filename'].lower().endswith('.md')

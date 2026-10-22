@@ -518,6 +518,8 @@ class Service:
             asset=asset_map.get(asset_identity(control.get('image','')))
             if asset and control.get('type') in ('symbol','image') and asset['kind']!=control['type']:raise ValueError('Content type does not match the control')
             if control.get('type')=='textviewer':
+                if control.get('textSource','asset') not in ('inline','asset'):raise ValueError('Invalid Text Viewer content source')
+                if not isinstance(control.get('markdownText',''),str) or len(control.get('markdownText',''))>1000000:raise ValueError('Text Viewer Markdown must be text of up to 1000000 characters')
                 if strict_bindings and control.get('image') and (not asset or asset['kind']!='text'):raise ValueError('Text Viewer requires a text asset')
                 if any(event.get('action')=='set_content' for event in control.get('events',[])):raise ValueError('Text Viewer does not support Set Content')
             if asset and control.get('type')=='button' and (asset['kind'] not in ('image','symbol') or asset['kind']!=control.get('buttonArtworkKind')):raise ValueError('Content type does not match the button artwork')

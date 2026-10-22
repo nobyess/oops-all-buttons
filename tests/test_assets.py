@@ -104,6 +104,28 @@ class AssetTests(unittest.TestCase):
         page['controls'][0]['events']=[{'id':'event','action':'set_content'}]
         with self.assertRaisesRegex(ValueError,'Set Content'):self.service.validate_controls(page['controls'])
 
+    def test_inline_text_viewer_roundtrip_and_image_references(self):
+        asset=self.save('image')
+        page=self.service.pages()[0]
+        markdown='# Local notes\n**Hello**\n![Drawing]('+asset['url']+')'
+        page['controls']=[{'id':'notes','type':'textviewer','textSource':'inline','markdownText':markdown,'image':''}]
+        before=len(self.service.assets.records())
+        self.service.save_page(page)
+        self.assertEqual(len(self.service.assets.records()),before)
+        self.assertEqual(self.service.pages()[0]['controls'][0]['markdownText'],markdown)
+        self.assertTrue(self.service.assets.references(asset['id']))
+        with self.assertRaises(ValueError):self.service.assets.remove(asset['id'])
+        exported=export_page(self.service,{'id':page['id']})
+        imported=import_page(self.service,{'page':exported,'name':'Inline copy'})
+        control=next(p for p in self.service.pages() if p['id']==imported['id'])['controls'][0]
+        self.assertEqual(control['textSource'],'inline')
+        self.assertIn('# Local notes',control['markdownText'])
+        self.assertTrue(exported['images'])
+        updated=self.save('image',id=asset['id'])
+        self.assertIn(updated['url'],self.service.pages()[0]['controls'][0]['markdownText'])
+        with self.assertRaisesRegex(ValueError,'Markdown'):
+            self.service.validate_controls([{'id':'bad','type':'textviewer','markdownText':123}])
+
     def test_replacement_preserves_identity_updates_references_and_prevents_delete(self):
         asset = self.save('symbol')
         self.service.store.set('pages', [{'id': 'main', 'name': 'Main', 'controls': [{'id': 'valve', 'name': 'Valve', 'type': 'symbol', 'image': asset['url']}]}])
