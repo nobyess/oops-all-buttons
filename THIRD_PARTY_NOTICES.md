@@ -25,6 +25,7 @@ Source materials accompany the portable executable in the same ZIP. Download cac
 | formulas and schedula | EUPL 1.1 or later | Retain their licenses and notices, and supply their corresponding source under their own licenses. The independent application source is separately MIT. |
 | tqdm | MPL 2.0 and MIT, applying to different portions | Retain both sets of notices and make MPL-covered source available as required; the source and rebuilding instructions accompany the executable. |
 | Paho MQTT | EPL 2.0 or BSD 3-Clause | Use the offered BSD 3-Clause alternative; retain its copyright and license text. |
+| Waitress 3.0.2 | Zope Public License 2.1 | Retain its copyright and full license text, included in the portable dependency inventory. Used without source modifications. |
 | Other Python dependencies | Primarily MIT, BSD, Apache, PSF, and component-specific terms | See the inventory and full license files rather than relying on this summary. NumPy, SciPy, Pillow, and fonttools include additional third-party notices. |
 | Python and native runtime libraries | PSF and component/vendor-specific terms | Retain Python's Windows license, including Microsoft conditions, and native notices. These components are not relicensed as MIT. |
 | PyInstaller bootloader and runtime hooks | GPL with bootloader exception; some files Apache 2.0 | The exception permits distributing the application's frozen executable under its own license while honoring dependency licenses. Preserve the supplied notice for clarity. |

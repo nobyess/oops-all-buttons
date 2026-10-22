@@ -54,6 +54,16 @@ def smoke(bundle):
         process = start()
         try:
             assert request('/api/status')['setup'] is True
+            with client.open(base+'/') as response:
+                assert response.headers['Server'] == 'OopsAllButtons'
+                assert response.headers['X-Content-Type-Options'] == 'nosniff'
+                assert "script-src 'self'" in response.headers['Content-Security-Policy']
+            try:
+                client.open(urllib.request.Request(base+'/api/status',headers={'Host':'untrusted.example'}))
+                raise AssertionError('Unknown Host accepted')
+            except urllib.error.HTTPError as error:
+                assert error.code == 400
+                error.close()
             assert b'Oops! All Buttons' in request('/')
             assert b'bindControlActions' in request('/control-actions.js')
             assert request('/api/site/logo')[:4] == b'RIFF'

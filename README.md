@@ -64,7 +64,7 @@ Install the additional dependencies for the features you need:
 
 For example: `python -m pip install -r requirements-modbus.txt`.
 
-For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
+For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. The HTTP server is Waitress; see [network and HTTPS configuration](docs/WEB_SERVER.md) for hostname aliases and a trusted HTTPS reverse proxy. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
 
 ### Explore the examples
 

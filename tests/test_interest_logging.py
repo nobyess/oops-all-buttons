@@ -2,7 +2,8 @@ import contextlib
 import io
 import threading
 import unittest
-from run import RequestLog, make_handler
+from run import RequestLog, make_app
+from wsgiref.util import setup_testing_defaults
 
 class RequestLoggingTests(unittest.TestCase):
     def test_concurrent_request_and_error_counts(self):
@@ -21,12 +22,13 @@ class RequestLoggingTests(unittest.TestCase):
 
     def test_access_statistics_do_not_print(self):
         log = RequestLog()
-        handler = make_handler(None, log)
-        request = object.__new__(handler)
+        app = make_app(None, log)
         output=io.StringIO()
         with contextlib.redirect_stderr(output):
-            for method, path in [('POST', '/api/values/batch'), ('GET', '/app.js')]:
-                request.command, request.path = method, path
-                handler.log_request(request, 200)
+            for path in ['/app.js', '/controls.js']:
+                env={};setup_testing_defaults(env)
+                env.update(PATH_INFO=path, HTTP_HOST='localhost')
+                response=app(env, lambda status, headers:None)
+                list(response)
         self.assertEqual(log.snapshot()['total'],2)
         self.assertEqual(output.getvalue(),'')

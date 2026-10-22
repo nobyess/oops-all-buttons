@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from hmi.alarms import matches
 from hmi.service import Service
 from hmi.store import Store
-from run import make_handler
+from tests.http_helpers import make_handler
 
 
 class AlarmTests(unittest.TestCase):

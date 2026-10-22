@@ -46,5 +46,11 @@
     "filename": "pystray-0.19.5.tar.gz",
     "url": "https://codeload.github.com/moses-palmer/pystray/tar.gz/refs/tags/v0.19.5",
     "sha256": "2ab6bd15c14b400c9e8271a82c9de8adc0f1a0cacfc14080bdd4fb42bb88ec92"
+  },
+  "waitress": {
+    "version": "3.0.2",
+    "url": "https://github.com/Pylons/waitress/tree/v3.0.2",
+    "license": "ZPL-2.1",
+    "license_url": "https://github.com/Pylons/waitress/blob/v3.0.2/LICENSE.txt"
   }
 }

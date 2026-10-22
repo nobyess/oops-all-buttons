@@ -8,6 +8,8 @@ Updated October 20, 2026: source packaging is restored. Future portable builds i
 
 This is a technical packaging review, not a universal license-compliance certification. The BACpypes3 upstream attribution gap described below remains documented.
 
+Updated October 21, 2026: the HTTP server now uses unmodified **Waitress 3.0.2**, under the Zope Public License 2.1. Its installed copyright and license text are collected into portable builds with distribution metadata and a versioned upstream reference. This dependency adds no new reciprocal source archive to the five already packaged. The current generated inventory records the exact distribution count.
+
 ## Application license
 
 The original Oops! All Buttons code is offered under MIT, with the repository owner's public handle `nobyess` in the copyright notice. This grant covers rights the project can license; it does not claim ownership of third-party code or replace its licenses. The existing Codex acknowledgment and equipment/network warnings remain in place.

@@ -5,7 +5,7 @@ from unittest.mock import patch
 from hmi.store import Store
 from hmi.service import Service
 from hmi.access import Access
-from run import make_handler
+from tests.http_helpers import make_handler
 class SiteTests(unittest.TestCase):
  def setUp(self):
   self.temp=tempfile.TemporaryDirectory();self.service=Service(Store(Path(self.temp.name)/'hmi.sqlite3'))

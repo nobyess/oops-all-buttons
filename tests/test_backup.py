@@ -6,7 +6,7 @@ from hmi.backup import export_backup,stage_restore,apply_pending,pending_path
 from hmi.store import Store
 from hmi.service import Service
 from hmi.access import Access
-from run import make_handler
+from tests.http_helpers import make_handler
 
 class BackupTests(unittest.TestCase):
  def setUp(self):

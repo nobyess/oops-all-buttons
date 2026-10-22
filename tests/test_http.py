@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from pathlib import Path
 from hmi.service import Service
 from hmi.store import Store
-from run import make_handler
+from tests.http_helpers import make_handler
 
 
 class HttpTests(unittest.TestCase):

@@ -15,7 +15,7 @@ from hmi.assets import asset_identity
 from hmi.images import prepare_image
 from hmi.backup import export_backup, stage_restore, apply_pending
 from hmi.page_transfer import export_page, import_page
-from run import make_handler
+from tests.http_helpers import make_handler
 
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'
 

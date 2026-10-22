@@ -1,4 +1,5 @@
-# The web server, database, and authentication use Python's standard library.
+# HTTP server (database and authentication use Python's standard library).
+waitress==3.0.2
 # Optional desktop tray support:
 pystray>=0.19,<1
 Pillow>=10,<13

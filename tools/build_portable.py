@@ -17,7 +17,7 @@ else:
     from third_party import include_licenses
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = {'PyInstaller': 'pyinstaller', 'BAC0': 'BAC0', 'bacpypes3': 'bacpypes3',
+PACKAGES = {'waitress': 'waitress', 'PyInstaller': 'pyinstaller', 'BAC0': 'BAC0', 'bacpypes3': 'bacpypes3',
             'pycomm3': 'pycomm3', 'paho.mqtt': 'paho-mqtt', 'pymodbus': 'pymodbus',
             'serial': 'pyserial', 'formulas': 'formulas', 'ezdxf': 'ezdxf', 'pystray': 'pystray', 'PIL': 'Pillow'}
 PORTABLE_README = '''Oops! All Buttons - Windows portable

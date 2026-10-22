@@ -1,6 +1,6 @@
 # Windows portable releases
 
-The portable build includes Python, all supported drivers, sheet calculations, DXF import, the tray icon, and the web interface.
+The portable build includes Python, Waitress, all supported drivers, sheet calculations, DXF import, the tray icon, and the web interface.
 
 ## Build on Windows
 

@@ -7,7 +7,7 @@ datas = [(str(root / 'static'), 'static')]
 binaries = []
 hiddenimports = ['pystray._win32', 'PIL.IcoImagePlugin', 'PIL.PngImagePlugin']
 for package, distribution in [
-    ('BAC0', 'BAC0'), ('bacpypes3', 'bacpypes3'), ('pycomm3', 'pycomm3'),
+    ('waitress', 'waitress'), ('BAC0', 'BAC0'), ('bacpypes3', 'bacpypes3'), ('pycomm3', 'pycomm3'),
     ('paho.mqtt', 'paho-mqtt'), ('pymodbus', 'pymodbus'), ('serial', 'pyserial'),
     ('formulas', 'formulas'), ('ezdxf', 'ezdxf'), ('pystray', 'pystray'),
 ]:

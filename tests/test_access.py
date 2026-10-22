@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from hmi.store import Store
 from hmi.service import Service
 from hmi.access import Access,password_hash
-from run import make_handler
+from tests.http_helpers import make_handler
 
 class AccessTests(unittest.TestCase):
  def setUp(self):

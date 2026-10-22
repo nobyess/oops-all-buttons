@@ -27,7 +27,7 @@ class RestartTests(unittest.TestCase):
         server=SimpleNamespace(shutdown=stopped.set,serve_forever=lambda:stopped.wait(3),server_close=lambda:calls.append('socket closed'))
         service=SimpleNamespace(polling=SimpleNamespace(run=lambda event:None),drivers={'test':SimpleNamespace(close=lambda:calls.append('driver closed'))})
         def tray(*args,**kwargs):kwargs['on_restart']()
-        with patch.object(sys,'argv',['run.py','--no-browser']), patch('run.Service',return_value=service), patch('run.Store'), patch('run.make_handler'), patch('run.apply_pending'), patch('run.ThreadingHTTPServer',return_value=server), patch('run.print_network_interfaces'), patch('hmi.tray.run_tray',side_effect=tray), patch.object(sys,'stdout',io.StringIO()):
+        with patch.object(sys,'argv',['run.py','--no-browser']), patch('run.Service',return_value=service), patch('run.Store'), patch('run.make_app'), patch('run.apply_pending'), patch('run.HTTPServer',return_value=server), patch('run.print_network_interfaces'), patch('hmi.tray.run_tray',side_effect=tray), patch.object(sys,'stdout',io.StringIO()):
             self.assertTrue(run.main())
         self.assertEqual(calls,['socket closed','driver closed'])
 

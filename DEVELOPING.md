@@ -576,3 +576,21 @@ plus its 2px frame, preserving the configured page body dimensions.
 Text Editor uses the same movable caption and close graphic as the pickers.
 Insert Tag stays in a separate toolbar below the caption. Close/Escape cancel
 the draft, Save commits, and cleanup releases dragging listeners and focus.
+
+
+## HTTP application
+
+`run.py` owns startup, polling and tray lifecycle. `hmi/web.py` exposes `make_app`,
+a WSGI application sharing one Service; `hmi/wsgi.py` owns request/response and
+streaming primitives. Waitress in `hmi/http_server.py` owns HTTP parsing and a
+fixed eight-worker pool. Do not run multiple processes against one project or
+serial bus. Keep driver timeouts independent of HTTP inactivity timeouts.
+Shutdown stops accepting requests, drains workers while continuing network I/O,
+then closes connections before the caller closes device drivers.
+
+Authentication state and bounded login throttling live in `hmi/web_security.py`.
+Session reads return copies; activity and kiosk changes require explicit updates.
+Use only Waitress-normalized WSGI scheme/client/host values, never raw forwarded
+headers. See [deployment settings](docs/WEB_SERVER.md). Add API regression tests
+through the WSGI test helper and real transport/security tests in
+`tests/test_waitress.py`; run `python -m unittest discover -s tests`.
