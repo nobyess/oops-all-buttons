@@ -1,3 +1,4 @@
+import {contentEditorKind,editDesignerContent,bindContentDoubleClick} from './designer-content.js';
 import {importAccept,pageFilename,sheetFilename} from './file-formats.js';
 import {startingPage} from './starting-page.js';
 import {openTextViewerEditor} from './text-viewer-editor.js';
@@ -1351,6 +1352,18 @@ function renderControl(canvas,c,owner=page,isEditing=editing) {
   el.dataset.controlType=c.type;
   paint(el,c,owner,isEditing);
   if(!isEditing)return;
+  bindContentDoubleClick(el,{
+    canEdit:()=>editing&&page===owner&&owner.controls.includes(c)&&(c.type==='polyline'?!c.pinned:Boolean(contentEditorKind(c,controls)))&&!document.querySelector('dialog[open]'),
+    onEdit:()=>{
+      selected=c.id;tab='Properties';ruleId=null;
+      if(c.type==='polyline'){
+        if(!editingPolyline(c))controls.polyline.props.pointEditing.onClick(c);
+        canvas.refreshSelection(c);
+      }else{
+        canvas.refreshSelection(c);safe(()=>editControlContent(c,owner));
+      }
+    }
+  });
   el.onpointerdown=e=> {
     if(e.button!==0 || c.pinned)return;
     // An Explorer-selected member remains individually editable until selection changes.
@@ -1568,6 +1581,18 @@ function finishPointEditingFocus(){
   if(page?.controls.includes(control) && JSON.stringify(control)!==before)markChanged();
   for(const el of app.querySelectorAll('.editor .control'))if(el.dataset.controlId===control.id)paint(el,control);
 }
+function editControlContent(c,owner=page,kind){
+  return editDesignerContent(c,{definitions:controls,kind,
+    canApply:()=>editing&&page===owner&&owner.controls.includes(c),
+    openText:()=>openTextEditor(c,{onInsertTag:pickInlineTag,previewBackground:owner.showBackground===false || (owner.backColor?.length===9 && owner.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:owner.backColor}),
+    openTextViewer:()=>openTextViewerEditor(c,{api}),
+    pickAsset:kind=>{
+      const icon=kind==='icon',type=icon?(c.buttonArtworkKind||'icon'):kind;
+      return openContentPicker({api,kind:type,...(icon?{kinds:['icon','image','symbol']}:{}),value:icon&&type==='icon'?c.icon||'':c.image||''});
+    },
+    onChanged:()=>{markChanged();refreshEditedControl(c,true);}
+  });
+}
 function showInspector(panel) {
   const focused=[...page?.controls || [],...page?.groups || []].find(control=>control.id===selected);
   if(pointEditingFocus && pointEditingFocus!==focused)finishPointEditingFocus();
@@ -1623,7 +1648,7 @@ function showInspector(panel) {
       if(key==='text'){
         const host=c.type==='button'?node('div',null,panel,{className:'button-text-settings'}):panel;
         if(c.type==='button')node('span','Text',host,{className:'content-field-label'});
-        const edit=button('Edit',host,async()=>{const changed=await openTextEditor(c, {onInsertTag:pickInlineTag,previewBackground:page.showBackground===false || (page.backColor?.length===9 && page.backColor.endsWith('00'))?getComputedStyle(document.body).backgroundColor:page.backColor});if(changed){Object.assign(c,changed);markChanged();refreshEditedControl(c,true);}});
+        const edit=button('Edit',host,()=>editControlContent(c,page,'text'));
         edit.setAttribute('aria-label','Edit text');continue;
       }
       if (key === 'backColor') colorRow = node('div', null, panel, {className: 'color-picker-row'});
@@ -1688,27 +1713,18 @@ function showInspector(panel) {
         continue;
       }
       if(prop.type==='textAsset'){
-        const edit=button('Edit',propertyParent,()=>safe(async()=>{
-          const result=await openTextViewerEditor(c,{api});
-          if(result){Object.assign(c,result);markChanged();refreshEditedControl(c,true);}
-        }));edit.setAttribute('aria-label','Edit text viewer content');continue;
+        const edit=button('Edit',propertyParent,()=>safe(()=>editControlContent(c,page,'textAsset')));edit.setAttribute('aria-label','Edit text viewer content');continue;
       }
       if(prop.type==='image' || prop.type==='symbol') {
         const symbol=prop.type==='symbol';
         node('h3',symbol?'Content':'Image',propertyParent);
-        contentField(propertyParent,{kind:symbol?'symbol':'image',value:c.image||'',name:c.imageName||'',onPick:()=>safe(async()=>{
-          const asset=await openContentPicker({api,kind:symbol?'symbol':'image',value:c.image || ''});
-          if(asset){c.image=asset.url;c.imageName=asset.name;markChanged();refreshEditedControl(c,true);}
-        }),onClear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});
+        contentField(propertyParent,{kind:symbol?'symbol':'image',value:c.image||'',name:c.imageName||'',onPick:()=>safe(()=>editControlContent(c,page,symbol?'symbol':'image')),onClear:()=>{c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});
         button('Rotate 90°',propertyParent,()=>{rotateArtwork(c);markChanged();refreshEditedControl(c,true);});
         continue;
       }
       if(prop.type==='icon'){
         const kind=c.buttonArtworkKind||'icon';
-        const group=contentField(propertyParent,{label:'Icon',kind,value:kind==='icon'?c.icon||'':c.image||'',name:kind==='icon'?buttonIcons.find(icon=>icon.id===c.icon)?.name||'':c.imageName||'',...(kind==='icon'?{renderPreview:host=>{host.style.color=c.iconColor?.slice(0,7)||'var(--ui-text)';const svg=buttonIcon(c.icon);if(svg)host.append(svg);}}:{}),onPick:()=>safe(async()=>{
-          const asset=await openContentPicker({api,kind,kinds:['icon','image','symbol'],value:kind==='icon'?c.icon||'':c.image||''});
-          if(asset){c.buttonArtworkKind=asset.kind;c.icon=asset.kind==='icon'?asset.id:'';c.image=asset.kind==='icon'?'':asset.url;c.imageName=asset.kind==='icon'?'':asset.name;markChanged();refreshEditedControl(c,true);}
-        }),onClear:()=>{c.icon='';c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});
+        const group=contentField(propertyParent,{label:'Icon',kind,value:kind==='icon'?c.icon||'':c.image||'',name:kind==='icon'?buttonIcons.find(icon=>icon.id===c.icon)?.name||'':c.imageName||'',...(kind==='icon'?{renderPreview:host=>{host.style.color=c.iconColor?.slice(0,7)||'var(--ui-text)';const svg=buttonIcon(c.icon);if(svg)host.append(svg);}}:{}),onPick:()=>safe(()=>editControlContent(c,page,'icon')),onClear:()=>{c.icon='';c.image='';c.imageName='';markChanged();refreshEditedControl(c,true);}});
         group.classList.add('button-icon-group');iconGroup=group;iconSettings=node('div',null,group,{className:'button-icon-settings'});
         continue;
       }
