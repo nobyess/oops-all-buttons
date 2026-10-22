@@ -44,3 +44,7 @@ samples.one={quality:'bad',value:null,error:warning};manager.refresh();
 assert(find('⚠ One'));assert(find(warning));assert.equal(find(warning).className,'source-manager-value error');
 samples.one={quality:'good',value:3};manager.refresh();
 assert(find('One'));assert(!find('⚠ One'));assert(find('Current value: 3'));
+
+sources[0].status={quality:'paused',paused:true,message:'Paused'};state.tag='';manager.refresh();
+const pauseDot=all(root).find(el=>el.dataset.sourceDot==='mem');assert.equal(pauseDot.textContent,'⏸');assert.equal(pauseDot.attributes['aria-label'],'Paused');assert(find('Paused'));
+sources[0].status={quality:'good',message:'Connected'};manager.refresh();assert.equal(pauseDot.textContent,'●');

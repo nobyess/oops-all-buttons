@@ -325,6 +325,8 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                 if path == '/api/session/activity':
                     sessions.update(record, activity=time.time())
                     return self.reply(200, {'ok': True})
+                if path == '/api/sources/pause':
+                    return self.reply(200,service.pause_source(data))
                 if path == '/api/sources':
                     if data.get('kind') in ('memory','system'):raise ValueError('Use the built-in System source for Memory tags')
                     service.add_source(data)

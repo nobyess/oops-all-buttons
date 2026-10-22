@@ -1,3 +1,4 @@
+from .source_pause import PAUSABLE, PauseGate, serial_port
 from .simulation import SimulationDriver, simulation_settings, simulation_tags, simulation_writable
 from .alarms import Alarms
 from .local_drivers import SYSTEM_SOURCE, system_tags, connection_tags, DatabaseDriver, database_settings
@@ -36,6 +37,8 @@ class Service:
         self.lock = threading.RLock()
         self.assets = AssetCenter(self)
         self.drivers = {}
+        self.pause_gates = {}
+        self.pause_lock = threading.RLock()
         self.source_errors = {}
         self.connection_tags = []
         self.simulation_tags = []
@@ -102,6 +105,16 @@ class Service:
         self.configure_polling()
 
     def configure_polling(self):
+        active_gates=set()
+        for source in self.sources():
+            if source['kind'] in PAUSABLE:
+                key=serial_port(source['kind'],source['settings'])
+                gate_key=('serial',key) if key else ('source',source['id'])
+                active_gates.add(gate_key)
+                gate=self.pause_gates.setdefault(gate_key,PauseGate(bool(key)))
+                driver=self.drivers.get(source['id'])
+                if driver:gate.attach(driver)
+        self.pause_gates={key:gate for key,gate in self.pause_gates.items() if key in active_gates}
         self.connection_tags=connection_tags(self.sources())
         self.simulation_tags=simulation_tags() if any(s['kind']=='simulation' for s in self.sources()) else []
         for source in self.sources():
@@ -331,11 +344,45 @@ class Service:
                 raise
         return {'ok': True}
 
+    def check_source_running(self, source):
+        key=serial_port(source['kind'],source['settings']) if source['kind'] in PAUSABLE else None
+        gate=self.pause_gates.get(('serial',key) if key else ('source',source.get('id')))
+        if gate and gate.paused:raise ValueError('Source is paused; unpause it first')
+
+    def pause_source(self,data):
+        if type(data.get('paused')) is not bool:raise ValueError('Choose Pause or Unpause')
+        with self.pause_lock:
+            with self.lock:
+                sources=self.sources()
+                source=next((s for s in sources if s['id']==data.get('id')),None)
+                if not source or source['kind'] not in PAUSABLE:raise ValueError('Choose an external data source')
+                key=serial_port(source['kind'],source['settings'])
+                affected=[s for s in sources if s['kind'] in PAUSABLE and (serial_port(s['kind'],s['settings'])==key if key else s['id']==source['id'])]
+                gate=self.pause_gates[('serial',key) if key else ('source',source['id'])]
+                drivers=[self.drivers[s['id']] for s in affected if s['id'] in self.drivers]
+                identities={s['id'] for s in affected}
+            if data['paused']:
+                with self.polling.lock:self.polling.paused.update(identities)
+            gate.set_paused(data['paused'],drivers)
+            with self.polling.lock:
+                if not data['paused']:self.polling.paused.difference_update(identities)
+                for tag in self.polling.tags.values():
+                    if tag['source'] in identities:
+                        name=tag['id'];self.polling.versions[name]=self.polling.versions.get(name,0)+1
+                        self.polling.attempts.pop(name,None)
+                        if not data['paused'] and not tag.get('connection_status'):
+                            old=self.polling.cache.get(name,{})
+                            self.polling.cache[name]={**old,'value':None,'quality':'bad','error':'Waiting for first poll after unpause'}
+            self.polling.refresh_connections(force=True)
+            self.polling.changed.set();self.evaluate_alarms()
+            return {'ok':True,'paused':data['paused'],'sources':list(identities)}
+
     def test_source(self, data):
         if data.get('id'):
             source = next((s for s in self.sources() if s['id'] == data['id']), None)
             if not source or source['kind'] not in ('pycomm3', 'bacnet', 'mqtt', 'modbus', 'lightyak'):
                 raise ValueError('Choose a protocol source')
+            self.check_source_running(source)
             driver = self.drivers.get(source['id'])
             if driver is None:
                 driver = DRIVERS[source['kind']](source['settings'])
@@ -353,6 +400,7 @@ class Service:
         if kind not in ('pycomm3', 'bacnet', 'mqtt', 'modbus', 'lightyak'):
             raise ValueError('This driver has no connection test')
         settings = (lightyak_settings if kind == 'lightyak' else modbus_settings if kind == 'modbus' else mqtt_settings if kind == 'mqtt' else bacnet_settings if kind == 'bacnet' else connection_settings)(data.get('settings', {}))
+        self.check_source_running({'kind':kind,'settings':settings})
         driver = DRIVERS[kind](settings)
         try:
             result = driver.test()
@@ -741,6 +789,9 @@ class Service:
             driver = self.drivers.get(source['id'])
             try:
                 status = driver.status() if driver else {'quality': 'bad', 'message': self.source_errors.get(source['id'], 'Disconnected')}
+                key=serial_port(source['kind'],source['settings']) if source['kind'] in PAUSABLE else None
+                gate=self.pause_gates.get(('serial',key) if key else ('source',source['id']))
+                if gate and gate.paused:status=gate.status()
             except Exception as error:
                 status = {'quality': 'bad', 'message': str(error)}
             result.append({'id': source['id'], 'status': status})
@@ -753,6 +804,9 @@ class Service:
             driver = self.drivers.get(source['id'])
             try:
                 status = driver.status() if driver else {'quality': 'bad', 'message': self.source_errors.get(source['id'], 'Disconnected')}
+                key=serial_port(source['kind'],source['settings']) if source['kind'] in PAUSABLE else None
+                gate=self.pause_gates.get(('serial',key) if key else ('source',source['id']))
+                if gate and gate.paused:status=gate.status()
             except Exception as error:
                 status = {'quality': 'bad', 'message': str(error)}
             result.append({**source, 'status': status, 'tags': [t['id'] for t in tags if t['source'] == source['id']]})
@@ -771,6 +825,9 @@ class Service:
             driver = self.drivers.get(source['id'])
             try:
                 status = driver.status() if driver else {'quality': 'bad', 'message': self.source_errors.get(source['id'], 'Disconnected')}
+                key=serial_port(source['kind'],source['settings']) if source['kind'] in PAUSABLE else None
+                gate=self.pause_gates.get(('serial',key) if key else ('source',source['id']))
+                if gate and gate.paused:status=gate.status()
             except Exception as exc:
                 status = {'quality': 'bad', 'message': str(exc)}
             result.append({**source, 'status': status, 'tags': [tag['id'] for tag in related],
@@ -862,6 +919,7 @@ class Service:
                 source['settings'] = (bacnet_settings if kind == 'bacnet' else connection_settings)(source['settings'])
                 receipt = self.test_receipts.get(data.get('test_token'))
                 source['tested_at'] = receipt[1] if receipt and receipt[0] == source['settings'] and time.time() - receipt[1] < 1800 else None
+            self.check_source_running(source)
             driver = DRIVERS[kind](source['settings'])
             if isinstance(driver,DatabaseDriver):driver.bind(Path(self.store.path).parent/'databases')
             if isinstance(driver, SheetDriver):
@@ -879,6 +937,7 @@ class Service:
             source = next((s for s in sources if s['id'] == data['id']), None)
             if source is None:
                 raise ValueError('Unknown source')
+            self.check_source_running(source)
             name = str(data.get('name', source.get('name', source['id']))).strip()
             if not name or any(s['id'] != source['id'] and s.get('name', s['id']).casefold() == name.casefold() for s in sources):
                 raise ValueError('Source name is empty or already exists')
@@ -899,6 +958,7 @@ class Service:
                 settings = bacnet_settings(settings)
             if source['kind'] == 'pycomm3':
                 settings = connection_settings(settings)
+            self.check_source_running({**source,'settings':settings})
             previous = source['settings']
             if previous.get('protocol', 'logix') != settings.get('protocol', 'logix') and any(t['source'] == source['id'] and not t.get('builtin') for t in self.tags()):
                 raise ValueError('Remove this source’s tags before changing its protocol type')

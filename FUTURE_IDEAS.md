@@ -69,8 +69,8 @@ Start with profiling on the target hardware and prioritize configuration caching
 
 ## Per-source Pause / Resume and Disconnect
 
-Added: October 22, 2026. Status: deferred.
+Added and implemented: October 22, 2026.
 
-Add a **Pause / Resume** button for the selected driver/source in **Data Sources & Tags**. Pausing should stop both live and background polling and block writes. Retain the last values but clearly mark them as paused rather than current, with a distinct paused source status instead of disconnected. Let an in-flight operation finish rather than interrupting a write. Resume should request fresh values immediately.
+Runtime Pause / Unpause is available from a source's right-click menu in Data Sources & Tags. It stops live/background polling and blocks reads/writes. Paused tags behave as disconnected; network connections stay open. Serial sources sharing a port pause together and release it for firmware downloads. Unpause requests fresh values; server restart clears pause state.
 
-Keep the connection open where possible while paused, especially for Arduino boards that reset when a serial port reopens. Consider a separate **Disconnect / Reconnect** command that releases the serial port so firmware can be uploaded. Account for sources sharing a connection: pausing one source must not disrupt others, and releasing a shared port needs explicit handling of all its owners. Define how paused quality affects alarms and connection-status tags, and whether pause state survives a server restart, before implementing.
+A separate Disconnect command and persisted pause state remain deferred.

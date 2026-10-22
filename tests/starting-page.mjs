@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {startingPage} from '../static/starting-page.js';
+const pages=[{id:'one',name:'Main'},{id:'two',name:'Start Page'}];
+assert.equal(startingPage(pages,{}).id,'two');
+assert.equal(startingPage(pages,{starting_page:'one'}).id,'one');
+assert.equal(startingPage(pages,{starting_page:'deleted'}).id,'two');
+assert.equal(startingPage([{id:'renamed',name:'Welcome',starterPage:true}],{}).id,'renamed');
+assert.equal(startingPage([pages[0]],{}).id,'one');
+assert.equal(startingPage([],{}),undefined);
+console.log('Starting page respects preferences, defaults to Start Page and handles deletion.');

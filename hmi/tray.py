@@ -1,5 +1,6 @@
 """Optional tray companion with launch and shutdown commands."""
 from .browser_launch import launch_browser
+from .version import application_version
 
 def run_tray(url, on_exit=None, icon_path=None, launch=None, on_restart=None):
     import pystray
@@ -12,7 +13,8 @@ def run_tray(url, on_exit=None, icon_path=None, launch=None, on_restart=None):
         ImageDraw.Draw(image).text((14, 22), 'OAB', fill='white')
     def open_app(icon, item):
         (launch or (lambda: launch_browser(url)))()
-    menu = [pystray.MenuItem('Launch', open_app, default=True)]
+    title='Oops! All Buttons '+application_version()
+    menu = [pystray.MenuItem(title, None, enabled=False),pystray.Menu.SEPARATOR,pystray.MenuItem('Launch', open_app, default=True)]
     def stop(icon, item):
         icon.stop()
         if on_exit:
@@ -24,4 +26,4 @@ def run_tray(url, on_exit=None, icon_path=None, launch=None, on_restart=None):
     if on_restart:
         menu.append(pystray.MenuItem('Restart Server', restart))
     menu.append(pystray.MenuItem('Exit', stop))
-    pystray.Icon('oops-all-buttons', image, 'Oops! All Buttons', pystray.Menu(*menu)).run()
+    pystray.Icon('oops-all-buttons', image, title, pystray.Menu(*menu)).run()

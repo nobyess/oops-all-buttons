@@ -91,7 +91,7 @@ class CodecTests(unittest.TestCase):
 class DriverTests(unittest.TestCase):
     def setUp(self):
         self.device=Device();self.drivers=[]
-        self.settings={'serial_port':'lightyak-unit-test','timeout':.1,'offline_retry':1}
+        self.settings={'serial_port':'lightyak-unit-test','timeout':.1,'offline_retry':1,'startup_delay':0}
         self.driver=self.make()
 
     def make(self, **changes):
@@ -226,6 +226,10 @@ class DriverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'identical'):self.make(baudrate=9600)
         replacement=self.driver.replacement({**self.settings,'baudrate':9600});self.drivers.append(replacement)
         self.driver.close();replacement.test();self.assertEqual(self.device.opens,2)
+
+    def test_startup_delay_default_and_explicit_zero(self):
+        self.assertEqual(lightyak_settings({'serial_port':'COM1'})['startup_delay'],2)
+        self.assertEqual(lightyak_settings({'serial_port':'COM1','startup_delay':0})['startup_delay'],0)
 
     def test_startup_delay_once_per_open(self):
         delayed=self.make(serial_port='lightyak-delayed-test',startup_delay=2)

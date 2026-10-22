@@ -12,8 +12,8 @@ client process is required.
 1. Open **Data Sources & Tags → Add Source** and choose **LightYak (Serial)**.
 2. Choose the serial port on the server computer. Defaults are **115200 baud,
    8 data bits, no parity, 1 stop bit**, with a 2-second response timeout.
-3. Startup delay defaults to **0**. Set it to **2 seconds** for an Arduino that
-   resets when its port opens. The delay runs once per open/reopen.
+3. Startup delay defaults to **2 seconds** for devices such as Arduino boards that
+   reset when their port opens. Set it to **0** if no delay is needed. The delay runs once per open/reopen.
 4. Test Connection, then save. Testing is optional; browsing or the first poll
    also establishes the connection.
 5. Select the source, click **Add Tag**, filter its discovered targets, select

@@ -69,7 +69,7 @@ export function mountAdministration(parent,{node,button,api,onSimulationChanged}
    for(const source of data.sources){
     let entry=driverViews.get(source.id);if(!entry){const box=node('section',null,scroll,{className:'admin-driver'});entry={box,title:node('h3','',box),status:node('p','',box)};driverViews.set(source.id,entry);}
     const {box,status}=entry;beginRows(box);if(entry.title.textContent!==source.name)entry.title.textContent=source.name;row(box,'Driver',source.kind==='pycomm3'?'PyComm3 '+(source.settings.protocol || 'logix').toUpperCase():source.kind);
-    const message=source.status?.message || 'Unknown';if(status.textContent!==message)status.textContent=message;status.className=source.status?.quality==='good'?'good':'bad';
+    const message=source.status?.message || 'Unknown';if(status.textContent!==message)status.textContent=message;status.className=source.status?.paused?'hint':source.status?.quality==='good'?'good':'bad';
     row(box,'Configured tags',source.tags.length);
     if(source.kind==='modbus'){row(box,'Modbus read / write requests',`${source.status.read_requests || 0} / ${source.status.write_requests || 0}`);}
     if(source.kind==='mqtt'){row(box,'Messages received / published',`${source.status.received || 0} / ${source.status.published || 0}`);row(box,'Topic subscriptions',source.status.subscriptions || 0);}

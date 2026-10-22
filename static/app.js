@@ -1,3 +1,4 @@
+import {startingPage} from './starting-page.js';
 import {openTextViewerEditor} from './text-viewer-editor.js';
 import {disposeTextViewers,textViewerAppearance} from './text-viewer.js';
 import {mountAssetCenter} from './asset-manager.js';
@@ -335,7 +336,7 @@ async function start(afterLogin=false)  {
   [catalog,sources,tags,pages,accessRoles]=await Promise.all(['catalog','sources','tags','pages','access/roles'].map(p=>api(p)));
   pages.forEach(normalize);
   if(currentUser?.kiosk){
-    const homePage=pages.find(p=>p.id===currentUser.starting_page)||pages[0];
+    const homePage=startingPage(pages,currentUser);
     const home=button('Home',document.querySelector('.header-start'),()=>{
       if(!homePage)return;
       closeContextMenu();
@@ -349,10 +350,10 @@ async function start(afterLogin=false)  {
   if(suspendedEditor && currentUser?.administrator && !currentUser?.kiosk){
     ({page,selected,tab,ruleId}=suspendedEditor);suspendedEditor=null;dirty=true;
   } else {page=pages.find(p=>p.id===page?.id)||pages[0];dirty=false;}
-  if(afterLogin || currentUser?.kiosk && !location.hash.startsWith('#runtime/')){
-    page=pages.find(p=>p.id===currentUser?.starting_page)||pages[0];
-    if(page && (afterLogin || currentUser?.starting_page || currentUser?.kiosk))history.replaceState(history.state,'','#runtime/'+page.id);
-    else if(afterLogin)history.replaceState(history.state,'','#pages');
+  if(afterLogin || !location.hash || currentUser?.kiosk && !location.hash.startsWith('#runtime/')){
+    page=startingPage(pages,currentUser);
+    if(page)history.replaceState(history.state,'','#runtime/'+page.id);
+    else if(afterLogin || !location.hash)history.replaceState(history.state,'','#pages');
   }
   if(afterLogin)navigation.reset();
   route();
@@ -550,10 +551,10 @@ function sourceDialog(existing,sheetOnly=false) {
         api('admin/serial-ports').then(items=>{if(portInput.isConnected)for(const item of items)node('option',item.description,ports,{value:item.port});}).catch(()=>{});
         inputs.parity=select('Parity',rows,[['N','None'],['E','Even'],['O','Odd']],saved.parity || 'N');
         inputs.stopbits=select('Stop bits',rows,[['1','1'],['2','2']],String(saved.stopbits ?? 1));
-        for(const [key,label,value,min,max,step] of [['baudrate','Baud rate',115200,300,1000000,1],['timeout','Response timeout (seconds)',2,.1,60,'any'],['startup_delay','Startup delay after opening port (seconds)',0,0,60,'any'],['offline_retry','Offline retry delay (seconds)',5,1,300,'any'],['live','Live polling (seconds)',.5,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any']]) {
+        for(const [key,label,value,min,max,step] of [['baudrate','Baud rate',115200,300,1000000,1],['timeout','Response timeout (seconds)',2,.1,60,'any'],['startup_delay','Startup delay after opening port (seconds)',2,0,60,'any'],['offline_retry','Offline retry delay (seconds)',5,1,300,'any'],['live','Live polling (seconds)',.5,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any']]) {
           const input=inputs[key]=field(label,key==='baudrate'?rows:polling,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
         }
-        node('p','LightYak v1: one device per serial port, 8 data bits. Default 115200, no parity, 1 stop bit. Try a 2-second startup delay for an Arduino that resets when connected. Sources sharing a port must use matching serial and timing settings.',settings,{className:'hint'});
+        node('p','LightYak v1: one device per serial port, 8 data bits. Default 115200, no parity, 1 stop bit. Startup delay defaults to 2 seconds for devices that reset when connected. Sources sharing a port must use matching serial and timing settings.',settings,{className:'hint'});
         status=node('p','Connection has not been tested.',settings,{className:'hint'});
         for(const input of Object.values(inputs))input.addEventListener('input',changed);
         return;
@@ -701,7 +702,7 @@ function sourceDialog(existing,sheetOnly=false) {
         parity:['Match every device on this serial bus.'],
         stopbits:['Match every device on this serial bus.'],
         handle_local_echo:['Enable only if the adapter sends your own transmitted bytes back to the receiver.'],
-        startup_delay:['Wait once after the shared serial port opens or reopens. Leave at 0 for normal devices; try 2 seconds for an Arduino that resets on connection. Sources sharing a port must match.'],
+        startup_delay:[kind.value==='lightyak'?'Wait once after the shared serial port opens or reopens. Defaults to 2 seconds for Arduino startup; set to 0 if no delay is needed. Sources sharing a port must match.':'Wait once after the shared serial port opens or reopens. Leave at 0 for normal devices; try 2 seconds for an Arduino that resets on connection. Sources sharing a port must match.'],
         offline_retry:['Initial pause after a communication failure; repeated failures increase the delay.'],
         timeout:['Maximum time to wait for a device response, in seconds.'],
         live:[kind.value==='mqtt'?'Refresh interval while tags are in use; messages arrive by subscription.':'Polling interval while tags are actively used, in seconds.'],
@@ -740,6 +741,7 @@ function showSources() {
     const data=await api('values/batch',{source:tag.source,tags:[tag.id],pages:[]});Object.assign(values,data.values);sourceManager?.refresh();
   };
   sourceManager=mountSourceManager(app,{node,button,getSources:()=>sources,getTags:()=>tags,getValues:()=>values,usageList,
+    onPauseSource:(source,paused)=>safe(async()=>{await api('sources/pause',{id:source.id,paused});applySourceStatuses(sources,await api('sources/status'));sourceManager?.refresh();await refreshSelection();}),
     onAddSource:()=>sourceDialog(),onEditSource:source=>sourceDialog(source),
     onRemoveSource:source=>confirmDialog('Remove source?',`Remove ${source.name || source.id} and its ${source.tags.length} unused tag(s)?`,async()=>{await api('sources/remove',{id:source.id});await reloadLists();route();}),
     onAddTag:source=>tagDialog(source),onEditTag:editTagDialog,

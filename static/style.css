@@ -1458,3 +1458,14 @@ body {background:var(--app-background,var(--ui-background))}
 @media (forced-colors:active){.text-viewer-editor .tabs button.active {background:Canvas;color:LinkText;border-bottom-color:LinkText}}
 
 .text-viewer-editor :is(.error,.asset-status):empty {display:none}
+
+.source-manager-source {align-items:center}
+.source-manager-source [data-source-dot] {display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;font-size:22px;line-height:24px}
+.source-manager-source [data-source-dot].source-paused {position:relative;color:var(--ui-muted);font-size:0;height:24px}
+.source-manager-source .source-paused::before,.source-manager-source .source-paused::after {content:"";position:absolute;top:5px;width:3px;height:14px;background:currentColor;border-radius:1px}
+.source-manager-source .source-paused::before {left:6px}
+.source-manager-source .source-paused::after {right:6px}
+.source-manager-source[aria-selected="true"] .source-paused {color:inherit}
+
+.source-manager-source [data-source-dot]:not(.source-paused) {position:relative;height:24px;font-size:0}
+.source-manager-source [data-source-dot]:not(.source-paused)::before {content:"";position:absolute;left:6px;top:6px;width:12px;height:12px;border-radius:50%;background:currentColor}

@@ -32,6 +32,7 @@ class PollingManager:
         self.versions = {}
         self.statistics = {}
         self.busy = set()
+        self.paused = set()
         self.on_samples = None
         self.last_status_check = -math.inf
         self.status_busy = False
@@ -50,6 +51,7 @@ class PollingManager:
             self.sources = {s['id']: s for s in sources if s['kind'] != 'memory'}
             self.tags = {t['id']: t for t in tags if t['source'] in self.sources}
             self.drivers = dict(drivers)
+            self.paused.intersection_update(self.sources)
             self.cache = {k: v for k, v in self.cache.items() if k in self.tags}
             self.attempts = {k: v for k, v in self.attempts.items() if k in self.tags}
             self.versions = {k: v for k, v in self.versions.items() if k in self.tags}
@@ -94,8 +96,13 @@ class PollingManager:
 
     def samples(self, tag_ids=None):
         with self.lock:
-            return {name: dict(self.cache.get(name, {'value': None, 'quality': 'bad',
-                    'timestamp': None, 'error': 'Waiting for first poll'})) for name in self.tags if tag_ids is None or name in tag_ids}
+            result={name:dict(self.cache.get(name,{'value':None,'quality':'bad','timestamp':None,'error':'Waiting for first poll'})) for name in self.tags if tag_ids is None or name in tag_ids}
+            for name,sample in result.items():
+                tag=self.tags[name]
+                if not tag.get('connection_status') and (tag['source'] in self.paused or getattr(getattr(self.drivers.get(tag['source']),'_pause_gate',None),'paused',False)):
+                    sample.update(value=None,quality='bad',error='Source is paused',paused=True)
+            return result
+
 
     def update(self, tag, value):
         with self.lock:
@@ -143,6 +150,8 @@ class PollingManager:
                 if tag.get("connection_status"):continue
                 source = self.sources[tag['source']]
                 settings = source['settings']
+                if tag['source'] in self.paused:continue
+                if getattr(self.drivers.get(tag['source']),'_pause_gate',None) and self.drivers[tag['source']]._pause_gate.paused:continue
                 if source['kind']=='simulation' and not (settings.get('enabled') and settings.get('air_handler',True)):continue
                 interval = settings.get('live', 0.5) if name in live else settings.get('background', 20)
                 if tag['source'] not in self.busy and now - self.attempts.get(name, -math.inf) >= interval:
@@ -171,7 +180,7 @@ class PollingManager:
             samples = {t['address']: {'value': None, 'quality': 'bad', 'error': str(error)} for t in tags}
         with self.lock:
             for tag in tags:
-                if tag['id'] not in self.tags or self.drivers.get(source) is not driver:
+                if tag['id'] not in self.tags or self.drivers.get(source) is not driver or source in self.paused or getattr(getattr(driver,'_pause_gate',None),'paused',False):
                     continue
                 if self.versions.get(tag['id'], 0) != versions[tag['id']]:
                     continue  # A later acknowledged write has fresher data.
@@ -189,7 +198,7 @@ class PollingManager:
             self.busy.discard(source)
         if self.error_log is not None:
             # One occurrence per distinct failure in this batch, not per tag.
-            failures = {str(samples.get(t['address'], {}).get('error') or 'Read failed') for t in tags if samples.get(t['address'], {}).get('quality') != 'good'}
+            failures = set() if source in self.paused else {str(samples.get(t['address'], {}).get('error') or 'Read failed') for t in tags if samples.get(t['address'], {}).get('quality') != 'good'}
             for message in failures:
                 self.error_log.record('Polling: '+self.sources.get(source, {}).get('name',source), message)
         self.refresh_connections(force=True,source=source)

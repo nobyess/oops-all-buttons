@@ -18,7 +18,7 @@ def lightyak_settings(data):
         raise ValueError('Choose a serial port such as COM6 or /dev/ttyACM0')
     result = {'serial_port':port, 'parity':str(data.get('parity','N')).upper()}
     if result['parity'] not in ('N','E','O'):raise ValueError('Choose None, Even or Odd parity')
-    for key, default, low, high in [('baudrate',115200,300,1000000),('stopbits',1,1,2),('timeout',2,.1,60),('startup_delay',0,0,60),('offline_retry',5,1,300),('live',.5,.1,60),('background',20,.1,60)]:
+    for key, default, low, high in [('baudrate',115200,300,1000000),('stopbits',1,1,2),('timeout',2,.1,60),('startup_delay',2,0,60),('offline_retry',5,1,300),('live',.5,.1,60),('background',20,.1,60)]:
         try:value=float(data.get(key,default))
         except (ValueError,TypeError,OverflowError):raise ValueError('Invalid LightYak '+key) from None
         if not math.isfinite(value) or not low<=value<=high or (key in ('baudrate','stopbits') and value!=int(value)):

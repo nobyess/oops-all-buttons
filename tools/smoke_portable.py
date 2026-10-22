@@ -76,14 +76,20 @@ def smoke(bundle):
             pages = request('/api/pages')
             assert len(pages) == 1 and pages[0]['name'] == 'Start Page'
             assert pages[0]['horizontalAlignment'] == 'center'
+            assert pages[0]['gridSize'] == 10
+            assert all(c[key] % 10 == 0 for c in pages[0]['controls'] for key in ('left','top','width','height'))
+            notes=next(c for c in pages[0]['controls'] if c['type']=='textviewer')
+            assert notes['textSource']=='inline' and notes['markdownText'] and not notes['image']
+            assert b'mountAssetSelection' in request('/text-viewer-editor.js')
+            assert b'filterAssets' in request('/asset-selection.js')
             assert status['user']['starting_page'] == pages[0]['id']
             demo_tags = {tag['name']: tag for tag in request('/api/tags') if tag['name'].startswith('Demo')}
             assert set(demo_tags) == {'DemoTankLevel', 'DemoPumpEnabled', 'DemoMode'}
             assert all(tag['source'] == 'system' and tag['folder'] == 'Memory' for tag in demo_tags.values())
-            assert {asset['name'] for asset in request('/api/assets') if not asset.get('builtin')} == {'Start Page Notes', 'Demo Pump'}
+            assert {asset['name'] for asset in request('/api/assets') if not asset.get('builtin')} == {'Demo Pump'}
             assert request('/api/admin/assets/capabilities')['can_promote'] is False
             catalog = request('/api/catalog')
-            assert {'pycomm3', 'bacnet', 'mqtt', 'modbus', 'database'} <= set(catalog['drivers'])
+            assert {'pycomm3', 'bacnet', 'mqtt', 'modbus', 'database', 'lightyak'} <= set(catalog['drivers'])
             interfaces = request('/api/network/interfaces')
             assert isinstance(interfaces, list)
             assert (root / 'data' / 'hmi.sqlite3').is_file()
