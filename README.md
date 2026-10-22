@@ -163,6 +163,8 @@ Application documents use `.oab-backup` for backups, `.oab-page` for page export
 
 Use **Administration → Backup/Restore** to download a backup. Restores take effect after restarting the server.
 
+A restore also restores the backup's sign-in settings. If sign-in is required, use an account from that backup; passwordless projects open automatically as **User**.
+
 Before updating, download a backup and exit the server from its tray menu. Then:
 
 1. Extract the new portable release into a new folder.

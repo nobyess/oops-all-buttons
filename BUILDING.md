@@ -48,6 +48,8 @@ The test uses a disposable copy. It checks frozen dependency imports, a formula 
 
 The local `tests/` folder is Git-ignored and excluded from the release source snapshot. GitHub Actions runs those local regression suites only when the folder is supplied; the portable executable smoke test always runs.
 
+The smoke test also creates a fresh passwordless project with no stored accounts and verifies backup export, administrator restore, and first-run restore across real server restarts, retaining automatic access as User.
+
 Also test the release on a Windows machine without Python, including your devices, tray behavior, and backup/restore. Driver libraries are bundled; device interoperability still depends on the equipment and network.
 
 ## Upload to GitHub Releases

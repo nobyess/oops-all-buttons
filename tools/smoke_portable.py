@@ -12,7 +12,7 @@ import urllib.request
 from pathlib import Path
 
 
-def smoke(bundle):
+def smoke(bundle, passwordless=False):
     with tempfile.TemporaryDirectory(prefix='oab-portable-check-') as directory:
         root = Path(directory) / 'OopsAllButtons'
         shutil.copytree(bundle, root, ignore=shutil.ignore_patterns('data', 'data-before-restore-*'))
@@ -72,6 +72,35 @@ def smoke(bundle):
             assert b'textviewer' in request('/controls.js')
             assert b'Startup delay after opening port' in request('/app.js')
             assert request('/images/tray-ok.ico')[:4] == b'\x00\x00\x01\x00'
+            if passwordless:
+                request('/api/setup',{'sign_in_required':False,'safety_acknowledged':True})
+                status=request('/api/status');token=status['csrf']
+                assert status['authenticated'] and status['username']=='User'
+                assert request('/api/admin/users')==[]
+                backup=request('/api/admin/backup',{})
+                request('/api/admin/restore',backup)
+                process.terminate();process.wait(timeout=10)
+                cookies.clear();token='';process=start()
+                status=request('/api/status');token=status['csrf']
+                assert status['authenticated'] and status['user']['automatic']
+                assert request('/api/admin/users')==[]
+                assert list(root.glob('data-before-restore-*'))
+                assert not (root/'data.restore.oab-backup').exists()
+                # Restore the same account-free backup through fresh-install setup.
+                process.terminate();process.wait(timeout=10)
+                root=Path(directory)/'FreshTarget'
+                shutil.copytree(bundle,root,ignore=shutil.ignore_patterns('data','data-before-restore-*'))
+                exe=root/'OopsAllButtons.exe';cookies.clear();token='';process=start()
+                assert request('/api/status')['setup'] is True
+                request('/api/setup/restore',{**backup,'safety_acknowledged':True})
+                process.terminate();process.wait(timeout=10)
+                cookies.clear();token='';process=start()
+                status=request('/api/status');token=status['csrf']
+                assert status['authenticated'] and not status['setup'] and status['username']=='User'
+                assert request('/api/admin/users')==[]
+                assert not (root/'data.restore.oab-backup').exists()
+                print('Portable passwordless backup test passed: account-free export, administrator restore, first-run restore, and automatic access after real restarts.')
+                return
             request('/api/setup', {'username': 'PortableTest', 'password': 'portable-test-123', 'safety_acknowledged': True})
             status = request('/api/status')
             token = status['csrf']
@@ -151,4 +180,6 @@ def smoke(bundle):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('bundle', type=Path)
-    smoke(parser.parse_args().bundle.resolve())
+    bundle=parser.parse_args().bundle.resolve()
+    smoke(bundle)
+    smoke(bundle,passwordless=True)

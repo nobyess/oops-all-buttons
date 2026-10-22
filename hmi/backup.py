@@ -16,6 +16,37 @@ from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
 MAX_ARCHIVE = 64 * 1024 * 1024
 MAX_DATA = 256 * 1024 * 1024
 
+def _validate_access(config):
+    """Accept either a signed-in administrator or the automatic administrator."""
+    required=config.get('sign_in_required',True)
+    users=config.get('users',[])
+    if not isinstance(required,bool) or not isinstance(users,list) or any(not isinstance(u,dict) for u in users):
+        raise ValueError('Invalid backup access configuration')
+    if any(not isinstance(u.get('administrator',False),bool) or not isinstance(u.get('kiosk',False),bool) for u in users):
+        raise ValueError('Invalid backup access configuration')
+    if required:
+        if not any(u.get('administrator') is True and not u.get('kiosk',False) for u in users):
+            raise ValueError('Backup requires an administrator account outside Kiosk Mode')
+        return
+    user=config.get('automatic_user')
+    if not isinstance(user,dict):raise ValueError('Invalid backup automatic administrator')
+    if (user.get('id')!='automatic-user' or user.get('username')!='User'
+            or user.get('administrator') is not True or user.get('kiosk',False) is not False
+            or not isinstance(user.get('roles'),list) or any(not isinstance(role,str) for role in user['roles'])
+            or type(user.get('revision')) is not int or user['revision']<1
+            or not isinstance(user.get('starting_page',''),str)
+            or user.get('theme','system') not in ('light','dark','system')):
+        raise ValueError('Invalid backup automatic administrator')
+    background=user.get('app_background','')
+    if not isinstance(background,str) or background and not re.fullmatch(r'#[0-9a-fA-F]{6}',background):
+        raise ValueError('Invalid backup automatic administrator')
+    from .session_settings import session_settings
+    settings=user.get('session_settings',config.get('session_settings',{}))
+    if not isinstance(settings,dict):raise ValueError('Invalid backup automatic administrator session settings')
+    try:session_settings(settings)
+    except (ValueError,TypeError,OverflowError) as error:
+        raise ValueError('Invalid backup automatic administrator session settings') from error
+
 def pending_path(directory, *, for_write=False):
     directory = Path(directory)
     current=directory.with_name(directory.name + '.restore.oab-backup')
@@ -79,8 +110,7 @@ def _validate(raw, destination):
                     if db.execute('PRAGMA quick_check').fetchone()[0]!='ok':raise ValueError('Damaged backup database')
             with closing(sqlite3.connect(destination/'hmi.sqlite3')) as db:
                 config={key:json.loads(value) for key,value in db.execute('SELECT key,value FROM config')}
-            users=config.get('users',[])
-            if not isinstance(users,list) or not any(u.get('administrator') and not u.get('kiosk',False) for u in users):raise ValueError('Backup requires an administrator account outside Kiosk Mode')
+            _validate_access(config)
             for key in ('pages','sources','tags'):
                 if not isinstance(config.get(key),list):raise ValueError('Invalid backup configuration')
             for item in config.get('assets',[]):

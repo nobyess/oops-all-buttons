@@ -12,19 +12,19 @@ export function mountBackupRestore(parent,{node,button,api,firstRun=false,onRest
   }catch(e){show(e.message,true);}finally{save.disabled=false;}});
  }
  const restore=node('section',null,section,{className:'backup-section'});node('h3','Restore from Backup',restore);
- node('p','Choose an Oops! All Buttons backup. Restore replaces this installation’s data after you stop and restart the server. Sign in afterward using an account from the backup.',restore);
+ node('p','Choose an Oops! All Buttons backup. Restore replaces this installation’s data after you stop and restart the server, including its sign-in settings. If sign-in is required, use an account from the backup; otherwise it opens automatically as User.',restore);
  node('p','The current data folder is preserved on the server before replacement. Restored driver connections will resume when the server starts.',restore,{className:'hint'});
  const label=node('label',null,restore,{className:'backup-file-field'});node('span','Backup File',label);
  const file=node('input',null,label,{type:'file',accept:'.oab-backup,.zip'});
  const run=button('Restore Backup',node('div',null,restore,{className:'row centered-commands'}),async()=>{
   const selected=file.files?.[0];if(!selected)return;
   if(selected.size>64*1024*1024){show('Backup files must be 64 MiB or smaller.',true);return;}
-  if(!await confirmMessage('Stage this backup for restore? The server will replace its data on the next restart. Use the accounts from the backup to sign in afterward.',{title:'Restore Backup?',confirmText:'Restore'}))return;
+  if(!await confirmMessage('Stage this backup for restore? The server will replace its data and sign-in settings on the next restart. Sign in with an account from the backup if required, or it will open automatically as User.',{title:'Restore Backup?',confirmText:'Restore'}))return;
   run.disabled=file.disabled=true;show('Validating backup…');
   try{
    const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('Could not read backup file'));reader.readAsDataURL(selected);});
    if(firstRun)await onRestore({data,safety_acknowledged:true});else await api('admin/restore',{data});
-   show('Backup validated and ready. Stop and restart the server to finish restoring, then sign in with an account from the backup.');
+   show('Backup validated and ready. Stop and restart the server to finish restoring. Use an account from the backup if sign-in is required; otherwise it opens automatically as User.');
   }catch(e){show(e.message,true);run.disabled=false;file.disabled=false;}
  });run.disabled=true;file.onchange=()=>{run.disabled=!file.files?.length;};
  const status=node('p','',section,{role:'status'});
