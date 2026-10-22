@@ -4,7 +4,17 @@ A browser-based HMI for building operator screens, connecting device tags, and w
 
 > **Pre-release software:** This project is still under active development and may contain bugs, incomplete features, or breaking changes. Back up your project before updating and test changes before using them with equipment. See the [safety and network warning](#safety-and-network-warning) below.
 
-Connect to equipment through these drivers:
+## What you can build
+
+- Operator screens with controls, shapes, groups, actions, and conditional events.
+- SVG/DXF symbols, images, button icons, Markdown text, level indicators, and multitag live trends.
+- Alarms with silencing, history, focused notifications, and role-based access.
+- Calculated sheet values, persistent SQLite tags, and memory tags for local logic.
+- Shared displays with kiosk mode, themes, and optional sign-in.
+
+## Drivers
+
+Connect device data, local tags, and simulations through these drivers:
 
 | Driver | Example devices or data |
 | --- | --- |
@@ -19,11 +29,11 @@ Connect to equipment through these drivers:
 | Simulation | Built-in Air Handler with temperatures, blower, heating, cooling, and writable setpoints. |
 | Sheets | Calculated values derived from tags and spreadsheet formulas. |
 
-These are protocol/device examples, not a list of hardware verified with this project. Check your device's protocol support and the testing notes below. Protocol references: [PyComm3](https://github.com/ottowayi/pycomm3), [BACnet](https://bacnet.org/about/), [Modbus](https://www.modbus.org/introduction-to-modbus), [MQTT](https://mqtt.org/).
-
-**[Getting started guide](docs/GETTING_STARTED.md)** — from first launch to connecting a device, adding tags, and building a live page.
+These are protocol/device examples, not a list of hardware verified with this project. Check your device's protocol support and the [testing notes](#testing-status-and-continued-work). Protocol references: [PyComm3](https://github.com/ottowayi/pycomm3), [BACnet](https://bacnet.org/about/), [Modbus](https://www.modbus.org/introduction-to-modbus), [MQTT](https://mqtt.org/).
 
 ## Get started
+
+Use the [getting started guide](docs/GETTING_STARTED.md) for a walkthrough from first launch to device connections, tags, and a live page.
 
 ### Windows portable installation
 
@@ -33,9 +43,21 @@ The portable release is for **64-bit Windows**. Python and the driver dependenci
 2. Right-click the ZIP and choose **Extract All**. Extract the entire folder to a location you can write to; do not run the executable from inside the ZIP.
 3. Open the extracted `OopsAllButtons` folder and run **`OopsAllButtons.exe`**. Keep the `files` folder beside it.
 4. Your browser should open automatically. If needed, use **Launch** from the tray icon or open **http://127.0.0.1:8080**.
-5. Create an administrator account and acknowledge the first-run warning, or restore an existing backup.
+5. Review and acknowledge the first-run safety notice, then choose a sign-in mode or restore an existing backup.
 
-Your project is stored in the `data` folder beside the executable. The tray menu provides **Launch**, **Restart Server**, and **Exit**. Closing the browser does not stop the server; use **Exit** when you want to shut it down. See [Backups and updates](#backups-and-updates) before installing a newer release.
+Your project is stored in the `data` folder beside the executable. The tray menu provides **Launch**, **Restart Server**, and **Exit**. Closing the browser does not stop the server; use **Exit** when you want to shut it down. See [Backups and updates](#backups-exports-and-updates) before installing a newer release.
+
+### First-run setup
+
+Choose **Require sign-in** to create an administrator account, or **Run without sign-in** for automatic full administrator access. Without sign-in, anyone who can reach the server can configure the app and write to devices; activity is recorded as **User**.
+
+Change the sign-in mode and server port later under **Administration → Site Configuration → Server Settings**. The page's **Save/Revert** buttons cover these settings and the login logo. Save asks before restarting the server or changing sign-in access. Enabling sign-in creates an administrator if needed and signs out open sessions.
+
+### Try it without equipment
+
+Fresh projects include an editable **Start Page** with getting-started instructions and three demo tags directly under `System\Memory`: `DemoTankLevel`, `DemoPumpEnabled`, and `DemoMode`. Edit or delete it like any page; restarts and updates will not recreate it. Existing projects and restored backups keep their own pages.
+
+**Try it without a controller:** Open **Data Sources & Tags → Add Source**, choose **Simulation**, leave Air Handler selected, and save. Its tags appear under `Simulation\AirHandler`. Add controls to a page, bind them to those tags, and set `UnitEnableSignal` to `1` to start the model. Outdoor temperature, discharge setpoint, and room heat load are writable. Temperatures use °F.
 
 ### Run from source
 
@@ -52,7 +74,7 @@ python run.py
 
 On Linux, use `python3` to create the environment. The browser opens at **http://127.0.0.1:8080**. Use `--no-browser --no-tray` when running without a desktop.
 
-Install the additional dependencies for the features you need:
+Source installations need additional dependencies for the features you use. These are already included in the Windows portable release:
 
 | Feature | Requirements file |
 | --- | --- |
@@ -66,34 +88,7 @@ Install the additional dependencies for the features you need:
 
 For example: `python -m pip install -r requirements-modbus.txt`.
 
-For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. The HTTP server is Waitress; see [network and HTTPS configuration](docs/WEB_SERVER.md) for hostname aliases and a trusted HTTPS reverse proxy. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
-
-### Explore the examples
-
-Fresh projects include an editable **Start Page** with getting-started instructions and three demo tags directly under `System\Memory`: `DemoTankLevel`, `DemoPumpEnabled`, and `DemoMode`. Edit or delete it like any page; restarts and updates will not recreate it. Existing projects and restored backups keep their own pages.
-
-**Try it without a controller:** Open **Data Sources & Tags → Add Source**, choose **Simulation**, leave Air Handler selected, and save. Its tags appear under `Simulation\AirHandler`. Add controls to a page, bind them to those tags, and set `UnitEnableSignal` to `1` to start the model. Outdoor temperature, discharge setpoint, and room heat load are writable. Temperatures use °F.
-
-## What’s included
-
-- A visual designer with controls, shapes, groups, actions, and conditional events.
-- SVG/DXF symbols, images, numeric displays, level indicators, and multitag live trends.
-- PyComm3, BACnet/IP, Modbus TCP/RTU, and MQTT connections.
-- System memory/time tags, persistent SQLite tags, and calculated sheets.
-- Alarms with silencing, history, focused notifications, and access roles.
-- Users, kiosk mode, themes, and project backup/restore.
-- A built-in Air Handler simulation for learning and testing.
-
-## Testing status and continued work
-
-This is pre-release software, and testing is still limited:
-
-- **Modbus RTU:** untested with physical adapters and devices. Automated simulations have been checked, but real hardware operation is unverified.
-- **LightYak v1:** tested with simulated serial devices; physical hardware testing is still needed.
-- **BACnet/IP:** mostly untested; broader device and network testing is needed.
-- **Modbus TCP:** lightly tested; more device compatibility and reliability testing is needed.
-
-Planned additions include **Modbus device profiles** to simplify configuration, **more built-in symbols** for designing pages, and **built-in help** so instructions are available directly inside the app.
+For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. The server uses Waitress; see [network and HTTPS configuration](docs/WEB_SERVER.md) for hostname aliases and a trusted HTTPS reverse proxy. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
 
 ## Screenshots
 
@@ -111,13 +106,30 @@ A demonstration page built with ordinary controls and the built-in HVAC simulati
 
 ![Built-in Air Handler tags with a live value and page references](docs/images/data-sources-tags.png)
 
-## Backups and updates
+## Backups, exports, and updates
+
+Application documents use `.oab-backup` for backups, `.oab-page` for page exports, and `.oab-sheet` for sheets. Older JSON exports and sheet files remain supported.
 
 Use **Administration → Backup/Restore** to download a backup. Restores take effect after restarting the server.
 
-For a portable update, exit the old server, extract the new release into a new folder, and copy your `data` folder beside the new executable. If a restore is pending, also copy `data.restore.oab-backup` (or legacy `data.restore.zip`). Keep the old installation until you have verified the update.
+Before updating, download a backup and exit the server from its tray menu. Then:
 
-See [BUILDING.md](BUILDING.md) for portable builds and releases, and [DEVELOPING.md](DEVELOPING.md) for development notes.
+1. Extract the new portable release into a new folder.
+2. Copy your existing `data` folder beside the new executable. If a restore is pending, also copy `data.restore.oab-backup` (or legacy `data.restore.zip`).
+3. Start the new version and verify your project. Keep the old folder until you have checked the update.
+
+For building releases, see [BUILDING.md](BUILDING.md). Development and UI guidelines are in [DEVELOPING.md](DEVELOPING.md).
+
+## Testing status and continued work
+
+Device compatibility and long-running operation need broader testing:
+
+- **Modbus RTU:** untested with physical adapters and devices. Automated simulations have been checked, but real hardware operation is unverified.
+- **LightYak v1:** tested with simulated serial devices; physical hardware testing is still needed.
+- **BACnet/IP:** mostly untested; broader device and network testing is needed.
+- **Modbus TCP:** lightly tested; more device compatibility and reliability testing is needed.
+
+Planned additions include **Modbus device profiles** to simplify configuration, **more built-in symbols** for designing pages, and **built-in help** so instructions are available directly inside the app.
 
 ## Safety and network warning
 
@@ -136,7 +148,3 @@ The project's original code is available under the [MIT License](LICENSE). Bundl
 I take no credit for the coding work in this project—it was coded with ChatGPT Codex.
 
 Thank you to all the developers who shared their knowledge, code, tools, and documentation. Your contributions made this project possible.
-
-Application documents use `.oab-backup` for backups, `.oab-page` for page exports, and `.oab-sheet` for sheets. Older JSON exports and sheet files remain supported.
-
-Fresh installations can require sign-in or run without sign-in. Without sign-in, everyone who can reach the server has full administrator access, and activity is recorded as **User**. Change this under **Administration → Site Configuration → Server Settings**. Use Save or Revert for pending changes; Save asks before a port restart or sign-in change. Enabling sign-in creates an administrator if needed and signs out open sessions; existing accounts and project data are retained.
