@@ -46,6 +46,8 @@ The collector stops for missing notices, unreviewed reciprocal dependencies, ver
 
 The test uses a disposable copy. It checks frozen dependency imports, a formula calculation, web assets and logo, first-run setup, driver availability, network interface enumeration, the writable data location, a real backup/restore across restart, retained previous data, and login. It does not connect to physical controllers or modify your project.
 
+The local `tests/` folder is Git-ignored and excluded from the release source snapshot. GitHub Actions runs those local regression suites only when the folder is supplied; the portable executable smoke test always runs.
+
 Also test the release on a Windows machine without Python, including your devices, tray behavior, and backup/restore. Driver libraries are bundled; device interoperability still depends on the equipment and network.
 
 ## Upload to GitHub Releases

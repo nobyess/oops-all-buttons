@@ -61,7 +61,7 @@ def verify_library_source(distribution, archive):
 def application_source(root, destination):
     root, destination = Path(root), Path(destination)
     files = [p for p in root.iterdir() if p.is_file() and (p.suffix in ('.py','.md') or p.name.startswith('requirements') and p.suffix=='.txt' or p.name in ('LICENSE','.gitignore'))]
-    for name in ('hmi','static','tools','packaging','tests','docs','.github'):
+    for name in ('hmi','static','tools','packaging','docs','.github'):
         files.extend(p for p in (root/name).rglob('*') if p.is_file())
     # License inputs and rebuild instructions are needed by a fresh source build.
     for name in ('README.md','REBUILD.md','upstream-references.json'):

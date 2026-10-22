@@ -31,8 +31,10 @@ jobs:
           python -m venv .venv-build
           .venv-build/Scripts/python.exe -m pip install -r requirements-build.txt
       - name: Test Python code
+        if: ${{ hashFiles('tests/**') != '' }}
         run: .venv-build/Scripts/python.exe -m unittest discover -s tests
       - name: Test browser modules
+        if: ${{ hashFiles('tests/**') != '' }}
         shell: pwsh
         run: |
           Get-ChildItem tests -Filter *.mjs | ForEach-Object {

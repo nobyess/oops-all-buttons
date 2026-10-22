@@ -10,6 +10,7 @@ __pycache__/
 build/
 dist/
 release/
+/tests/
 
 # Symbol library manager: local environment and interrupted catalog writes
 .venv-symbol-manager/
