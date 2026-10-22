@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {mountAdministration} from '../static/administration.js';
 class Element {
- constructor(tag){this.tagName=tag;this.children=[];this.textContent='';this.scrollTop=0;this.classList={toggle(){}};}
+ constructor(tag){this.tagName=tag;this.children=[];this.textContent='';this.value='';this.scrollTop=0;this.classList={toggle(){}};}
  append(child){child.parentElement=this;this.children.push(child);}
  replaceChildren(){this.children=[];}
  remove(){this.parentElement.children=this.parentElement.children.filter(child=>child!==this);}
@@ -17,7 +17,7 @@ const source={id:'plc',name:'PLC',kind:'bacnet',settings:{},tags:[],status:{qual
 let data={uptime:1,cpu_seconds:0,database_bytes:0,threads:4,requests:{total:1},polling:{clients:0,sources:{}},sources:[source],tags:0,pages:1,python:'3',platform:'test',error_log:[]};
 const root=new Element('main');let close;
 try{
- close=mountAdministration(root,{node,button,api:async path=>path==='admin/status'?structuredClone(data):[]});
+ close=mountAdministration(root,{node,button,api:async path=>path==='admin/status'?structuredClone(data):path==='admin/sign-in'?{required:true,has_administrator:true}:path==='admin/server-settings'?{port:8080,can_restart:true}:path==='admin/site'?{logo_name:'',default_logo:true}:[]});
  await new Promise(resolve=>setImmediate(resolve));
  const tab=walk(root).find(el=>el.textContent==='Server Status');await tab.onclick();await new Promise(resolve=>setImmediate(resolve));
  const summary=walk(root).find(el=>el.className==='admin-stat-grid'),drivers=walk(root).find(el=>el.className==='admin-drivers');

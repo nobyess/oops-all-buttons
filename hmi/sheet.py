@@ -36,7 +36,8 @@ def cell_address(value):
 class SheetDriver:
     def __init__(self, settings):
         try:
-            import formulas
+            from .sheet_engine import load_engine
+            formulas = load_engine()
         except ImportError:
             raise ValueError('Install Sheet support: python -m pip install -r requirements-sheet.txt') from None
         self.formulas = formulas

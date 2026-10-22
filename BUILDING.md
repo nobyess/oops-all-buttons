@@ -26,6 +26,10 @@ Project data stays in a writable `data` folder beside the executable; bundled ap
 
 The executable is unsigned. No signing certificate or signing service is configured in this build.
 
+Pillow is bundled for tray images using a custom `packaging/hooks/hook-PIL.Image.py` hook. Keep ICO, PNG, BMP, image conversion, and fallback font drawing; omit unused AVIF/WebP and color-management extensions. Browser image uploads and display do not depend on these Pillow codecs. The frozen installation check exercises all three tray icons and the fallback through the native Windows icon loader.
+
+Sheets use the restricted registry in `hmi/sheet_engine.py`: all 24 supported functions remain available without loading SciPy. The portable spec excludes SciPy and unused advanced formula groups (date parsing remains for scalar coercion); NumPy remains included. Installed upstream library sources are unchanged. The dependency comparison test covers 100 cases against the original engine, and the frozen installation check exercises every supported function and verifies SciPy is absent. A normal pip installation of `formulas` may still install SciPy through its upstream dependency metadata.
+
 ## Third-party licenses and source
 
 The portable ZIP includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, the exact dependency inventory, license texts, reviewed corresponding library source archives, a matching application source snapshot, and [rebuilding instructions](third-party/REBUILD.md). Source archives are downloaded from pinned upstream URLs and verified by SHA-256. Installed Python modules are checked against that source before packaging.

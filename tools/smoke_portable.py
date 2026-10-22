@@ -21,6 +21,8 @@ def smoke(bundle):
         result = subprocess.run([str(exe), '--check-installation'], cwd=directory, timeout=120)
         if result.returncode or not (root / 'data' / 'build-check.json').is_file():
             raise RuntimeError('Frozen dependency check failed:\n' + (root / 'data' / 'server.log').read_text(encoding='utf-8'))
+        assert json.loads((root / 'data' / 'build-check.json').read_text())['tray_images'] == 4
+        assert json.loads((root / 'data' / 'build-check.json').read_text())['sheet_functions'] == 24
         with socket.socket() as listener:
             listener.bind(('127.0.0.1', 0))
             port = listener.getsockname()[1]
@@ -110,6 +112,13 @@ def smoke(bundle):
             assert isinstance(interfaces, list)
             assert (root / 'data' / 'hmi.sqlite3').is_file()
             assert not (root / 'files' / 'data').exists()
+            request('/api/sources',{'id':'portable-sheet','name':'Portable Sheet','kind':'sheet','settings':{'filename':'Portable Test'}})
+            sheet=request('/api/sheets/save',{'source':'portable-sheet','cells':{
+                'A1':{'raw':'1'},'A2':{'raw':'3'},'B1':{'raw':'=AVERAGE(A1:A2)'},
+                'B2':{'raw':'=COUNT(A1:A2)'},'C1':{'raw':'=IF(MAX(A1:A2)>2,ROUND(SUM(A1:A2)/3,2),0)'},
+                'C2':{'raw':'=AVERAGE("2020-01-01",1)'},'D1':{'raw':'=IFERROR(1/0,99)'}}})
+            for cell,value in {'B1':2,'B2':2,'C1':1.33,'C2':21916,'D1':99}.items():
+                assert sheet['values'][cell]['quality']=='good' and sheet['values'][cell]['value']==value
             # Back up, change the account, then stage a restore through the real API.
             backup = request('/api/admin/backup', {})
             assert backup['filename'].endswith('.oab-backup')
@@ -125,15 +134,18 @@ def smoke(bundle):
         try:
             assert request('/api/status')['setup'] is False
             request('/api/login', {'username': 'PortableTest', 'password': 'portable-test-123'})
-            assert request('/api/status')['authenticated'] is True
+            status=request('/api/status');token=status['csrf']
+            assert status['authenticated'] is True
             assert 'AfterBackup' not in {user['username'] for user in request('/api/admin/users')}
+            restored=request('/api/sheets/get',{'source':'portable-sheet'})
+            assert restored['values']['B1']['value']==2 and restored['values']['C2']['value']==21916
             assert list(root.glob('data-before-restore-*'))
             assert not (root / 'data.restore.oab-backup').exists()
             assert not (root / 'data.restore.zip').exists()
         finally:
             process.terminate()
             process.wait(timeout=10)
-    print('Portable smoke test passed: frozen dependencies/formulas, web assets/logo, setup, drivers, interfaces, data location, backup/restore with restart, retained previous data and login.')
+    print('Portable smoke test passed: frozen dependencies/formulas, tray icons/fallback, web assets/logo, setup, drivers, interfaces, data location, backup/restore with restart, retained previous data and login.')
 
 
 if __name__ == '__main__':
