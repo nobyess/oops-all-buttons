@@ -1430,3 +1430,17 @@ body {background:var(--app-background,var(--ui-background))}
 .header-start>.toolbar-divider {margin:0}
 .header-start:not(:has(#page-menu:not(:empty)))>.page-command-divider {display:none}
 .kiosk-mode .header-start>.navigation-divider {display:none}
+
+/* LightYak discovery follows shared dialog, field and high-contrast list rules. */
+.lightyak-tag-dialog {width:min(560px,calc(100vw - 32px));max-height:92dvh;overflow:auto}
+.lightyak-tag-dialog input[type="search"] {display:block;width:100%;min-height:36px;margin:0 0 12px;background:var(--ui-panel);color:var(--ui-text)}
+.lightyak-tag-dialog .lightyak-tag-tree {display:block;width:100%;height:min(280px,32dvh);margin:0 0 12px;color:var(--ui-text)}
+.lightyak-tag-tree:focus-visible {outline:2px solid var(--ui-link);outline-offset:2px}
+.lightyak-tag-tree .plc-tag-type {white-space:nowrap}
+.lightyak-tag-dialog .hint {overflow-wrap:anywhere}
+.lightyak-tag-dialog .dialog-footer {margin-bottom:0}
+
+.lightyak-tag-dialog .dialog-footer {align-items:flex-end}
+.lightyak-tag-summary {flex:1 1 180px;min-width:0;margin-right:auto;display:flex;flex-direction:column;gap:12px}
+.lightyak-tag-summary .plc-selected-tag {margin:0;font-size:14px;line-height:20px}
+.lightyak-tag-summary .lightyak-tag-value {margin:0;color:var(--ui-muted);font-size:14px;line-height:20px;overflow-wrap:anywhere}

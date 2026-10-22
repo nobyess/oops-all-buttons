@@ -47,4 +47,6 @@ from .local_drivers import SystemDriver, DatabaseDriver
 
 from .simulation import SimulationDriver
 
-DRIVERS = {'simulation':SimulationDriver,'system':SystemDriver,'database':DatabaseDriver,'memory': MemoryDriver, 'pycomm3': create_driver, 'bacnet': BACnetDriver, 'sheet': SheetDriver, 'mqtt': MQTTDriver, 'modbus': ModbusTCPDriver}
+from .lightyak import LightYakDriver
+
+DRIVERS = {'simulation':SimulationDriver,'system':SystemDriver,'database':DatabaseDriver,'memory': MemoryDriver, 'pycomm3': create_driver, 'bacnet': BACnetDriver, 'sheet': SheetDriver, 'mqtt': MQTTDriver, 'modbus': ModbusTCPDriver, 'lightyak':LightYakDriver}

@@ -35,3 +35,12 @@ assert.equal(first.status.quality,'good');assert.equal(catalogSources[1].status.
 const {driverName}=await import('../static/source-manager.js');
 assert.equal(driverName({kind:'modbus',settings:{transport:'rtu'}}),'Modbus RTU');
 assert.equal(driverName({kind:'modbus',settings:{host:'device'}}),'Modbus TCP');
+
+// Binding warnings update the saved tag row and details without rebuilding the list.
+search.value='';search.oninput();sources[0].kind='lightyak';
+list.value='one';list.onchange();
+const warning='LightYak tag binding warning: no device tag matches the original name and type; edit and reselect this tag';
+samples.one={quality:'bad',value:null,error:warning};manager.refresh();
+assert(find('⚠ One'));assert(find(warning));assert.equal(find(warning).className,'source-manager-value error');
+samples.one={quality:'good',value:3};manager.refresh();
+assert(find('One'));assert(!find('⚠ One'));assert(find('Current value: 3'));

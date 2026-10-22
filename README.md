@@ -12,6 +12,7 @@ Connect to equipment through these drivers:
 | BACnet/IP via BAC0 | BACnet/IP air-handler controllers, thermostats, VAV controllers, and building-automation devices. |
 | Modbus TCP via PyModbus | Ethernet PLCs, remote I/O, energy meters, and variable-frequency drives with Modbus TCP enabled. |
 | Modbus RTU via PyModbus | Serial/RS-485 temperature controllers, meters, drives, and remote I/O through a suitable serial adapter. |
+| LightYak v1 via PySerial | Serial-connected Arduino or other devices implementing the LightYak v1 protocol, with scalar tag browsing and reads/writes. |
 | MQTT via Eclipse Paho | MQTT-enabled sensors and ESP32/Arduino projects publishing supported values through a broker. |
 | System | Built-in memory tags, date/time, uptime, heartbeat, and connection status; no hardware required. |
 | SQLite Database | Persistent named tags stored in an app-managed SQLite file. |
@@ -59,6 +60,7 @@ Install the additional dependencies for the features you need:
 | BACnet/IP | `requirements-bacnet.txt` |
 | Modbus TCP / RTU | `requirements-modbus.txt` |
 | MQTT | `requirements-mqtt.txt` |
+| [LightYak serial](docs/LIGHTYAK.md) | `requirements-lightyak.txt` |
 | Sheet formulas | `requirements-sheet.txt` |
 | DXF import | `requirements-dxf.txt` |
 
@@ -87,6 +89,7 @@ Fresh projects include an editable **Start Page** with getting-started instructi
 This is pre-release software, and testing is still limited:
 
 - **Modbus RTU:** untested with physical adapters and devices. Automated simulations have been checked, but real hardware operation is unverified.
+- **LightYak v1:** tested with simulated serial devices; physical hardware testing is still needed.
 - **BACnet/IP:** mostly untested; broader device and network testing is needed.
 - **Modbus TCP:** lightly tested; more device compatibility and reliability testing is needed.
 

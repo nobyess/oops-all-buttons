@@ -65,3 +65,12 @@ Suggested priorities:
 Review measurements on the development PC, using a temporary database and synthetic tags: returning 20 values through the authenticated request handler had median times of 2.32 ms with 100 configured tags, 3.46 ms with 1,000, and 9.19 ms with 5,000. These exclude real devices, browser rendering, and network latency; they are not Pi benchmarks and do not explain a two-second stall on their own.
 
 Start with profiling on the target hardware and prioritize configuration caching and sheet recalculation. Keep the existing shared polling cache, capable-driver batch reads, compiled-formula cache, and deduplicated error log. Do not reduce password hashing or security checks as a performance shortcut.
+
+
+## Per-source Pause / Resume and Disconnect
+
+Added: October 22, 2026. Status: deferred.
+
+Add a **Pause / Resume** button for the selected driver/source in **Data Sources & Tags**. Pausing should stop both live and background polling and block writes. Retain the last values but clearly mark them as paused rather than current, with a distinct paused source status instead of disconnected. Let an in-flight operation finish rather than interrupting a write. Resume should request fresh values immediately.
+
+Keep the connection open where possible while paused, especially for Arduino boards that reset when a serial port reopens. Consider a separate **Disconnect / Reconnect** command that releases the serial port so firmware can be uploaded. Account for sources sharing a connection: pausing one source must not disrupt others, and releasing a shared port needs explicit handling of all its owners. Define how paused quality affects alarms and connection-status tags, and whether pause state survives a server restart, before implementing.

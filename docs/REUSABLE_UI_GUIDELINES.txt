@@ -217,8 +217,10 @@ viewport, and keep the close control reachable.
 
 Use modal focus handling and restore focus to the opener after closing.
 Close/X and Escape cancel drafts; Save commits after validation.
-Unmodified Enter confirms through the enabled default action; disabled
-confirmation does nothing. For dialogs following this app's text-editor
+Left/Right while a footer button has focus moves between visible, enabled
+actions, wrapping at the ends. Enter activates the action explicitly chosen
+with those arrows, including Cancel. Otherwise unmodified Enter confirms
+through the enabled default action; disabled confirmation does nothing. For dialogs following this app's text-editor
 convention, Enter saves and Shift+Enter inserts a line break. Native dropdown
 navigation, deliberate child key handlers and IME composition take precedence.
 Ignore repeated keydown events and prevent duplicate submissions.

@@ -25,6 +25,7 @@ import {openAccountPopup,closeAccountPopup} from './account-popup.js';
 import {installInteractionPolicy} from './interaction-policy.js';
 import {installClock} from './header-clock.js';
 import {toolboxIcon} from './toolbox-icons.js';
+import {lightyakTagBrowser} from './lightyak-tag-browser.js';
 import {modbusTagDialog} from './modbus-tag-dialog.js';
 import {applyTheme} from './theme.js';
 import {pickAccessRoles,hasAccessRoles} from './access-ui.js';
@@ -504,7 +505,7 @@ function sourceDialog(existing,sheetOnly=false) {
     function group(parent,title){const box=node('section',null,parent,{className:'settings-group'});node('h3',title,box);return node('div',null,box,{className:'settings-group-fields'});}
     const identity=group(body,'Data source');
     const name=field('Name',identity,'text',existing?.name || existing?.id || '');name.required=true;
-    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='modbus'?'Modbus TCP / RTU (PyModbus)':x]));
+    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='lightyak'?'LightYak (Serial)':x==='modbus'?'Modbus TCP / RTU (PyModbus)':x]));
     if(existing){kind.value=existing.kind;kind.disabled=true;}
     const settings=node('div',null,body),footer=submit.parentElement;
     let inputs={},testToken='',version=0,status,modbusValues={...existing?.settings};
@@ -521,7 +522,7 @@ function sourceDialog(existing,sheetOnly=false) {
     function changed() {testToken='';version++;if(status)status.textContent='Connection has not been tested with these settings.';}
     function renderFields() {
       const saved=kind.value==='modbus'?modbusValues:existing?.settings || {};
-      settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus'].includes(kind.value);
+      settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus','lightyak'].includes(kind.value);
       if(kind.value==='database'){
         const storage=group(settings,'Storage'),polling=group(settings,'Polling');
         inputs.filename=field('Database filename',storage,'text',saved.filename || 'Tags.sqlite3');inputs.filename.required=true;inputs.filename.readOnly=Boolean(existing);
@@ -539,6 +540,21 @@ function sourceDialog(existing,sheetOnly=false) {
         for(const [key,label,value] of [['background','Background polling (seconds)',20],['live','Live polling (seconds)',.5]]) {
           const input=inputs[key]=field(label,polling,'number',saved[key] ?? value);input.min=.1;input.max=60;input.step='any';input.required=true;
         }
+        return;
+      }
+      if(kind.value==='lightyak') {
+        const rows=group(settings,'Serial connection'),polling=group(settings,'Polling & timing');
+        inputs.serial_port=field('Serial port',rows,'text',saved.serial_port || '');inputs.serial_port.required=true;inputs.serial_port.placeholder='COM6 or /dev/ttyACM0';
+        const ports=node('datalist',null,rows,{id:'lightyak-serial-ports'}),portInput=inputs.serial_port;portInput.setAttribute('list',ports.id);
+        api('admin/serial-ports').then(items=>{if(portInput.isConnected)for(const item of items)node('option',item.description,ports,{value:item.port});}).catch(()=>{});
+        inputs.parity=select('Parity',rows,[['N','None'],['E','Even'],['O','Odd']],saved.parity || 'N');
+        inputs.stopbits=select('Stop bits',rows,[['1','1'],['2','2']],String(saved.stopbits ?? 1));
+        for(const [key,label,value,min,max,step] of [['baudrate','Baud rate',115200,300,1000000,1],['timeout','Response timeout (seconds)',2,.1,60,'any'],['startup_delay','Startup delay after opening port (seconds)',0,0,60,'any'],['offline_retry','Offline retry delay (seconds)',5,1,300,'any'],['live','Live polling (seconds)',.5,.1,60,'any'],['background','Background polling (seconds)',20,.1,60,'any']]) {
+          const input=inputs[key]=field(label,key==='baudrate'?rows:polling,'number',saved[key] ?? value);Object.assign(input,{min,max,step,required:true});
+        }
+        node('p','LightYak v1: one device per serial port, 8 data bits. Default 115200, no parity, 1 stop bit. Try a 2-second startup delay for an Arduino that resets when connected. Sources sharing a port must use matching serial and timing settings.',settings,{className:'hint'});
+        status=node('p','Connection has not been tested.',settings,{className:'hint'});
+        for(const input of Object.values(inputs))input.addEventListener('input',changed);
         return;
       }
       if(kind.value==='modbus') {
@@ -680,7 +696,7 @@ function sourceDialog(existing,sheetOnly=false) {
         unit_id:['Use the device address; RTU supports 1–247 (broadcast writes are not supported).'],
         transport:['Use TCP for Ethernet devices or RTU for a serial / RS-485 adapter.'],
         serial_port:['Port on the server, not the browser computer. Choose a detected port or type its name.','COM3 or /dev/ttyUSB0'],
-        baudrate:['Match every device on this serial bus; commonly 9600 or 19200 baud.'],
+        baudrate:[kind.value==='lightyak'?'Match the LightYak device; the reference configuration uses 115200 baud.':'Match every device on this serial bus; commonly 9600 or 19200 baud.'],
         parity:['Match every device on this serial bus.'],
         stopbits:['Match every device on this serial bus.'],
         handle_local_echo:['Enable only if the adapter sends your own transmitted bytes back to the receiver.'],
@@ -754,6 +770,7 @@ function protocolTagDialog(source) {
   });
 }
 async function tagDialog(chosenSource) {
+  if(chosenSource?.kind==='lightyak')return lightyakTagBrowser({source:chosenSource,dialog,node,field,button,api,reload:reloadLists,onDone:route});
   if(chosenSource?.kind==='modbus')return modbusTagDialog({source:chosenSource,dialog,node,field,select,button,api,reload:reloadLists,onDone:route});
   if(chosenSource?.kind==='mqtt')return mqttTagBrowser({source:chosenSource,dialog,node,field,button,api,reload:reloadLists,onDone:route});
   if(chosenSource?.kind==='bacnet')return bacnetTagBrowser({source:chosenSource,dialog,node,field,button,api,reload:reloadLists,onDone:route});
@@ -781,9 +798,10 @@ async function tagDialog(chosenSource) {
 }
 function editTagDialog(tag) {
   const source=sources.find(s=>s.id===tag.source);
+  if(source?.kind==='lightyak')return lightyakTagBrowser({source,tag,dialog,node,field,button,api,reload:reloadLists,onDone:route});
   if(source?.kind==='modbus')return modbusTagDialog({source,tag,dialog,node,field,select,button,api,reload:reloadLists,onDone:route});
   dialog('Edit tag',body=> {
-    const name=field('Name',body,'text',tag.name || tag.id);name.required=true;name.readOnly=!(['memory','system','database'].includes(source.kind) || source.kind==='bacnet' || source.kind==='mqtt' || source.settings.protocol==='slc');
+    const name=field('Name',body,'text',tag.name || tag.id);name.required=true;name.readOnly=!(['memory','system','database'].includes(source.kind) || source.kind==='bacnet' || source.kind==='mqtt' || source.kind==='lightyak' || source.settings.protocol==='slc');
     if(source.kind==='bacnet')node('p','Saved inline tag references will continue to work with the old tag name. Use the new name for new references.',body,{className:'hint'});
     let address;
     if(!['memory','system','database','sheet'].includes(source.kind)) {

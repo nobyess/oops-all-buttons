@@ -594,3 +594,63 @@ Use only Waitress-normalized WSGI scheme/client/host values, never raw forwarded
 headers. See [deployment settings](docs/WEB_SERVER.md). Add API regression tests
 through the WSGI test helper and real transport/security tests in
 `tests/test_waitress.py`; run `python -m unittest discover -s tests`.
+
+
+## LightYak v1 serial
+
+`hmi/lightyak_codec.py` implements the supplied v1 protocol; `hmi/lightyak.py`
+owns settings, lazy connection, bounded recovery backoff, shared-port locking,
+discovery fingerprints, scalar validation and polling batches. Reuse one
+connection for matching sources/test dialogs. Never retry writes automatically.
+Treat known semantic device errors separately from transport/protocol failure.
+Read Catalog Revision with each batch and before writes to refresh discovery;
+resolve saved name/type fingerprints to exactly one current target. The revision guard is not an atomic conditional write. Tag edits
+can explicitly rebind while preserving the HMI ID. Read NaN/infinity as bad
+samples without emitting invalid JSON. Keep status nonblocking. The UI uses
+shared dialog/field/list styles and closes asynchronous work with its dialog.
+See [LightYak setup](docs/LIGHTYAK.md) and `tests/test_lightyak.py`.
+
+
+### Dialog action navigation and LightYak discovery styling
+
+Left/Right on a focused `.dialog-footer` button moves focus through that dialog's
+visible, enabled footer actions, wrapping at either end. Inputs, textareas,
+selects and tree controls keep native arrow behavior. Enter activates an action
+explicitly selected with these arrows, including Cancel; otherwise the existing
+default-confirmation behavior remains. Escape still cancels. Nested dialogs,
+composition, handled events and modifier shortcuts retain their own behavior.
+
+LightYak discovery uses the shared `designer-dialog` fields, list rows and
+high-contrast selection colors. Its width is at most 560px with 16px viewport
+clearance, overall height at most 92dvh, and list height at most 32dvh so it
+scrolls internally. Search is full-width and unboxed, with 12px below it.
+Long selected-target details wrap. Keep the common 24px padding, 6px field/list
+corners, 36px action buttons, 8px action gaps and 16px footer separation.
+
+
+LightYak discovery reuses the Logix `plc-tag-list` / `plc-tag-row` tree appearance.
+The reported `device_name` comes from an atomic catalog response; reference-0
+properties live under its expandable branch and application tags remain flat.
+Keep name/access on the left and data type right aligned. Filtered device
+matches are revealed automatically; editing a device property expands its branch.
+Use tree roles, levels, active-descendant selection, Up/Down/Home/End and
+Left/Right expansion/parent navigation. Folder selection cannot be saved. Share
+one explicit selected-item state for click/keyboard/preview/save, use the device-reported name, and ignore late responses after filtering or closing.
+
+
+LightYak tag names are device-owned: show the name in the selection summary and
+submit the selected definition's name. `describe()` includes the device name;
+Service add/edit takes that name from driver metadata and ignores supplied
+aliases. Explicit rebinds retain the HMI tag ID but adopt the selected device
+name. Existing per-source uniqueness checks remain in force; do not invent
+suffixes for duplicate firmware names or silently rewrite unrelated saved tags.
+
+
+LightYak's selected tag and current value appear as a bottom-left footer summary,
+using the Logix selected-tag typography. Do not show a separate tag-name input.
+Keep Refresh/Cancel/Save to its right; on narrow widths the summary and commands
+may wrap. Show catalog loading/errors above the footer only when needed. Device
+names remain enforced by driver metadata on the server and selected-item state
+in the browser; removing the input does not enable aliases.
+
+LightYak saved bindings resolve by the original name fingerprint and scalar type, never by reference/order/revision. Require exactly one match, validate current writable permissions, and retain stable HMI tag IDs. Catalog revision only triggers refresh; missing or ambiguous matches surface a binding warning in the source manager row and details.

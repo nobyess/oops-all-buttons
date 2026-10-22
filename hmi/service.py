@@ -6,6 +6,7 @@ from .assets import AssetCenter, asset_identity
 from .error_log import ErrorLog
 from .mqtt import mqtt_settings, topic_name
 from .modbus import modbus_settings, canonical_address
+from .lightyak import lightyak_settings, binding_signature
 import math
 import threading
 import time
@@ -333,7 +334,7 @@ class Service:
     def test_source(self, data):
         if data.get('id'):
             source = next((s for s in self.sources() if s['id'] == data['id']), None)
-            if not source or source['kind'] not in ('pycomm3', 'bacnet', 'mqtt', 'modbus'):
+            if not source or source['kind'] not in ('pycomm3', 'bacnet', 'mqtt', 'modbus', 'lightyak'):
                 raise ValueError('Choose a protocol source')
             driver = self.drivers.get(source['id'])
             if driver is None:
@@ -349,9 +350,9 @@ class Service:
                 self.store.set('sources', current)
             return result
         kind = data.get('kind', 'pycomm3')
-        if kind not in ('pycomm3', 'bacnet', 'mqtt', 'modbus'):
+        if kind not in ('pycomm3', 'bacnet', 'mqtt', 'modbus', 'lightyak'):
             raise ValueError('This driver has no connection test')
-        settings = (modbus_settings if kind == 'modbus' else mqtt_settings if kind == 'mqtt' else bacnet_settings if kind == 'bacnet' else connection_settings)(data.get('settings', {}))
+        settings = (lightyak_settings if kind == 'lightyak' else modbus_settings if kind == 'modbus' else mqtt_settings if kind == 'mqtt' else bacnet_settings if kind == 'bacnet' else connection_settings)(data.get('settings', {}))
         driver = DRIVERS[kind](settings)
         try:
             result = driver.test()
@@ -365,11 +366,16 @@ class Service:
 
     def browse_source(self, data):
         source = next((s for s in self.sources() if s['id'] == data['source']), None)
-        if not source or source['kind'] not in ('pycomm3', 'bacnet'):
+        if not source or source['kind'] not in ('pycomm3', 'bacnet', 'lightyak'):
             raise ValueError('This source does not support tag discovery')
         driver = self.drivers.get(source['id'])
         if driver is None:
             raise ValueError(self.source_errors.get(source['id'], 'Source unavailable'))
+        if source['kind'] == 'lightyak':
+            catalog=driver.browse_catalog(bool(data.get('refresh')))
+            items=catalog['items']
+            existing={binding_signature(tag['address']) for tag in self.tags() if tag['source']==source['id']}
+            return {'device_name':catalog['device_name'],'items':[{**item,'added':binding_signature(item['address']) in existing} for item in items]}
         if source['kind'] == 'bacnet':
             if data.get('properties'):
                 result = driver.properties(str(data.get('node', '')))
@@ -391,8 +397,8 @@ class Service:
         # A single read for the selected external tag; never create it or write.
         with self.lock:
             source = next((s for s in self.sources() if s['id'] == data.get('source')), None)
-            if not source or source['kind'] not in ('pycomm3', 'bacnet') or (source['kind'] == 'pycomm3' and source['settings'].get('protocol', 'logix') != 'logix'):
-                raise ValueError('Tag preview is available for PyComm3 Logix and BACnet sources')
+            if not source or source['kind'] not in ('pycomm3', 'bacnet', 'lightyak') or (source['kind'] == 'pycomm3' and source['settings'].get('protocol', 'logix') != 'logix'):
+                raise ValueError('Tag preview is available for PyComm3 Logix, BACnet and LightYak sources')
             driver = self.drivers.get(source['id'])
             address = str(data.get('address', '')).strip()
             if not driver or not address:
@@ -841,6 +847,8 @@ class Service:
             if kind == 'database':
                 source['settings']=database_settings(source['settings'])
                 if any(s['kind']=='database' and s['settings']['filename'].casefold()==source['settings']['filename'].casefold() for s in sources):raise ValueError('This database file already has a source')
+            if kind == 'lightyak':
+                source['settings'] = lightyak_settings(source['settings'])
             if kind == 'modbus':
                 source['settings'] = modbus_settings(source['settings'])
             if kind == 'mqtt':
@@ -879,6 +887,8 @@ class Service:
             if source['kind'] == 'sheet':
                 settings = sheet_settings(settings)
                 self.check_sheet_filename(settings['filename'], source['id'])
+            if source['kind'] == 'lightyak':
+                settings = lightyak_settings(settings)
             if source['kind'] == 'modbus':
                 settings = modbus_settings(settings)
             if source['kind'] == 'mqtt':
@@ -890,10 +900,12 @@ class Service:
             previous = source['settings']
             if previous.get('protocol', 'logix') != settings.get('protocol', 'logix') and any(t['source'] == source['id'] and not t.get('builtin') for t in self.tags()):
                 raise ValueError('Remove this source’s tags before changing its protocol type')
-            connection_changed = (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] == 'modbus' and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max', 'use_cov', 'cov_lifetime', 'cov_verify', 'cov_confirmed'))
+            connection_changed = (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] in ('modbus','lightyak') and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max', 'use_cov', 'cov_lifetime', 'cov_verify', 'cov_confirmed'))
             current_driver = self.drivers.get(source['id'])
             if connection_changed or current_driver is None:
-                if source['kind']=='modbus' and getattr(current_driver,'bus',None) is not None:
+                if source['kind']=='lightyak' and current_driver is not None:
+                    driver = current_driver.replacement(settings)
+                elif source['kind']=='modbus' and getattr(current_driver,'bus',None) is not None:
                     driver = current_driver.replacement(settings)
                 else:
                     driver = DRIVERS[source['kind']](settings)
@@ -901,7 +913,7 @@ class Service:
                 self.drivers[source['id']] = driver
             elif source['kind'] == 'sheet':
                 current_driver.rename_file(settings)
-            elif source['kind'] in ('pycomm3', 'bacnet', 'modbus'):
+            elif source['kind'] in ('pycomm3', 'bacnet', 'modbus', 'lightyak'):
                 # Rates belong to the scheduler; retain the connected driver.
                 current_driver.settings = dict(settings)
             source['name'] = name
@@ -935,9 +947,9 @@ class Service:
         if not address:
             raise ValueError('Address is required')
         if source['kind'] == 'modbus':address = canonical_address(address)
-        metadata = driver.describe(address) if source['kind'] in ('pycomm3', 'bacnet', 'modbus') else None
-        name = str(data.get('name', original.get('name', original['id']))).strip()
-        rename_allowed = source['kind'] in ('memory','system','database', 'bacnet', 'mqtt', 'modbus') or source['settings'].get('protocol') == 'slc'
+        metadata = driver.describe(address) if source['kind'] in ('pycomm3', 'bacnet', 'modbus', 'lightyak') else None
+        name = metadata['name'] if source['kind']=='lightyak' else str(data.get('name', original.get('name', original['id']))).strip()
+        rename_allowed = source['kind'] in ('memory','system','database', 'bacnet', 'mqtt', 'modbus', 'lightyak') or source['settings'].get('protocol') == 'slc'
         if not rename_allowed and name != original.get('name', original['id']):
             raise ValueError('This tag type has a fixed name')
         if not name:
@@ -952,7 +964,7 @@ class Service:
             if any(t['id'] != tag['id'] and t['source'] == tag['source'] and t.get('folder')==tag.get('folder') and t.get('name', t['id']).casefold() == name.casefold() for t in tags):
                 raise ValueError('Tag name already exists in this source')
             tag.update(name=name, address=address)
-            tag['writable'] = True  # Compatibility field only; never used to authorize writes.
+            tag['writable'] = metadata['writable'] if source['kind']=='lightyak' else True  # Informational; the driver authorizes writes.
             if metadata:
                 tag.update(reported_access='Read/Write' if metadata['writable'] else 'Read only', data_type=metadata['type'])
             if source['kind'] == 'bacnet':
@@ -966,14 +978,14 @@ class Service:
             raise ValueError('Unknown source')
         if source['kind']=='simulation':raise ValueError('Simulation tags are built in')
         metadata = None
-        if source and source['kind'] in ('pycomm3', 'bacnet', 'modbus'):
+        if source and source['kind'] in ('pycomm3', 'bacnet', 'modbus', 'lightyak'):
             driver = self.drivers.get(data['source'])
             if driver is None:
                 raise ValueError('Source unavailable')
             metadata = driver.describe(str(data['address']).strip())
         with self.lock:
             tags = self.store.get('tags',[])
-            name = str(data.get('name', data.get('id', ''))).strip()
+            name = metadata['name'] if source['kind']=='lightyak' else str(data.get('name', data.get('id', ''))).strip()
             if source and source['kind'] == 'pycomm3' and source['settings'].get('protocol', 'logix') == 'logix' and 'name' in data:
                 name = str(data['address']).strip().removeprefix('Program:')
             if source and source['kind'] == 'bacnet' and not name:
@@ -1001,11 +1013,12 @@ class Service:
             if any(t['source'] == data['source'] and t['address'] == address for t in tags):
                 raise ValueError('This PLC address is already added for this source')
             tag = {'id': identity, 'name': name, 'source': data['source'], 'address': address, 'writable': True}
+            if source['kind']=='lightyak':tag['writable']=metadata['writable']
             if source['kind']=='system':tag['folder']='Memory'
             source = next(s for s in self.sources() if s['id'] == data['source'])
             if source['kind'] == 'sheet':
                 tag['name'] = address
-            if source['kind'] in ('pycomm3', 'modbus'):
+            if source['kind'] in ('pycomm3', 'modbus', 'lightyak'):
                 tag.update(reported_access='Read/Write' if metadata['writable'] else 'Read only',
                            data_type=metadata['type'])
             if source['kind'] == 'bacnet':

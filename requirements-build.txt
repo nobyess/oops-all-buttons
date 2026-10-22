@@ -3,6 +3,7 @@
 -r requirements-plc.txt
 -r requirements-bacnet.txt
 -r requirements-modbus.txt
+-r requirements-lightyak.txt
 -r requirements-mqtt.txt
 -r requirements-sheet.txt
 -r requirements-dxf.txt
