@@ -88,7 +88,58 @@ Source installations need additional dependencies for the features you use. Thes
 
 For example: `python -m pip install -r requirements-modbus.txt`.
 
-For access from another computer, use `python run.py --host 0.0.0.0` and visit `http://<server-IP>:8080`. The default port is 8080. The server uses Waitress; see [network and HTTPS configuration](docs/WEB_SERVER.md) for hostname aliases and a trusted HTTPS reverse proxy. `--kiosk` launches a supported browser fullscreen; `--port` changes the server port.
+## Command-line options
+
+The same options work with `python run.py` and the Windows portable executable. By default, the server listens on **127.0.0.1** (this computer only), opens your browser, and shows a tray icon. The default port is **8080**, unless a different port has been saved in Site Configuration.
+
+| Option | What it does |
+| --- | --- |
+| `--host <address>` | Select the network interface to listen on. Default: `127.0.0.1`. Use `0.0.0.0` to listen on all IPv4 interfaces, or a specific local IP to use one interface. |
+| `--port <number>` | Choose a port from 1–65535. An explicit command-line port overrides the saved Site Configuration port for that launch. |
+| `--no-browser` | Start the server without automatically opening a browser. **Launch** in the tray still opens it. |
+| `--no-tray` | Start without a tray icon. This does not disable the server or the automatic browser launch. |
+| `--kiosk` | Open Microsoft Edge, Google Chrome, or Chromium fullscreen with browser controls hidden. Requires a supported browser; this is separate from an account's Kiosk Mode permissions. |
+| `--allowed-host <hostname>` | Accept an additional hostname or DNS alias in browser requests. Supply only the hostname, without a scheme, port, or path. Repeat for multiple aliases. |
+| `--trusted-proxy <IP>` | Trust forwarded host, protocol, and client-IP headers from one exact reverse-proxy IP. Use only with a configured HTTPS reverse proxy; this option does not enable HTTPS itself. |
+| `--help` | Show the available options and exit. |
+
+### Common examples
+
+**Allow access from other computers on your trusted network:**
+
+```powershell
+.\OopsAllButtons.exe --host 0.0.0.0
+```
+
+Visit `http://<server-IP>:8080` from the other computer, using your configured port if different. Allow that port through the server computer's firewall as needed. `0.0.0.0` is the listening address, not the address to enter in the browser.
+
+**Use a different port and launch fullscreen:**
+
+```powershell
+.\OopsAllButtons.exe --port 8090 --kiosk
+```
+
+**Run from source without a desktop browser or tray:**
+
+```sh
+python run.py --no-browser --no-tray
+```
+
+Open the site separately in a browser. For a remote connection, add `--host 0.0.0.0`. Stop a source server running in a terminal with **Ctrl+C**.
+
+**Accept two DNS aliases:**
+
+```sh
+python run.py --host 0.0.0.0 --allowed-host hmi.example.internal --allowed-host operator.example.internal
+```
+
+For a Windows shortcut, append options **after** the quoted executable path in its **Target** field:
+
+```text
+"C:\Apps\OopsAllButtons\OopsAllButtons.exe" --kiosk --port 8090
+```
+
+The server uses Waitress. See [network and HTTPS configuration](docs/WEB_SERVER.md) for hostname validation and reverse-proxy setup. Keep network access limited to trusted users; see the [safety and network warning](#safety-and-network-warning).
 
 ## Screenshots
 
