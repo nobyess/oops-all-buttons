@@ -53,6 +53,26 @@ class BackupTests(unittest.TestCase):
    with self.assertRaises(ValueError):stage_restore(self.directory,{'data':base64.b64encode(output.getvalue()).decode()})
   self.assertFalse(pending_path(self.directory).exists())
   self.assertIsNotNone(self.access.login('Admin','backup-test-123'))
+ def test_new_extension_and_legacy_pending_restore(self):
+  backup=export_backup(self.service)
+  self.assertTrue(backup['filename'].endswith('.oab-backup'))
+  stage_restore(self.directory,backup)
+  pending=pending_path(self.directory)
+  self.assertEqual(pending.name,'data.restore.oab-backup')
+  legacy=self.directory.with_name('data.restore.zip');pending.rename(legacy)
+  self.assertEqual(pending_path(self.directory),legacy)
+  apply_pending(self.directory)
+  self.assertFalse(legacy.exists())
+  restored=Service(Store(self.directory/'hmi.sqlite3'))
+  try:self.assertIsNotNone(Access(restored).login('Admin','backup-test-123'))
+  finally:
+   for driver in restored.drivers.values():driver.close()
+ def test_staging_new_restore_replaces_legacy_pending(self):
+  backup=export_backup(self.service)
+  legacy=self.directory.with_name('data.restore.zip');legacy.write_bytes(b'old pending restore')
+  stage_restore(self.directory,backup)
+  self.assertEqual(pending_path(self.directory).name,'data.restore.oab-backup')
+  self.assertFalse(legacy.exists())
  def test_http_authorization_and_first_run_restore(self):
   handler=make_handler(self.service)
   def request(path,data=None,cookie='',csrf='',origin=''):

@@ -12,11 +12,11 @@ CELL = re.compile(r'^\$?([A-E])\$?([1-9]|1[0-9]|20)$', re.I)
 
 
 def sheet_settings(settings):
-    name = str(settings.get('filename', 'Sheet.sheet.json')).strip()
+    name = str(settings.get('filename', 'Sheet.oab-sheet')).strip()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _.-]{0,99}', name) or '..' in name:
         raise ValueError('Use a simple sheet filename without folders')
-    if not name.lower().endswith('.sheet.json'):
-        name += '.sheet.json'
+    if not name.lower().endswith(('.oab-sheet','.sheet.json')):
+        name = re.sub(r'\.json$', '', name, flags=re.I) + '.oab-sheet'
     result = {'filename': name}
     for key, default in [('background', 20), ('live', .5)]:
         value = float(settings.get(key, default))

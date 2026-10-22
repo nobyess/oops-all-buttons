@@ -140,11 +140,18 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                 return self.wfile.write(body)
             if path == '/api/status':
                 record = self.session()
-                return self.reply(200, {'setup': not access.users(),
+                automatic_cookie=None
+                with auth_lock:
+                    automatic=access.automatic_user()
+                    if not record and automatic:
+                        token=secrets.token_urlsafe(32);sessions.add(token,automatic)
+                        automatic_cookie=self.cookie(token)
+                        record=sessions.get_cookie('session='+token)
+                return self.reply(200, {'setup': not access.setup_complete(),
                                        'site_logo':bool(service.store.get('site_logo_asset') or service.store.get('site_logo')) or (ROOT/'static'/'images'/'default-logo.webp').is_file(),
                                        'authenticated': bool(record), 'csrf': record['csrf'] if record else None,
                                        'username': record['user']['username'] if record else None,
-                                       'user': record['user'] if record else None})
+                                       'user': record['user'] if record else None}, automatic_cookie)
             if path.startswith('/api/'):
                 record=self.session()
                 if not record:
@@ -161,8 +168,10 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                     '/api/alarms': lambda: service.alarm_snapshot(user),
                     '/api/alarms/attention': lambda: service.alarm_attention(user),
                     '/api/admin/users': lambda: [access.public(u) for u in access.users()],
+                    '/api/admin/server-settings': service.server_settings.snapshot,
                     '/api/admin/backup/status': lambda: {'pending':pending_path(Path(service.store.path).parent).exists()},
                     '/api/admin/site': lambda: {'logo_name':((service.assets.get(service.store.get('site_logo_asset')) or {}) if service.store.get('site_logo_asset') else (service.store.get('site_logo') or {})).get('name',''), 'default_logo':(ROOT/'static'/'images'/'default-logo.webp').is_file()},
+                    '/api/admin/sign-in': lambda: {'required':service.store.get('sign_in_required',True),'has_administrator':any(u['administrator'] and not u.get('kiosk') for u in access.users())},
                     '/api/admin/session-settings': lambda: session_settings(service.store.get('session_settings', {})),
                     '/api/admin/status': lambda: {
                         'uptime': time.monotonic() - started, 'cpu_seconds': time.process_time(),
@@ -176,7 +185,6 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                     '/api/sources': lambda: service.source_catalog() if user['administrator'] and not user['kiosk'] else [{**source,'settings':{k:v for k,v in source['settings'].items() if k in ('live','background')},'status':{'quality':source['status'].get('quality'),'message':'Source status'},'usage':[]} for source in service.source_diagnostics()],
                     '/api/sources/status': service.source_status,
                     '/api/admin/serial-ports': serial_ports,
-                    '/api/admin/simulation': service.simulation_config,
                     '/api/network/interfaces': local_interfaces,
                     '/api/tags': service.tag_catalog,
                     '/api/pages': service.page_catalog,
@@ -185,7 +193,7 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                     '/api/values': service.values,
                     '/api/page': lambda: service.store.get('page', {'controls': []}),
                     '/api/database/files': lambda: sorted(p.name for p in (Path(service.store.path).parent/'databases').glob('*') if p.is_file() and p.suffix.lower() in ('.db','.sqlite','.sqlite3')),
-                    '/api/catalog': lambda: {'drivers': [kind for kind in DRIVERS if kind not in ('memory','system','simulation')], 'actions': {
+                    '/api/catalog': lambda: {'drivers': [kind for kind in DRIVERS if kind not in ('memory','system','simulation')]+['simulation'], 'actions': {
                         key: {'label': action.label, 'needs_value': action.needs_value}
                         for key, action in ACTIONS.items()}},
                 }
@@ -217,7 +225,7 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                 if origin and not same_origin(origin, self.environ):
                     return self.reply(403, {'error': 'Origin rejected'})
                 length = int(self.headers.get('Content-Length', 0))
-                limit = 36_000_000 if urlsplit(self.path).path == '/api/assets/save' else 90_000_000 if urlsplit(self.path).path in ('/api/admin/restore','/api/setup/restore') else 16_000_000 if urlsplit(self.path).path == '/api/pages/import' else 7_100_000 if urlsplit(self.path).path in ('/api/images','/api/admin/site') else 1_000_000
+                limit = 36_000_000 if urlsplit(self.path).path == '/api/assets/save' else 90_000_000 if urlsplit(self.path).path in ('/api/admin/restore','/api/setup/restore') else 16_000_000 if urlsplit(self.path).path == '/api/pages/import' else 7_100_000 if urlsplit(self.path).path in ('/api/images','/api/admin/site','/api/admin/site-configuration') else 1_000_000
                 if not 0 < length <= limit:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(length))
@@ -230,19 +238,21 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                         return self.reply(429, {'error':'Too many sign-in attempts. Please wait and try again.'})
                 if path == '/api/setup/restore':
                     with auth_lock:
-                        if access.users():return self.reply(409,{'error':'Setup is already complete'})
+                        if access.setup_complete():return self.reply(409,{'error':'Setup is already complete'})
                         if data.get('safety_acknowledged') is not True:raise ValueError('Acknowledge the equipment safety notice before restoring')
                         return self.reply(200,stage_restore(Path(service.store.path).parent,data))
                 if path in ('/api/setup', '/api/login'):
                     with login_slot(throttle):
                         with auth_lock:
-                            username = str(data['username']).strip()
-                            password = str(data['password'])
+                            username = str(data.get('username','')).strip()
+                            password = str(data.get('password',''))
                             if path == '/api/setup':
-                                if access.users():return self.reply(409, {'error':'Setup is already complete'})
+                                if access.setup_complete():return self.reply(409, {'error':'Setup is already complete'})
                                 if data.get('safety_acknowledged') is not True:
                                     return self.reply(400, {'error':'Acknowledge the equipment safety notice before creating an administrator'})
-                                user=access.save_user({'username':username,'password':password},setup=True)
+                                if data.get('sign_in_required') is False:
+                                    access.configure_sign_in({'required':False});user=access.automatic_user()
+                                else:user=access.save_user({'username':username,'password':password},setup=True)
                             else:
                                 user=access.login(username,password)
                                 if user is None:return self.reply(401, {'error':'Invalid username or password'})
@@ -266,10 +276,33 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                 if path == '/api/assets/save':return self.reply(200,service.assets.save(data))
                 if path == '/api/assets/remove':return self.reply(200,service.assets.remove(data.get('id')))
                 if path == '/api/assets/import-builtin':return self.reply(200,service.assets.import_builtin(data.get('id')))
-                if path == '/api/admin/simulation':
-                    return self.reply(200,service.configure_simulation(data))
+                if path == '/api/admin/server-settings':
+                    return self.reply(200,service.server_settings.apply(data))
                 if path == '/api/admin/backup':
                     return self.reply(200,export_backup(service))
+                if path == '/api/admin/site-configuration':
+                    from hmi.images import prepare_image
+                    with auth_lock, access.lock:
+                        updates={};logo_name=None
+                        if 'asset_id' in data:
+                            item=service.assets.get(data['asset_id'])
+                            if not item or item['kind']!='image':raise ValueError('Choose an image asset')
+                            updates['site_logo_asset']=item['id'];logo_name=item['name']
+                        elif 'logo' in data:
+                            asset=prepare_image(data['logo']) if data['logo'] is not None else None
+                            updates.update(site_logo=asset,site_logo_asset=None);logo_name=asset['name'] if asset else ''
+                        if 'sign_in' in data:
+                            if not isinstance(data['sign_in'],dict):raise ValueError('Choose sign-in settings')
+                            updates.update(access.sign_in_updates(data['sign_in']))
+                        changed_sign_in='sign_in' in data and updates['sign_in_required']!=service.store.get('sign_in_required',True)
+                        result={'ok':True,'sign_in_changed':changed_sign_in}
+                        if 'port' in data and data['port']!=service.server_settings.port:
+                            result.update(service.server_settings.apply(data,save=lambda port:service.store.set_many({**updates,'server_port':port})))
+                        else:service.store.set_many(updates)
+                        if logo_name is not None:result['logo_name']=logo_name
+                        if changed_sign_in:
+                            with sessions.lock:sessions.records.clear()
+                    return self.reply(200,result,self.cookie('',logout=True) if changed_sign_in else None)
                 if path == '/api/admin/site':
                     from hmi.images import prepare_image
                     if 'asset_id' in data:
@@ -319,6 +352,11 @@ def make_app(service, request_log=None, root=None, allowed_hosts=None):
                 if path == '/api/admin/errors/clear':
                     service.error_log.clear()
                     return self.reply(200, {'ok': True})
+                if path == '/api/admin/sign-in':
+                    with auth_lock:
+                        result=access.configure_sign_in(data)
+                        with sessions.lock:sessions.records.clear()
+                    return self.reply(200,result,self.cookie('',logout=True))
                 if path == '/api/admin/session-settings':
                     service.store.set('session_settings', session_settings(data))
                     return self.reply(200, {'ok': True})

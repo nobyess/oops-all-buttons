@@ -16,7 +16,7 @@ export function openAccountPopup({anchor,user,roles,onLogout}){
  const footer=add('div');footer.className='row dialog-footer';
  const close=()=>{if(modal.open)modal.close();else modal.remove();};
  const dismiss=add('button','Close',footer);dismiss.type='button';dismiss.onclick=close;
- const logout=add('button','Log Out',footer);logout.type='button';
+ const logout=add('button','Log Out',footer);logout.hidden=Boolean(user.automatic);logout.type='button';
  logout.onclick=async()=>{logout.disabled=true;try{if(await onLogout()!==false)close();}catch(e){error.textContent=e.message;}finally{logout.disabled=false;}};
  modal.onclose=()=>{modal.remove();anchor.setAttribute('aria-expanded','false');if(active===close)active=null;if(anchor.isConnected)anchor.focus({preventScroll:true});};
  modal.onpointerdown=event=>{if(event.target!==modal)return;const r=modal.getBoundingClientRect();if(event.clientX<r.left || event.clientX>r.right || event.clientY<r.top || event.clientY>r.bottom)close();};

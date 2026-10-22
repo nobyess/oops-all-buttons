@@ -48,3 +48,9 @@ assert(find('One'));assert(!find('⚠ One'));assert(find('Current value: 3'));
 sources[0].status={quality:'paused',paused:true,message:'Paused'};state.tag='';manager.refresh();
 const pauseDot=all(root).find(el=>el.dataset.sourceDot==='mem');assert.equal(pauseDot.textContent,'⏸');assert.equal(pauseDot.attributes['aria-label'],'Paused');assert(find('Paused'));
 sources[0].status={quality:'good',message:'Connected'};manager.refresh();assert.equal(pauseDot.textContent,'●');
+
+sources.push({id:'simulation',name:'Simulation',kind:'simulation',settings:{},status:{quality:'good'},usage:[]});
+search.value='';search.oninput();all(root).find(el=>el.dataset.source==='simulation').onclick();
+assert.equal(state.source,'simulation');assert.equal(find('Edit').disabled,false,'Simulation is edited through source settings');
+assert.equal(find('Remove').disabled,false,'Unused Simulation source is removable');
+assert(find('+ Add Tag').disabled,'Simulation supplies its own tags');

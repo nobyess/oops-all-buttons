@@ -47,3 +47,8 @@ class RestartTests(unittest.TestCase):
             with patch('run.application_directory',return_value=Path(folder)), patch('run.main',return_value=False), patch('hmi.backup.apply_pending'), patch('hmi.restart.restart_process') as spawn:
                 self.assertEqual(portable.main(),0)
                 spawn.assert_not_called()
+
+    def test_port_change_replaces_existing_option_and_preserves_other_flags(self):
+        with patch('hmi.restart._restart_port',8095),patch.object(sys,'argv',['run.py','--port=8080','--no-browser','--host','0.0.0.0','--port','8081']),patch.object(sys,'frozen',False,create=True):
+            args=restart_command()[2:]
+            self.assertEqual(args,['--no-browser','--host','0.0.0.0','--port','8095'])

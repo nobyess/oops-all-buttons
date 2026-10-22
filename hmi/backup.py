@@ -16,9 +16,11 @@ from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
 MAX_ARCHIVE = 64 * 1024 * 1024
 MAX_DATA = 256 * 1024 * 1024
 
-def pending_path(directory):
+def pending_path(directory, *, for_write=False):
     directory = Path(directory)
-    return directory.with_name(directory.name + '.restore.zip')
+    current=directory.with_name(directory.name + '.restore.oab-backup')
+    legacy=directory.with_name(directory.name + '.restore.zip')
+    return legacy if not for_write and not current.exists() and legacy.exists() else current
 
 def _snapshot(source, target):
     with closing(sqlite3.connect(source)) as db, closing(sqlite3.connect(target)) as dest:
@@ -92,8 +94,10 @@ def stage_restore(directory, data):
     try:raw=base64.b64decode(data.get('data',''),validate=True)
     except (ValueError,TypeError) as error:raise ValueError('Invalid backup encoding') from error
     with tempfile.TemporaryDirectory() as temp:_validate(raw,Path(temp))
-    pending=pending_path(directory);temporary=pending.with_suffix('.tmp')
+    pending=pending_path(directory,for_write=True);temporary=pending.with_suffix('.tmp')
     temporary.write_bytes(raw);temporary.replace(pending)
+    legacy=Path(directory).with_name(Path(directory).name+'.restore.zip')
+    legacy.unlink(missing_ok=True)
     return {'ok':True,'restart_required':True}
 
 def apply_pending(directory):
@@ -109,3 +113,4 @@ def apply_pending(directory):
             if existed:previous.rename(directory)
             raise
         pending.unlink()
+        directory.with_name(directory.name+'.restore.zip').unlink(missing_ok=True)

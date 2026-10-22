@@ -33,7 +33,8 @@ If startup fails, a message is shown; details are in data/server.log.
 Your project is stored in the data folder beside OopsAllButtons.exe.
 For updates: stop the old server, back it up from Administration, extract the new
 release into a new folder, and copy your data folder into it before starting.
-If a restore is pending, copy data.restore.zip beside the data folder too.
+If a restore is pending, copy data.restore.oab-backup beside the data folder too.
+Older versions may use data.restore.zip; copy that file if present.
 Do not run both copies against the same device tags while updating.
 
 Network access: create a shortcut with these arguments:

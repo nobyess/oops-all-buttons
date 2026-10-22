@@ -72,7 +72,7 @@ For access from another computer, use `python run.py --host 0.0.0.0` and visit `
 
 Fresh projects include an editable **Start Page** with getting-started instructions and three demo tags directly under `System\Memory`: `DemoTankLevel`, `DemoPumpEnabled`, and `DemoMode`. Edit or delete it like any page; restarts and updates will not recreate it. Existing projects and restored backups keep their own pages.
 
-**Try it without a controller:** Open **Administration → Simulation**, enable the Air Handler, and save. Its tags appear under `Simulation\AirHandler`. Add controls to a page, bind them to those tags, and set `UnitEnableSignal` to `1` to start the model. Outdoor temperature, discharge setpoint, and room heat load are writable. Temperatures use °F.
+**Try it without a controller:** Open **Data Sources & Tags → Add Source**, choose **Simulation**, leave Air Handler selected, and save. Its tags appear under `Simulation\AirHandler`. Add controls to a page, bind them to those tags, and set `UnitEnableSignal` to `1` to start the model. Outdoor temperature, discharge setpoint, and room heat load are writable. Temperatures use °F.
 
 ## What’s included
 
@@ -115,7 +115,7 @@ A demonstration page built with ordinary controls and the built-in HVAC simulati
 
 Use **Administration → Backup/Restore** to download a backup. Restores take effect after restarting the server.
 
-For a portable update, exit the old server, extract the new release into a new folder, and copy your `data` folder beside the new executable. If a restore is pending, also copy `data.restore.zip`. Keep the old installation until you have verified the update.
+For a portable update, exit the old server, extract the new release into a new folder, and copy your `data` folder beside the new executable. If a restore is pending, also copy `data.restore.oab-backup` (or legacy `data.restore.zip`). Keep the old installation until you have verified the update.
 
 See [BUILDING.md](BUILDING.md) for portable builds and releases, and [DEVELOPING.md](DEVELOPING.md) for development notes.
 
@@ -136,3 +136,7 @@ The project's original code is available under the [MIT License](LICENSE). Bundl
 I take no credit for the coding work in this project—it was coded with ChatGPT Codex.
 
 Thank you to all the developers who shared their knowledge, code, tools, and documentation. Your contributions made this project possible.
+
+Application documents use `.oab-backup` for backups, `.oab-page` for page exports, and `.oab-sheet` for sheets. Older JSON exports and sheet files remain supported.
+
+Fresh installations can require sign-in or run without sign-in. Without sign-in, everyone who can reach the server has full administrator access, and activity is recorded as **User**. Change this under **Administration → Site Configuration → Server Settings**. Use Save or Revert for pending changes; Save asks before a port restart or sign-in change. Enabling sign-in creates an administrator if needed and signs out open sessions; existing accounts and project data are retained.

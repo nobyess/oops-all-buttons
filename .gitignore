@@ -29,3 +29,5 @@ release/
 /third-party/build-versions.txt
 /third-party/licenses/
 /third-party/source-manifest.json
+
+data.restore.oab-backup

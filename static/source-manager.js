@@ -31,14 +31,14 @@ export function mountSourceManager(parent,{node,button,getSources,getTags,getVal
   const valueText=warning || (sample?.quality==='good'?'Current value: '+displayValue(sample.value):'Current value: unavailable');
   if(signature===lastDetails){if(valueNode){if(valueNode.textContent!==valueText)valueNode.textContent=valueText;valueNode.className=warning?'source-manager-value error':'source-manager-value';}return;}
   lastDetails=signature;details.replaceChildren();valueNode=null;
-  sourceEdit.disabled=!source || ['system','simulation'].includes(source.kind);sourceRemove.disabled=!source || ['system','simulation'].includes(source.kind) || Boolean(source.usage?.length);sourceRemove.title=sourceRemove.disabled && source?'Used by saved pages or sheets':'';
+  sourceEdit.disabled=!source || source.kind==='system';sourceRemove.disabled=!source || source.kind==='system' || Boolean(source.usage?.length);sourceRemove.title=sourceRemove.disabled && source?'Used by saved pages or sheets':'';
   tagAdd.disabled=!source || source.kind==='simulation';tagEdit.disabled=!tag || tag.builtin;tagRemove.disabled=!tag || tag.builtin || Boolean(tag.usage?.length);tagRemove.title=tag?.usage?.length?'Used by saved pages or sheets':'';
   if(tag){
    node('strong',tagPath(tag),details);
    valueNode=node('p',valueText,details,{className:warning?'source-manager-value error':'source-manager-value'});
    node('hr',null,details);node('p','References:',details);usageList(details,tag.usage || [],true);
   }else if(source){
-   node('strong',source.kind==='simulation'?'Simulation':source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,details);
+   node('strong',source.kind==='simulation'?(source.name || 'Simulation'):source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,details);
    const status=source.status || {};node('p',status.paused?(status.message || 'Paused'):(status.quality==='good'?'Good':status.quality==='idle'?'Idle':'Fault')+' — '+(status.message || ''),details,{className:status.paused?'hint':status.quality==='good'?'good':status.quality==='idle'?'hint':'error'});
    const info=node('dl',null,details,{className:'source-manager-info'});
    const settings=source.settings || {};
@@ -62,7 +62,7 @@ export function mountSourceManager(parent,{node,button,getSources,getTags,getVal
   for(const source of shown){
    const row=node('button',null,sourceList,{type:'button',role:'option',className:'source-manager-source'});row.dataset.source=source.id;row.setAttribute('aria-selected',String(source.id===state.source));
    const dot=node('span',source.status?.paused?'⏸':'●',row,{className:source.status?.paused?'source-paused':source.status?.quality==='good'?'good':'error'});dot.dataset.sourceDot=source.id;dot.setAttribute('aria-label',source.status?.paused?'Paused':source.status?.quality==='good'?'Connected':'Not connected');dot.title=source.status?.message || '';
-   node('span',source.kind==='simulation'?'Simulation':source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,row);row.onclick=()=>selectSource(source.id);
+   node('span',source.kind==='simulation'?(source.name || 'Simulation'):source.kind==='system'?'System':`${source.name || source.id} (${driverName(source)})`,row);row.onclick=()=>selectSource(source.id);
    const pausable=['pycomm3','bacnet','mqtt','modbus','lightyak','database'].includes(source.kind);
    const menu=point=>{if(!pausable || !onPauseSource)return;selectSource(source.id);const paused=Boolean(source.status?.paused);contextMenu(point,[{label:paused?'Unpause':'Pause',run:()=>onPauseSource(source,!paused)}],{label:'Data source commands'});};
    row.oncontextmenu=event=>{if(!pausable)return;event.preventDefault();menu({x:event.clientX,y:event.clientY});};

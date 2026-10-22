@@ -47,10 +47,10 @@ class SheetTests(unittest.TestCase):
         data = restored.get_sheet({'source':'sheet'})
         self.assertEqual(data['values']['A1']['value'],'hello')
         self.assertEqual(data['values']['C1']['value'],14)
-        self.assertTrue((self.path.parent/'sheets'/'Production.sheet.json').exists())
+        self.assertTrue((self.path.parent/'sheets'/'Production.oab-sheet').exists())
         self.service.edit_source({'id':'sheet','name':'Renamed','settings':{'filename':'Renamed','live':1,'background':30}})
-        self.assertTrue((self.path.parent/'sheets'/'Renamed.sheet.json').exists())
-        self.assertFalse((self.path.parent/'sheets'/'Production.sheet.json').exists())
+        self.assertTrue((self.path.parent/'sheets'/'Renamed.oab-sheet').exists())
+        self.assertFalse((self.path.parent/'sheets'/'Production.oab-sheet').exists())
         self.assertEqual(self.service.get_sheet({'source':'sheet'})['values']['C1']['value'],14)
 
     def test_formula_write_rejected_and_errors_visible(self):
@@ -152,10 +152,10 @@ class SheetTests(unittest.TestCase):
         self.save({'A1':'7'})
         self.service.add_tag({'name':'A1','source':'sheet','address':'A1'})
         self.service.get_sheet({'source':'sheet'})
-        before = (self.path.parent/'sheets'/'Production.sheet.json').read_text()
+        before = (self.path.parent/'sheets'/'Production.oab-sheet').read_text()
         with self.assertRaisesRegex(ValueError, 'A1:'):
             self.service.save_sheet({'source':'sheet','validate':True,'cells':{'A1':{'raw':'=1/0'}}})
-        self.assertEqual((self.path.parent/'sheets'/'Production.sheet.json').read_text(),before)
+        self.assertEqual((self.path.parent/'sheets'/'Production.oab-sheet').read_text(),before)
         self.assertEqual(self.service.values()[[t for t in self.service.tags() if not t.get('builtin')][-1]['id']]['value'],7)
         result = self.service.save_sheet({'source':'sheet','validate':True,'cells':{'A1':{'raw':'=2+3'}}})
         self.assertEqual(result['values']['A1']['value'],5)
@@ -189,7 +189,7 @@ class SheetTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.service.import_sheet({'sheet':payload,'settings':{'filename':'Bad'}})
         self.assertEqual(len(self.service.sources()),count)
-        self.assertFalse((self.path.parent/'sheets'/'Bad.sheet.json').exists())
+        self.assertFalse((self.path.parent/'sheets'/'Bad.oab-sheet').exists())
         self.service.add_tag({'source':'sheet','name':'A1','address':'A1'})
         tag = [t for t in self.service.tags() if not t.get('builtin')][-1]
         page = self.service.pages()[0]
@@ -197,12 +197,12 @@ class SheetTests(unittest.TestCase):
         self.service.save_page(page)
         with self.assertRaises(ValueError):
             self.service.delete_sheet({'source':'sheet'})
-        self.assertTrue((self.path.parent/'sheets'/'Production.sheet.json').exists())
+        self.assertTrue((self.path.parent/'sheets'/'Production.oab-sheet').exists())
         page['controls']=[];self.service.save_page(page)
         self.service.delete_sheet({'source':'sheet'})
         self.assertFalse(any(source['id']=='sheet' for source in self.service.sources()))
         self.assertFalse(any(tag['source']=='sheet' for tag in [t for t in self.service.tags() if not t.get('builtin')]))
-        self.assertEqual(len(list((self.path.parent/'sheets'/'.trash').glob('*-Production.sheet.json'))),1)
+        self.assertEqual(len(list((self.path.parent/'sheets'/'.trash').glob('*-Production.oab-sheet'))),1)
 
     def test_export_import_preserves_hidden_legacy_cells(self):
         self.service.drivers['sheet'].replace_cells({'E20':{'raw':'8'}, 'A1':{'raw':'=E20*2'}})
@@ -226,3 +226,12 @@ class SheetTests(unittest.TestCase):
             self.assertEqual(values[address]['value'],expected,address)
             self.assertNotIsInstance(values[address]['value'],bool)
         self.assertIs(self.service.drivers['mem'].read('input'),True)
+
+    def test_legacy_sheet_filenames_remain_readable(self):
+        self.service.add_source({'id':'legacy','name':'Legacy','kind':'sheet','settings':{'filename':'Legacy.sheet.json'}})
+        self.save({'A1':'42'},source='legacy')
+        self.assertTrue((self.path.parent/'sheets'/'Legacy.sheet.json').exists())
+        restored=Service(Store(self.path))
+        try:self.assertEqual(restored.get_sheet({'source':'legacy'})['values']['A1']['value'],42)
+        finally:
+            for driver in restored.drivers.values():driver.close()

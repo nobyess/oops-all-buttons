@@ -39,7 +39,7 @@ For **RTU**, Test Connection checks whether the serial port opens; it does not p
 
 ### No device available?
 
-Open **Administration → Simulation**, check **Enable Simulation** and **Air Handler**, and click **Save**. The `Simulation` source and its tags are created automatically. You do not need to add a source or create those tags manually.
+Open **Data Sources & Tags → Add Source**, choose **Simulation**, leave **Air Handler** selected, and click **Save**. Its tags are created automatically. Edit the source to change model settings, or remove it when its tags are no longer referenced.
 
 Use `Simulation\AirHandler\SupplyAirTemperature` for the display in step 4, and `Simulation\AirHandler\UnitEnableSignal` for the button in step 5. The unit starts off; the button will turn it on. The model uses °F. Saving simulation settings or restarting resets its values.
 

@@ -73,20 +73,45 @@ class SimulationTests(unittest.TestCase):
             store = Store(Path(directory)/'test.sqlite3')
             service = Service(store)
             self.assertFalse(any(t['source']=='simulation' for t in service.tags()))
-            service.configure_simulation({'enabled': True})
+            service.add_source({'kind':'simulation','name':'Simulation','settings':{}})
             tag = next(t for t in service.tag_catalog() if t['path']=='Simulation\\AirHandler\\UnitEnableSignal')
             service.act({'tag': tag['id'], 'action': 'set', 'value': 1})
             self.assertTrue(service.values([tag['id']])[tag['id']]['value'])
             output = next(t for t in service.tags() if t['name']=='SupplyAirTemperature')
             with self.assertRaises(ValueError): service.act({'tag':output['id'],'action':'set','value':50})
-            with self.assertRaises(ValueError): service.remove_source({'id':'simulation'})
+            page=service.pages()[0];page['controls']=[{'id':'reading','type':'numeric','binding':{'tag':tag['id']}}]
+            service.save_page(page)
+            with self.assertRaises(ValueError):service.remove_source({'id':'simulation'})
+            page['controls']=[];service.save_page(page)
+            with self.assertRaisesRegex(ValueError,'Only one'):service.add_source({'kind':'simulation','name':'Other simulation','settings':{}})
             with self.assertRaises(ValueError): service.add_tag({'source':'simulation','name':'Extra'})
-            service.configure_simulation({'enabled':False})
+            service.edit_source({'id':'simulation','settings':{'air_handler':False,'speed':2}})
             self.assertEqual(service.values([tag['id']])[tag['id']]['quality'],'bad')
             service.polling.poll_due(asynchronous=False)
             self.assertNotIn('simulation',service.polling.statistics)
             restored = Service(store)
-            self.assertFalse(restored.simulation_config()['enabled'])
+            self.assertFalse(next(s for s in restored.sources() if s['kind']=='simulation')['settings']['air_handler'])
             self.assertEqual(len([t for t in restored.tags() if t['source']=='simulation']),13)
-            for item in [service,restored]:
+            restored.remove_source({'id':'simulation'})
+            self.assertFalse(any(t['source']=='simulation' for t in restored.tags()))
+            restarted=Service(store)
+            self.assertFalse(any(s['kind']=='simulation' for s in restarted.sources()))
+            for item in [service,restored,restarted]:
                 for driver in item.drivers.values():driver.close()
+
+    def test_legacy_simulation_bindings_survive_source_migration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store=Store(Path(directory)/'test.sqlite3')
+            store.set('sources',[{'id':'simulation','name':'Simulation','kind':'simulation','settings':{'enabled':False,'air_handler':True,'speed':5}}])
+            identity='simulation-airhandler-SupplyAirTemperature'
+            store.set('pages',[{'id':'demo','name':'Demo','controls':[{'id':'temperature','type':'numeric','binding':{'tag':identity}}]}])
+            service=Service(store)
+            try:
+                self.assertEqual(service.pages()[0]['controls'][0]['binding']['tag'],identity)
+                self.assertIn(identity,{t['id'] for t in service.tags()})
+                self.assertTrue(service.drivers['simulation'].active())
+                self.assertEqual(service.drivers['simulation'].settings['speed'],5)
+                service.polling.poll_due(False)
+                self.assertEqual(service.values({identity})[identity]['quality'],'good')
+            finally:
+                for driver in service.drivers.values():driver.close()

@@ -49,7 +49,13 @@ def main():
     args = parse_options()
     data_directory = application_directory() / 'data'
     apply_pending(data_directory)
-    service = Service(Store(data_directory / 'hmi.sqlite3'), initialize_starter=True)
+    store=Store(data_directory / 'hmi.sqlite3')
+    from hmi.server_settings import ServerSettings
+    settings=ServerSettings(store)
+    args.port=settings.startup_port(args.port,explicit=any(value=='--port' or value.startswith('--port=') for value in sys.argv[1:]))
+    settings.port=args.port;settings.host=args.host
+    service = Service(store, initialize_starter=True)
+    service.server_settings=settings
     request_log = RequestLog()
     try:
         hosts = local_hosts(args.host, args.allowed_host)
@@ -79,9 +85,13 @@ def main():
     if browser_timer:
         browser_timer.daemon = True
         browser_timer.start()
-    def request_restart():
+    def request_restart(port=None):
+        if port is not None:
+            from hmi.restart import set_restart_port
+            set_restart_port(port)
         restart_requested.set()
         server.shutdown()
+    settings.restart=request_restart
     if args.tray:
         from hmi.tray import run_tray
         def tray_worker():

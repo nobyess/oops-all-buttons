@@ -73,6 +73,22 @@ def smoke(bundle):
             request('/api/setup', {'username': 'PortableTest', 'password': 'portable-test-123', 'safety_acknowledged': True})
             status = request('/api/status')
             token = status['csrf']
+            settings=request('/api/admin/server-settings')
+            assert settings['port']==port and settings['can_restart'] is True
+            assert b'.oab-page' in request('/file-formats.js') and b'.oab-sheet' in request('/file-formats.js')
+            assert b'Apply & Restart' not in request('/server-settings.js')
+            assert b'admin/site-configuration' in request('/site-settings.js')
+            assert b"['Site Configuration','Users','Roles','Server Status','Backup/Restore']" in request('/administration.js')
+            assert b'Run without sign-in' in request('/first-run.js')
+            assert request('/api/admin/sign-in')['required'] is True
+            request('/api/admin/site-configuration',{'sign_in':{'required':False}})
+            cookies.clear();status=request('/api/status');token=status['csrf']
+            assert status['user']['automatic'] and status['username']=='User'
+            request('/api/admin/site-configuration',{'sign_in':{'required':True}})
+            cookies.clear();assert not request('/api/status')['authenticated']
+            request('/api/login',{'username':'PortableTest','password':'portable-test-123'})
+            status=request('/api/status');token=status['csrf']
+            assert b'Unpause' in request('/source-manager.js')
             pages = request('/api/pages')
             assert len(pages) == 1 and pages[0]['name'] == 'Start Page'
             assert pages[0]['horizontalAlignment'] == 'center'
@@ -89,15 +105,17 @@ def smoke(bundle):
             assert {asset['name'] for asset in request('/api/assets') if not asset.get('builtin')} == {'Demo Pump'}
             assert request('/api/admin/assets/capabilities')['can_promote'] is False
             catalog = request('/api/catalog')
-            assert {'pycomm3', 'bacnet', 'mqtt', 'modbus', 'database', 'lightyak'} <= set(catalog['drivers'])
+            assert {'pycomm3', 'bacnet', 'mqtt', 'modbus', 'database', 'lightyak', 'simulation'} <= set(catalog['drivers'])
             interfaces = request('/api/network/interfaces')
             assert isinstance(interfaces, list)
             assert (root / 'data' / 'hmi.sqlite3').is_file()
             assert not (root / 'files' / 'data').exists()
             # Back up, change the account, then stage a restore through the real API.
             backup = request('/api/admin/backup', {})
+            assert backup['filename'].endswith('.oab-backup')
             request('/api/admin/users/save', {'username': 'AfterBackup', 'password': 'portable-test-456'})
             request('/api/admin/restore', backup)
+            assert (root/'data.restore.oab-backup').is_file()
         finally:
             process.terminate()
             process.wait(timeout=10)
@@ -110,6 +128,7 @@ def smoke(bundle):
             assert request('/api/status')['authenticated'] is True
             assert 'AfterBackup' not in {user['username'] for user in request('/api/admin/users')}
             assert list(root.glob('data-before-restore-*'))
+            assert not (root / 'data.restore.oab-backup').exists()
             assert not (root / 'data.restore.zip').exists()
         finally:
             process.terminate()

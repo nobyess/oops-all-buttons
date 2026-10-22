@@ -1,3 +1,4 @@
+from .server_settings import ServerSettings
 from .source_pause import PAUSABLE, PauseGate, serial_port
 from .simulation import SimulationDriver, simulation_settings, simulation_tags, simulation_writable
 from .alarms import Alarms
@@ -29,6 +30,7 @@ from .tag_paths import tag_path
 class Service:
     def __init__(self, store, *, initialize_starter=False):
         self.store = store
+        self.server_settings = ServerSettings(store)
         # Only the application startup opts in. Existing/restored projects, even
         # deliberately empty ones, never receive sample content during an upgrade.
         if initialize_starter and self.store.get('starter_content_pending') is None:
@@ -69,6 +71,9 @@ class Service:
         if legacy or not any(s['id']=='system' for s in stored_sources):
             self.store.set_many({'sources':[s for s in stored_sources if s['kind'] not in ('memory','system')]+[SYSTEM_SOURCE],
                                  'tags':stored_tags})
+        sources=self.store.get('sources',[])
+        updated=[{**source,'settings':simulation_settings({**source['settings'],'enabled':True})} if source['kind']=='simulation' else source for source in sources]
+        if updated!=sources:self.store.set('sources',updated)
         self.test_receipts = {}
         self.action_locks = {}
         if initialize_starter and self.store.get('starter_content_pending'):
@@ -843,7 +848,6 @@ class Service:
             self.configure_polling()
 
     def remove_source(self, data):
-        if data['id']=='simulation':raise ValueError('Manage Simulation in Administration')
         if data['id']=='system':raise ValueError('System is built in and cannot be removed')
         with self.lock:
             related = [t for t in self.tags() if t['source'] == data['id']]
@@ -856,30 +860,6 @@ class Service:
             self.configure_polling()
         if driver:
             driver.close()
-
-    def simulation_config(self):
-        source=next((s for s in self.sources() if s['kind']=='simulation'),None)
-        return simulation_settings(source['settings'] if source else {})
-
-    def configure_simulation(self, data):
-        settings=simulation_settings(data)
-        with self.lock:
-            sources=self.sources()
-            if any(s['id']!='simulation' and s.get('name',s['id']).casefold()=='simulation' for s in sources):
-                raise ValueError('Rename the existing Simulation source first')
-            if any(s['id']=='simulation' and s['kind']!='simulation' for s in sources):
-                raise ValueError('The Simulation source identity is already in use')
-            # A new model invalidates cached samples and gives settings changes a clean start.
-            driver=SimulationDriver(settings)
-            source={'id':'simulation','name':'Simulation','kind':'simulation','settings':settings}
-            self.store.set('sources',[s for s in sources if s['id']!='simulation']+[source])
-            self.drivers['simulation']=driver
-            self.configure_polling()
-            for tag in self.simulation_tags:
-                sample=driver.read_many([tag['address']])[tag['address']]
-                with self.polling.lock:self.polling.cache[tag['id']]={**sample,'timestamp':time.time()}
-            self.evaluate_alarms()
-        return settings
 
     def sources(self):
         sources=self.store.get('sources',[])
@@ -894,7 +874,10 @@ class Service:
             name = str(data.get('name', data.get('id', ''))).strip()
             identity = str(data.get('id') or uuid.uuid4().hex)
             kind = data['kind']
-            if kind=='simulation':raise ValueError('Manage Simulation in Administration')
+            if kind=='simulation':
+                if any(s['kind']=='simulation' for s in sources):raise ValueError('Only one Simulation source is allowed')
+                identity='simulation'
+                name=name or 'Simulation'
             if kind=='system':raise ValueError('System is built in; add Memory tags to it instead')
             if not name or any(s.get('name', s['id']).casefold() == name.casefold() for s in sources):
                 raise ValueError('Source name is empty or already exists')
@@ -903,6 +886,7 @@ class Service:
             if any(s['id'] == identity for s in sources):
                 raise ValueError('Source identity already exists')
             source = {'id': identity, 'name': name, 'kind': kind, 'settings': data.get('settings', {})}
+            if kind == 'simulation':source['settings']=simulation_settings({**source['settings'],'enabled':True})
             if kind == 'database':
                 source['settings']=database_settings(source['settings'])
                 if any(s['kind']=='database' and s['settings']['filename'].casefold()==source['settings']['filename'].casefold() for s in sources):raise ValueError('This database file already has a source')
@@ -929,7 +913,6 @@ class Service:
             self.configure_polling()
 
     def edit_source(self, data):
-        if data['id']=='simulation':raise ValueError('Manage Simulation in Administration')
         if data['id']=='system':raise ValueError('System settings are built in')
         old_driver = None
         with self.lock:
@@ -942,6 +925,7 @@ class Service:
             if not name or any(s['id'] != source['id'] and s.get('name', s['id']).casefold() == name.casefold() for s in sources):
                 raise ValueError('Source name is empty or already exists')
             settings = data.get('settings', source['settings'])
+            if source['kind']=='simulation':settings=simulation_settings({**settings,'enabled':True})
             if source['kind']=='database':
                 settings=database_settings(settings)
                 if settings['filename']!=source['settings']['filename']:raise ValueError('Create a new source to select another database file')
@@ -962,7 +946,7 @@ class Service:
             previous = source['settings']
             if previous.get('protocol', 'logix') != settings.get('protocol', 'logix') and any(t['source'] == source['id'] and not t.get('builtin') for t in self.tags()):
                 raise ValueError('Remove this source’s tags before changing its protocol type')
-            connection_changed = (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] in ('modbus','lightyak') and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max', 'use_cov', 'cov_lifetime', 'cov_verify', 'cov_confirmed'))
+            connection_changed = (source['kind']=='simulation' and settings!=previous) or (source['kind'] == 'mqtt' and settings != previous) or (source['kind'] in ('modbus','lightyak') and any(previous.get(k) != settings.get(k) for k in settings if k not in ('live','background'))) or any(previous.get(k) != settings.get(k) for k in ('path', 'plc_type', 'timeout', 'local_ip', 'protocol', 'prefix', 'port', 'device_id', 'bbmd_address', 'bbmd_ttl', 'target', 'discovery_min', 'discovery_max', 'use_cov', 'cov_lifetime', 'cov_verify', 'cov_confirmed'))
             current_driver = self.drivers.get(source['id'])
             if connection_changed or current_driver is None:
                 if source['kind']=='lightyak' and current_driver is not None:

@@ -1,3 +1,4 @@
+import {importAccept,pageFilename,sheetFilename} from './file-formats.js';
 import {startingPage} from './starting-page.js';
 import {openTextViewerEditor} from './text-viewer-editor.js';
 import {disposeTextViewers,textViewerAppearance} from './text-viewer.js';
@@ -241,6 +242,10 @@ async function api(path,data) {
   }finally{clearTimeout(timeout);}
   if(r.status===401 && path!=='login')sessionExpired();
   if(!r.ok){const error=new Error(result.error||'Request failed');error.status=r.status;throw error;}
+  if(path==='admin/site-configuration'&&(result.restarting||result.sign_in_changed)){
+    // Keep the restart address visible instead of reporting an expected session loss.
+    csrf=null;subscriptions.close();alarmAttention.setUser(null);
+  }
   return result;
 }
 async function safe(fn)  {
@@ -332,6 +337,7 @@ async function start(afterLogin=false)  {
       }});
     }finally{userButton.disabled=false;}
   });
+  userButton.hidden=Boolean(currentUser?.automatic);
   userButton.setAttribute('aria-haspopup','dialog');userButton.setAttribute('aria-expanded','false');
   [catalog,sources,tags,pages,accessRoles]=await Promise.all(['catalog','sources','tags','pages','access/roles'].map(p=>api(p)));
   pages.forEach(normalize);
@@ -474,7 +480,7 @@ function route() {
     const card=node('section',null,app,{className:'card assets-page'});node('h2','Assets',card);
     closeLibrary=mountAssetCenter(card,{api,onChanged:async()=>{pages=(await api('pages')).map(normalize);page=pages.find(p=>p.id===page?.id)||pages[0];}});
   }
-  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api,onSimulationChanged:reloadLists});
+  else if(name==='administration')closeLibrary=mountAdministration(app,{node,button,api});
   else if(name==='pages')safe(showPages);
   else if(name==='tags')showSources();
   else if(name==='sheets')showSheets();
@@ -507,7 +513,7 @@ function sourceDialog(existing,sheetOnly=false) {
     function group(parent,title){const box=node('section',null,parent,{className:'settings-group'});node('h3',title,box);return node('div',null,box,{className:'settings-group-fields'});}
     const identity=group(body,'Data source');
     const name=field('Name',identity,'text',existing?.name || existing?.id || '');name.required=true;
-    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='lightyak'?'LightYak (Serial)':x==='modbus'?'Modbus TCP / RTU (PyModbus)':x]));
+    const kind=sheetOnly?{value:'sheet'}:select('Driver',identity,catalog.drivers.filter(x=>x!=='sheet').map(x=>[x,x==='simulation'?'Simulation':x==='pycomm3'?'PyComm3':x==='database'?'Database (SQLite)':x==='memory'?'Memory':x==='bacnet'?'BACnet/IP (BAC0)':x==='mqtt'?'MQTT (Paho)':x==='lightyak'?'LightYak (Serial)':x==='modbus'?'Modbus TCP / RTU (PyModbus)':x]));
     if(existing){kind.value=existing.kind;kind.disabled=true;}
     const settings=node('div',null,body),footer=submit.parentElement;
     let inputs={},testToken='',version=0,status,modbusValues={...existing?.settings};
@@ -525,6 +531,14 @@ function sourceDialog(existing,sheetOnly=false) {
     function renderFields() {
       const saved=kind.value==='modbus'?modbusValues:existing?.settings || {};
       settings.replaceChildren();inputs={};changed();test.hidden=!['pycomm3','bacnet','mqtt','modbus','lightyak'].includes(kind.value);
+      if(kind.value==='simulation'){
+        if(!existing && !name.value.trim())name.value='Simulation';
+        const modules=group(settings,'Modules'),model=group(settings,'Model');
+        inputs.air_handler=field('Air Handler',modules,'checkbox');inputs.air_handler.checked=saved.air_handler!==false;inputs.air_handler.parentElement.classList.add('checkbox-row');
+        inputs.speed=select('Simulation speed',model,[1,2,5,10,30,60].map(speed=>[String(speed),speed+'×']),String(saved.speed ?? 1));
+        node('p','Runs locally with no device connection. Air Handler tags are created automatically. Temperatures use °F. Set UnitEnableSignal to 1 to start the unit.',settings,{className:'hint'});
+        node('p','1× follows real time. Saving changed model settings or restarting resets its values. Remove this source when it is no longer needed.',settings,{className:'hint'});return;
+      }
       if(kind.value==='database'){
         const storage=group(settings,'Storage'),polling=group(settings,'Polling');
         inputs.filename=field('Database filename',storage,'text',saved.filename || 'Tags.sqlite3');inputs.filename.required=true;inputs.filename.readOnly=Boolean(existing);
@@ -537,7 +551,7 @@ function sourceDialog(existing,sheetOnly=false) {
       if(kind.value==='memory'){node('p','Simulation runs locally; no connection settings required.',settings,{className:'hint'});return;}
       if(kind.value==='sheet') {
         const storage=group(settings,'Storage'),polling=group(settings,'Polling');
-        inputs.filename=field('Filename',storage,'text',saved.filename || 'Sheet.sheet.json');inputs.filename.required=true;
+        inputs.filename=field('Filename',storage,'text',saved.filename || 'Sheet.oab-sheet');inputs.filename.required=true;
         node('p','Stored in data/sheets. Fixed size: A1:D15. Formulas use =A1+B1 or =TAG("Source\\Tag").',settings,{className:'hint'});
         for(const [key,label,value] of [['background','Background polling (seconds)',20],['live','Live polling (seconds)',.5]]) {
           const input=inputs[key]=field(label,polling,'number',saved[key] ?? value);input.min=.1;input.max=60;input.step='any';input.required=true;
@@ -686,7 +700,9 @@ function sourceDialog(existing,sheetOnly=false) {
     function render(){
       renderFields();
       const hints={
-        filename:[kind.value==='sheet'?'Sheet filename on this server.':'SQLite filename on this server; values persist after restart.',kind.value==='sheet'?'Example: Sheet.sheet.json':'Example: Tags.sqlite3'],
+        air_handler:['Create the Air Handler model tags and run its simulation.'],
+        speed:['1× follows real time; faster settings shorten the model’s delays.'],
+        filename:[kind.value==='sheet'?'Sheet filename on this server.':'SQLite filename on this server; values persist after restart.',kind.value==='sheet'?'Example: Sheet.oab-sheet':'Example: Tags.sqlite3'],
         host:[kind.value==='mqtt'?'Broker hostname or IP address; enter the port separately.':'Device hostname or IP address; enter the port separately.','Example: 192.168.1.10'],
         port:[kind.value==='bacnet'?'Usual BACnet/IP port: UDP 47808.':kind.value==='mqtt'?'Usual MQTT ports: TCP 1883, or 8883 with TLS.':'Usual Modbus TCP port: 502.'],
         local_ip:[kind.value==='bacnet'?'Select this server’s interface on the BACnet network.':'Select this server’s interface, or let system routing choose.'],
@@ -823,7 +839,7 @@ function downloadJson(data,filename) {
   const link=node('a',null,document.body,{href:url,download:filename});link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function importFile(kind) {
-  const upload=node('input',null,document.body,{type:'file',accept:'.json',hidden:true});
+  const upload=node('input',null,document.body,{type:'file',accept:importAccept(kind),hidden:true});
   upload.onchange=()=>safe(async()=>{
     const file=upload.files[0];if(!file)return;
     try{
@@ -833,7 +849,7 @@ function importFile(kind) {
         const name=field('Name',body,'text',(payload.name || payload.page?.name || 'Imported '+kind.slice(0,-1))+' Copy');name.required=true;
         let filename,background,live;
         if(kind==='sheets'){
-          filename=field('Filename',body,'text',(payload.settings?.filename || file.name).replace(/(?:\.sheet)?\.json$/i,'')+'-copy.sheet.json');filename.required=true;
+          filename=field('Filename',body,'text',sheetFilename(payload.settings?.filename || file.name,true));filename.required=true;
           background=field('Background polling (seconds)',body,'number',payload.settings?.background ?? 20);live=field('Live polling (seconds)',body,'number',payload.settings?.live ?? .5);
           for(const input of [background,live]){input.min=.1;input.max=60;input.step='any';input.required=true;}
         }
@@ -856,7 +872,7 @@ function showSheets() {
     getSheet:getSheetData,saveSheet:(source,cells)=>api('sheets/save',{source,cells,validate:true}),onInterest:sheetInterest,
     onTag:async()=>{const id=await openTagSelector(pickerProviders());const tag=tags.find(tag=>tag.id===id);return tag?tagPath(tag):null;},
     onAdd:()=>sourceDialog(null,true),onImport:()=>importFile('sheets'),onSettings:s=>sourceDialog(s,true),
-    onExport:async s=>downloadJson(await api('sheets/export',{source:s.id}),s.settings.filename),
+    onExport:async s=>downloadJson(await api('sheets/export',{source:s.id}),sheetFilename(s.settings.filename)),
     onRemove:s=>confirmDialog('Delete sheet?',`Delete ${s.name}? Its file will be moved to data/sheets/.trash.`,async()=>{await api('sheets/remove',{source:s.id});await reloadLists();route();}),
     references:libraryReferences
   });
@@ -878,7 +894,7 @@ async function showPages() {
     onRemove:p=>confirmDialog('Remove page?',`Remove ${p.name} and its controls?`,async()=>{await api('pages/remove',{id:p.id});dirty=false;route();}),
     onOpen:async p=>{if(!(await choosePage(p.id)))return;selected=PAGE_SELECTION;location.hash='#editor/'+p.id;route();},
     onView:async p=>{if(!(await choosePage(p.id)))return;location.hash='#runtime/'+p.id;},
-    onExport:async p=>downloadJson(await api('pages/export',{id:p.id}),p.name.replace(/[<>:"/\\|?*]/g,'_')+'.page.json'),
+    onExport:async p=>downloadJson(await api('pages/export',{id:p.id}),pageFilename(p.name)),
     mountPreview:(parent,p)=>{
       parent.classList.remove('library-sheet-preview');
       const frame=node('div',null,parent,{className:'library-page-frame'}),canvas=node('div',null,frame,{className:'canvas library-page-canvas'});stylePage(canvas,p);

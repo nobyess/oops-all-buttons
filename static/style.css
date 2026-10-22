@@ -1261,14 +1261,7 @@ body {background:var(--app-background,var(--ui-background))}
 .symbol-library-artwork svg {position:static;width:100%;height:100%;display:block}
 .symbol-library-tile span {font-size:12px;line-height:18px;overflow-wrap:anywhere}
 
-.simulation-settings {max-width: 960px;}
-.simulation-settings .simulation-check {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
-.simulation-settings select {width:100%;margin-top:8px;}
-.simulation-settings .settings-group > label {display:block;}
-.simulation-settings .settings-group > label.simulation-check {display:flex;}
 
-.administration .simulation-settings label.simulation-check {flex-direction:row;text-align:left;min-height:38px;}
-.administration .simulation-settings label.simulation-check input[type=checkbox] {width:auto;margin:0;align-self:auto;flex-shrink:0;}
 
 .inline-tag-dialog {width:min(430px,calc(100vw - 32px));}
 .inline-tag-dialog label {display:flex;flex-direction:column;}
@@ -1469,3 +1462,22 @@ body {background:var(--app-background,var(--ui-background))}
 
 .source-manager-source [data-source-dot]:not(.source-paused) {position:relative;height:24px;font-size:0}
 .source-manager-source [data-source-dot]:not(.source-paused)::before {content:"";position:absolute;left:6px;top:6px;width:12px;height:12px;border-radius:50%;background:currentColor}
+
+/* Centered administration file/settings commands retain shared field spacing. */
+.administration .centered-commands {justify-content:center;gap:8px;margin:12px 0 0}
+.administration .backup-file-field,.administration .site-logo-picker-field {width:min(100%,420px);margin:12px auto;box-sizing:border-box}
+.administration .site-logo-picker-field {padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);gap:6px}
+.administration .server-settings {padding:16px;border:1px solid var(--ui-divider);border-radius:6px;margin-bottom:16px}
+.administration .server-settings h3 {margin:0 0 12px}
+.administration .server-port-field {display:flex;flex-direction:column;gap:6px;width:min(100%,320px);margin:0 auto;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);box-sizing:border-box}
+.administration .server-port-field input {width:100%;min-height:36px;margin:0;background:var(--ui-panel);color:var(--ui-text)}
+.administration .server-settings [role=status],.administration .server-restart-link {display:block;text-align:center;margin:12px 0 0}
+.administration .server-settings [role=status]:empty {display:none}
+
+.administration .backup-file-field {gap:6px;background:var(--ui-subtle)}
+
+.administration .backup-restore {text-align:center}
+
+.administration .server-port-field select {width:100%;min-height:36px;margin:0;background:var(--ui-panel);color:var(--ui-text)}
+.server-settings .asset-field + .asset-field {margin-top:12px}
+.first-run form > .asset-field {margin:12px 0;padding:8px;border:1px solid var(--ui-divider);border-radius:6px;background:var(--ui-subtle);gap:6px}

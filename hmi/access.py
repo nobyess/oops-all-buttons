@@ -24,11 +24,37 @@ class Access:
                 self.store.set('users',[{**user,'theme':'system'} for user in self.users()])
                 self.store.set('system_theme_default_applied',True)
 
+    def automatic_user(self):
+        if self.store.get('sign_in_required', True):return None
+        return self.store.get('automatic_user')
+
+    def setup_complete(self):return bool(self.users() or self.automatic_user())
+
+    def sign_in_updates(self, data):
+        required=data.get('required')
+        if not isinstance(required,bool):raise ValueError('Choose whether sign-in is required')
+        updates={'sign_in_required':required}
+        if required:
+            if not any(u['administrator'] and not u.get('kiosk') for u in self.users()):
+                user=self.save_user({'username':data.get('username',''),'password':data.get('password',''),'administrator':True},persist=False)
+                updates['users']=self.users()+[user]
+        else:
+            starter=next((p['id'] for p in self.service.pages() if p.get('starterPage')),'')
+            updates['automatic_user']={'id':'automatic-user','username':'User','administrator':True,'roles':[],'revision':1,'starting_page':starter,'session_settings':{'mode':'never','hours':8}}
+        return updates
+
+    def configure_sign_in(self, data):
+        with self.lock:
+            updates=self.sign_in_updates(data);self.store.set_many(updates)
+            return {'required':updates['sign_in_required']}
+
     def users(self):return self.store.get('users', [])
     def roles(self):return self.store.get('access_roles', [])
-    def public(self,user):return {**{key:user[key] for key in ('id','username','administrator','roles')},'kiosk':user.get('kiosk',False),'starting_page':user.get('starting_page',''),'theme':user.get('theme','system'),'app_background':user.get('app_background',''),'session_settings':session_settings(user.get('session_settings',self.store.get('session_settings',{})))}
+    def public(self,user):return {**{key:user[key] for key in ('id','username','administrator','roles')},'automatic':user['id']=='automatic-user','kiosk':user.get('kiosk',False),'starting_page':user.get('starting_page',''),'theme':user.get('theme','system'),'app_background':user.get('app_background',''),'session_settings':session_settings(user.get('session_settings',self.store.get('session_settings',{})))}
 
     def current(self, record):
+        automatic=self.automatic_user()
+        if record.get('user_id')=='automatic-user':return automatic
         user=next((u for u in self.users() if u['id']==record.get('user_id') and u['revision']==record.get('revision')),None)
         return user
 
@@ -38,7 +64,7 @@ class Access:
             return None
         return user
 
-    def save_user(self, data, actor=None, setup=False):
+    def save_user(self, data, actor=None, setup=False, persist=True):
         with self.lock:
             users=self.users();original=next((u for u in users if u['id']==data.get('id')),None)
             if data.get('id') and not original:raise ValueError('Unknown user')
@@ -65,7 +91,7 @@ class Access:
                 if original:user['revision']+=1
             next_users=[user if u['id']==user['id'] else u for u in users] if original else users+[user]
             if not any(u['administrator'] and not u.get('kiosk',False) for u in next_users):raise ValueError('Keep at least one administrator outside Kiosk Mode')
-            self.store.set('users',next_users)
+            if persist:self.store.set('users',next_users)
             return user
 
     def preferences(self, user_id, data):
@@ -73,7 +99,11 @@ class Access:
         if theme not in ('light','dark','system'):raise ValueError('Choose Light, Dark, or System theme')
         with self.lock:
             users=self.users();user=next((u for u in users if u['id']==user_id),None)
-            if user is None:raise ValueError('User unavailable')
+            if user is None:
+                user=self.automatic_user()
+                if user and user['id']==user_id:
+                    user['theme']=theme;self.store.set('automatic_user',user);return {'theme':theme}
+                raise ValueError('User unavailable')
             user['theme']=theme;self.store.set('users',users)
             return {'theme':theme}
 

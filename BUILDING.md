@@ -64,6 +64,6 @@ The workflow uses GitHub's built-in token. No personal access token is needed. M
 1. Make a backup in **Administration → Backup/Restore**.
 2. Exit the server from its tray menu (enabled by default).
 3. Extract the new release into a new writable folder.
-4. Copy your old `data` folder beside the new executable. If a restore is pending, copy `data.restore.zip` beside it too. Start the new executable. Alternatively, restore your backup through first run.
+4. Copy your old `data` folder beside the new executable. If a restore is pending, copy `data.restore.oab-backup` (or legacy `data.restore.zip`) beside it too. Start the new executable. Alternatively, restore your backup through first run.
 
 Keep the previous folder until you have verified the update. Build ZIPs never include your project data, accounts, logs, or test installations.

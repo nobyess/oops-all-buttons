@@ -2,6 +2,14 @@
 
 Ideas to revisit when useful. These are deferred improvements, not scheduled work.
 
+## Convert selected shapes to a symbol
+
+Added: October 22, 2026. Status: deferred.
+
+Allow selected rectangles, circles/ellipses, and polylines to be converted into one SVG Symbol control, preserving their relative positions and proportions. Map strokes to Fore Color and fills to Back Color, leaving unfilled areas transparent, so the existing Set Colors events can control the outline and shading.
+
+Keep the generated symbol local to the control initially, with a possible option to save it into Assets later. Consider fixed-color details as a future extension. Use the existing SVG symbol rendering path to keep runtime overhead low.
+
 ## Load HVAC Demo
 
 Added: October 19, 2026. Status: deferred.
@@ -74,3 +82,14 @@ Added and implemented: October 22, 2026.
 Runtime Pause / Unpause is available from a source's right-click menu in Data Sources & Tags. It stops live/background polling and blocks reads/writes. Paused tags behave as disconnected; network connections stay open. Serial sources sharing a port pause together and release it for firmware downloads. Unpause requests fresh values; server restart clears pause state.
 
 A separate Disconnect command and persisted pause state remain deferred.
+
+
+## Built-in Modbus device profiles
+
+Added: October 22, 2026. Status: deferred.
+
+Provide versioned JSON profiles for commercially available devices, starting with the user's Waveshare Modbus RTU IO 8CH: https://www.waveshare.com/wiki/Modbus_RTU_IO_8CH . Include manufacturer/model, documentation and supported firmware/protocol revision, connection defaults, and explicit tag definitions with zero-based offsets, register areas, data types, byte/word order, access, descriptions, units, and scaling where needed.
+
+In Add Source, allow Generic Modbus or a manufacturer/model profile; the user still chooses the serial port or host and device address. Add Tags should offer searchable predefined tags with checkboxes. For the Waveshare candidate, begin with Input1–Input8 and Output1–Output8; offer output-mode and software-version registers as optional additions. Do not write configuration when applying a profile. Leave communication-setting registers out of the initial selection.
+
+Copy selected definitions into the project so profile updates cannot silently alter existing working tags. Reuse normal batching/polling, avoid additional runtime work, and track profile version and hardware-tested status. Verify the documented map against the user's hardware before marking the first profile tested. No implementation requested yet.

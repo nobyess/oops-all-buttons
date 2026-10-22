@@ -88,3 +88,10 @@ not establish compatibility with physical devices or certify a deployment.
 
 References: [Waitress arguments](https://docs.pylonsproject.org/projects/waitress/en/stable/arguments.html),
 [reverse proxy configuration](https://docs.pylonsproject.org/projects/waitress/en/stable/reverse-proxy.html).
+
+
+## Listening port
+
+The default is 8080. Administrators can change it in Administration → Site Configuration → Server Settings and choose Save, then confirm the restart. The application checks a changed port before saving, restarts with the existing startup options, and provides a link to the new browser address. The bind host is unchanged. A saved port is used on subsequent starts; an explicit `--port` argument overrides it. Applying from Administration also replaces an existing port argument for that restart. This requires launching the application through run.py or the portable executable so the restart lifecycle is available.
+
+Site Configuration stages port, sign-in and logo edits under its shared Save/Revert buttons. Save confirms restart/session changes and submits one validated configuration update; a rejected port or credential leaves all settings unchanged. Port changes restart only after the response; sign-in changes invalidate existing sessions.
