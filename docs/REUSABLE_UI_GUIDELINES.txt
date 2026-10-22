@@ -1,0 +1,273 @@
+REUSABLE APPLICATION UI DESIGN GUIDELINES
+
+Use these instructions to build a visually similar application. They are
+framework-independent and describe application chrome, settings, management
+screens and dialogs. Do not let these rules override user-authored content,
+embedded previews, diagrams or controls with their own appearance settings.
+
+DESIGN DIRECTION
+
+Build a restrained, practical desktop-style web interface. Use neutral surfaces,
+thin borders, compact but comfortable spacing, a system font, and teal/cyan
+accents. Provide coordinated light and dark themes. Use visual hierarchy and
+proximity to communicate relationships; avoid excessive decorative framing.
+Reserve shadows mainly for floating windows. Ordinary cards, fields and tabs
+should look flat. Use the same shared components throughout the application.
+
+1. COLOR SYSTEM
+
+Use semantic CSS variables instead of scattering literal colors through styles.
+The companion reusable-ui-tokens.css contains the original theme tokens.
+Core values (light / dark):
+
+Application background:       #f4f6f8 / #111923
+Panel and input background:   #ffffff / #1d2735
+Subtle field/group surface:   #f1f5f9 / #263446
+Primary text:                 #243247 / #e3eaf3
+Muted text:                   #64748b / #a5b4c8
+Control border:               #cbd5e1 / #46566a
+Neutral divider:              #dce2e8 / #344255
+Hover surface:                #e8f2f5 / #2c4052
+Link/accent/focus border:     #176985 / #79cee9
+Selected list background:     #176985 / #79cee9
+Selected list text:           #ffffff / #111923
+Error:                        #b91c1c / #ff9191
+Good status:                  #16794b / #7adba5
+
+Use the dedicated high-contrast selected-list pair for selected rows and their
+metadata, including when focus leaves the list. Do not substitute the pale
+selection/hover surface. Maintain at least 4.5:1 contrast for normal text.
+Honor system selection colors in forced-color modes. Pair status color with
+text or a meaningful icon; color alone must not convey state.
+
+2. TYPOGRAPHY
+
+Use system-ui, sans-serif and inherit typography into inputs and buttons.
+Body text, fields, buttons and list labels: 14px with 20px line height.
+Page/dialog titles: 20px with 28px line height, semibold (600).
+Section headings: 14px with 20px line height, semibold (600).
+Secondary metadata/hints: 12px with 18px line height, muted.
+Center short explanatory hints below fields/lists. Keep labels left aligned.
+Use concise sentence-case labels and explicit action names.
+Do not repeat the selected item's name above tabs if it is already clearly
+identified by its editable name field or selected list row.
+
+3. SPACING AND GEOMETRY
+
+Use a small shared spacing scale rather than one-off margins:
+4px: tight picker-to-clear gaps and inner list padding.
+6px: label-to-editor gap.
+8px: button gaps, field padding and small horizontal gaps.
+12px: vertical separation between fields/groups.
+16px: column gaps, section separation and space before dialog footers.
+24px: management-card and dialog padding.
+
+Use 1px neutral borders, 6px corners on fields/buttons/cards/list viewports,
+and 8px corners on dialogs/floating windows. Use box-sizing: border-box.
+Avoid doubled spacing from both a parent's gap and a child's margin.
+Use min-width: 0 and flexible tracks to prevent overflow in narrow panels.
+
+4. PAGE LAYOUT AND MANAGEMENT SCREENS
+
+Use the application background behind a panel-colored workspace/card.
+Management cards use 24px padding, reduced to 16px on narrow screens.
+Leave 16px below a title. Use 16px between major columns.
+A selection/list column can sit to the left of a larger detail editor/preview.
+Keep forms and lists equal in height where appropriate. Let lists grow and
+scroll inside their viewport. Keep Add on the left and Rename/Remove on the
+right below the list. Keep Revert/Save at the bottom right of the editor,
+aligned with the list's command row. Use flex columns and margin-top: auto
+rather than fixed positioning that overlaps content.
+
+Use neutral horizontal dividers with 16px of space on each side between major
+sections. Do not add another divider immediately below a tab strip.
+Group related statistics together with one surface and heading per group,
+then label/value rows inside. Keep long histories/logs in bounded scrollers.
+
+5. FIELDS AND RELATED SETTINGS
+
+A standard field wraps its label and editor in one quiet surface:
+background: subtle; border: 1px divider; radius: 6px; padding: 8px.
+Use a 6px label gap and 12px separation between fields.
+Inputs/selects use the panel background, theme text/border, 6px corners,
+full available width and a minimum height of 36px.
+Focus within changes the outer surface border to the accent color while
+retaining a visible input focus indicator.
+
+Wrap a checkbox and its label in the same surface. Keep the checkbox inline
+and vertically aligned with its label; do not let generic input sizing stretch
+it. Use consistent rows rather than floating checkboxes at arbitrary offsets.
+
+For related settings, create one larger outer group:
+background: panel; border: 1px divider; radius: 6px; padding: 8px;
+12px separation between groups. A group heading is 14px/20px semibold,
+with 8px below it. Inside, use flexible equal columns with 8px horizontal
+and 12px vertical gaps. Stack at 600px. Related notes can span all columns.
+Remove child external margins inside this grid to avoid doubled spacing.
+
+Group tightly related operands such as Comparison, Compare To Type and
+Compare To under one surface. Likewise group Action, Tag and Action Value;
+place the access/permissions command above that action group.
+Do not wrap an already boxed color picker in another decorative field box.
+
+Search/filter inputs are exceptions: keep their own input border/focus ring,
+but do not add an outer field surface, extra background or label padding.
+Provide useful field hints or examples without substituting them for labels.
+
+6. BUTTONS AND ICONS
+
+Standard buttons: minimum 36px height; 6px corners; 8px gaps; theme-aware
+panel background, text and border; subtle hover surface.
+Grouped buttons have no individual external margins.
+Header buttons are at least 40px high; toolbox buttons may be 44px.
+Make primary actions clear through placement and consistent accent treatment.
+Keep destructive actions explicit and confirm consequential removals.
+
+Use consistent SVG line icons with currentColor. Center icons using flexbox,
+not font baseline adjustments or a text multiplication character.
+Shared close/clear icon:
+<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+  <path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor"
+        stroke-width="1.6" stroke-linecap="round"/>
+</svg>
+Icon-only buttons need an accessible name, e.g. Close or Clear selection.
+
+7. FLAT TAB STRIPS
+
+Use equal-width tabs in one strip with no gaps and a shared 1px neutral
+bottom rule. Tabs have transparent backgrounds, square corners, 14px/20px
+semibold labels, minimum 40px height and 8px vertical/12px horizontal padding.
+Inactive labels are muted. The active label and 3px bottom underline use
+the accent color. Reserve the underline space on every tab so switching
+does not move content. Hover uses the subtle hover surface and accent text.
+Leave 16px below the strip. Scroll long strips horizontally rather than wrap.
+Preserve keyboard focus and tab semantics. Ordinary buttons are not tabs.
+
+8. LISTS AND IMAGE GRIDS
+
+List viewport: panel background, 1px border, 6px radius, 4px inner padding.
+Rows: minimum 32px height, 6px vertical/8px horizontal padding, 14px/20px text.
+Secondary line: 12px/18px. Selected metadata inherits selected text color.
+Keep command rows 8px below lists. Preserve scroll position, keyboard
+navigation and selection when values or metadata refresh.
+
+Content/image pickers use a three-column grid at normal dialog widths,
+8px gaps and a bounded scrolling viewport. Tiles use 8px padding, 6px corners,
+a subtle background and a clear selection state. Center artwork in a
+panel-colored 72px-high preview, preserving aspect ratio with object-fit:
+contain. Include a short name and optional muted category/metadata.
+Adapt at genuinely narrow widths rather than creating horizontal overflow.
+Search and category filters sit above the grid. If the caller forces an asset
+type, omit a redundant type dropdown. Filter categories to that asset type.
+
+9. TAG, FILE, IMAGE AND SYMBOL PICKER FIELDS
+
+Use a full-width selection field plus a narrow clear button, separated by
+4px. The selection field flexes to fill the available width; the clear button
+is 30px wide, at least 36px high, with a centered shared SVG X.
+Use the same background, text and border colors for picker and clear button.
+Empty and populated fields retain the same colors. For this particular picker
+pattern, a disabled empty-state clear button retains its colors/opacity but
+must still be semantically disabled and noninteractive.
+
+For visual assets, make the picker at least 64px tall, with a 48px contained
+artwork preview and the selected asset name. Keep the clear button stretched
+to the row height. Use one standard subtle outer field surface and a label.
+Keep empty-state wording short, such as Select content....
+
+10. EDITABLE DROPDOWN TEXT INPUTS
+
+When a field accepts new text plus existing choices, present one full-width
+text input with the dropdown arrow inside its right edge.
+Use the standard subtle field surface, 8px padding, 1px border, 6px corners,
+6px label gap and 12px field spacing. Input height is at least 36px.
+Reserve 42px of right text padding for a 36px-wide native chooser, inset 1px
+inside the input border. The chooser has no separate visible border or fill.
+Keep theme-aware option colors and keyboard focus for both elements.
+Give text input and chooser distinct accessible names.
+
+Trim, deduplicate and sort existing choices. Choosing one replaces the entire
+text value, resets the chooser, emits the normal change/input notification,
+and returns focus to the text input. Typing a new value remains supported.
+Refreshing choices must never overwrite the user's unsaved text.
+
+11. DIALOGS AND FLOATING WINDOWS
+
+Prefer shared custom dialogs to browser alert/confirm/prompt for app actions.
+Keep browser file selection and unload warnings native.
+Standard dialog: 24px padding on every edge; 8px outer corners;
+20px/28px semibold title; 16px below title; 14px/20px body text.
+Use the same field, hint, button and list styling as the rest of the app.
+Compact forms can use a maximum width of 480px; content grids up to 720px.
+Keep at least 16px viewport side clearance. Standard dialogs scroll within
+92dvh; floating pickers can use a maximum height of 100dvh minus 32px.
+
+Footer: right aligned, 8px button gap, 16px space above, same 24px bottom
+padding as the other edges. Cancel precedes Save/Confirm; Close is furthest
+right when that is the appropriate footer action. Remove trailing margins,
+empty status blocks and artificial minimum heights that add bottom space.
+Show actionable validation errors near their fields.
+
+Movable pickers/editors use a shared 49px-high caption bar: subtle background,
+1px bottom divider, 8px/12px padding, 14px/20px semibold title and an 8px gap.
+The close button is 32px square with a centered 16px shared SVG X, panel
+background, 1px border, 6px corners and subtle hover. Keep content padding
+below the caption. Drag only by the caption, constrain movement to the
+viewport, and keep the close control reachable.
+
+Use modal focus handling and restore focus to the opener after closing.
+Close/X and Escape cancel drafts; Save commits after validation.
+Unmodified Enter confirms through the enabled default action; disabled
+confirmation does nothing. For dialogs following this app's text-editor
+convention, Enter saves and Shift+Enter inserts a line break. Native dropdown
+navigation, deliberate child key handlers and IME composition take precedence.
+Ignore repeated keydown events and prevent duplicate submissions.
+Remove drag listeners, timers and temporary state on closure.
+
+12. TOP BAR AND LAUNCHER
+
+Use a 64px-high single-row top bar with panel background and a neutral bottom
+border. Use 16px main spacing and 8px within command groups. Keep the clock
+centered where present. Header fields use subtle surfaces, 6px corners,
+compact 4px vertical/8px horizontal padding and 30px-high selects.
+Header buttons are at least 40px high; launcher/back buttons are 40px square.
+Use thin neutral vertical dividers to separate unrelated command groups.
+Allow command groups to scroll rather than collide with other header items.
+The launcher uses 24px padding, 8px grid gaps and 6px tile corners. A six-item
+launcher uses a 3-by-2 grid at desktop widths.
+
+13. RESPONSIVENESS, ACCESSIBILITY AND BEHAVIOR
+
+Reduce page/card padding from 24px to 16px on narrow screens; stack major
+columns. Inspector/sidebar padding is 16px. At inspector content widths of
+220px or less, stack paired geometry fields and color cards.
+Preserve focus rings, accessible names, keyboard navigation and native scrolling.
+Do not disable text selection globally in an ordinary app; limit it to drag
+handles or interactive canvas areas where required.
+Honor reduced-motion preferences. Use restrained transitions and avoid motion
+that distracts from data or makes selection unstable.
+
+Retain mounted controls during live updates. Update values in place; rebuild
+lists only when their identities/structure change. Preserve focus, scroll,
+selection, open dropdowns and unsaved drafts. Changing a tab should not discard
+a draft. Confirm before discarding edits. Default new dropdown fields to their
+first valid option where appropriate, without changing an existing selection.
+Release listeners, timers and background work when a view closes.
+
+FINAL REVIEW CHECKLIST
+
+- Both themes use semantic tokens and remain readable.
+- Field groups communicate relationships without excessive nested borders.
+- Search fields are unboxed and full-width fields fill their available space.
+- Shared spacing, corner radii, button heights and type sizes are consistent.
+- Selected rows and metadata retain high contrast when unfocused.
+- Tabs are flat and underlined, with no layout shift on selection.
+- Lists scroll internally; editor and list commands align at the bottom.
+- Picker clear buttons match their fields; SVG X icons are optically centered.
+- Dialogs have balanced padding, predictable keyboard actions and reachable close.
+- Narrow layouts stack without clipping content or focus rings.
+- Refreshes do not rebuild the interface unnecessarily or disrupt interaction.
+
+These reusable rules were extracted from the project's DEVELOPING.md,
+static/style.css and shared close-icon implementation. App-specific workflows,
+permissions and HMI configuration requirements have been intentionally omitted.

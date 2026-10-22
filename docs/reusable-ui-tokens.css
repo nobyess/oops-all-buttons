@@ -1,0 +1,87 @@
+/* Reusable theme tokens extracted from static/style.css.
+   Default: light. Set data-theme="dark" on <html> for dark mode.
+   These are tokens only; component layout is described in the companion guide.
+   Original --designer-list-* names are retained for exact selection colors. */
+
+:root {
+  color-scheme:light;
+  --ui-text:#243247;
+  --ui-panel:#ffffff;
+  --ui-background:#f4f6f8;
+  --ui-border:#cbd5e1;
+  --ui-divider:#dce2e8;
+  --ui-muted:#64748b;
+  --ui-muted2:#596b83;
+  --ui-hover:#e8f2f5;
+  --ui-selection:#e6f2f6;
+  --ui-selection2:#e5eef4;
+  --ui-subtle:#f1f5f9;
+  --ui-subtle2:#edf2f7;
+  --ui-selection3:#e6f3f8;
+  --ui-link:#176985;
+  --ui-selectedtext:#126782;
+  --ui-toast:#293444;
+  --ui-disabled:#8b949e;
+  --ui-error:#b91c1c;
+  --ui-error2:#a32121;
+  --ui-error3:#bc2828;
+  --ui-good:#16794b;
+  --ui-good2:#21803d;
+  --ui-softborder:#edf0f3;
+  --ui-border2:#cad7e8;
+}
+
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --ui-text:#e3eaf3;
+  --ui-panel:#1d2735;
+  --ui-background:#111923;
+  --ui-border:#46566a;
+  --ui-divider:#344255;
+  --ui-muted:#a5b4c8;
+  --ui-muted2:#a5b4c8;
+  --ui-hover:#2c4052;
+  --ui-selection:#234d62;
+  --ui-selection2:#234d62;
+  --ui-subtle:#263446;
+  --ui-subtle2:#263446;
+  --ui-selection3:#234d62;
+  --ui-link:#79cee9;
+  --ui-selectedtext:#a4e2f3;
+  --ui-toast:#34465b;
+  --ui-disabled:#8291a5;
+  --ui-error:#ff9191;
+  --ui-error2:#ff9191;
+  --ui-error3:#ff9191;
+  --ui-good:#7adba5;
+  --ui-good2:#7adba5;
+  --ui-softborder:#344255;
+  --ui-border2:#46566a;
+}
+
+:root {
+  --designer-list-selection:#176985;
+  --designer-list-selected-text:#ffffff;
+}
+
+:root[data-theme="dark"] {
+  --designer-list-selection:#79cee9;
+  --designer-list-selected-text:#111923;
+}
+
+/* Portable aliases and shared dimensions; these names are convenience additions. */
+:root {
+  --ui-selected-row-bg: var(--designer-list-selection);
+  --ui-selected-row-text: var(--designer-list-selected-text);
+  --ui-space-tight: 4px;
+  --ui-label-gap: 6px;
+  --ui-control-gap: 8px;
+  --ui-field-gap: 12px;
+  --ui-section-gap: 16px;
+  --ui-panel-padding: 24px;
+  --ui-control-radius: 6px;
+  --ui-dialog-radius: 8px;
+  --ui-control-min-height: 36px;
+  --ui-header-control-size: 40px;
+  --ui-font: system-ui, sans-serif;
+}
